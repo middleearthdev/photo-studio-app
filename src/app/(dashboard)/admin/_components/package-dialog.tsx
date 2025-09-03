@@ -105,9 +105,9 @@ export function PackageDialog({ open, onOpenChange, packageData, onPackageSaved,
     if (packageData) {
       const includes = Array.isArray(packageData.includes) ? packageData.includes : []
       setIncludeItems(includes)
-      
+
       const facilityIds = packageData.facility_ids || []
-      
+
       form.reset({
         name: packageData.name || "",
         description: packageData.description || "",
@@ -227,8 +227,8 @@ export function PackageDialog({ open, onOpenChange, packageData, onPackageSaved,
             {isEdit ? "Edit Paket" : "Tambah Paket Baru"}
           </DialogTitle>
           <DialogDescription>
-            {isEdit 
-              ? "Update informasi paket di bawah ini." 
+            {isEdit
+              ? "Update informasi paket di bawah ini."
               : "Buat paket foto baru untuk studio."
             }
           </DialogDescription>
@@ -242,7 +242,7 @@ export function PackageDialog({ open, onOpenChange, packageData, onPackageSaved,
                 <Sparkles className="h-5 w-5" />
                 Informasi Dasar
               </h3>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -292,11 +292,11 @@ export function PackageDialog({ open, onOpenChange, packageData, onPackageSaved,
                   <FormItem>
                     <FormLabel>Deskripsi</FormLabel>
                     <FormControl>
-                      <Textarea 
-                        placeholder="Masukkan deskripsi paket" 
+                      <Textarea
+                        placeholder="Masukkan deskripsi paket"
                         className="resize-none"
                         rows={3}
-                        {...field} 
+                        {...field}
                       />
                     </FormControl>
                     <FormMessage />
@@ -310,7 +310,7 @@ export function PackageDialog({ open, onOpenChange, packageData, onPackageSaved,
             {/* Pricing & Duration */}
             <div className="space-y-4">
               <h3 className="text-lg font-medium">Harga & Durasi</h3>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <FormField
                   control={form.control}
@@ -319,8 +319,8 @@ export function PackageDialog({ open, onOpenChange, packageData, onPackageSaved,
                     <FormItem>
                       <FormLabel>Durasi (menit)</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="number" 
+                        <Input
+                          type="number"
                           placeholder="60"
                           {...field}
                           onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
@@ -341,8 +341,8 @@ export function PackageDialog({ open, onOpenChange, packageData, onPackageSaved,
                     <FormItem>
                       <FormLabel>Harga</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="number" 
+                        <Input
+                          type="number"
                           placeholder="100000"
                           {...field}
                           onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
@@ -363,8 +363,8 @@ export function PackageDialog({ open, onOpenChange, packageData, onPackageSaved,
                     <FormItem>
                       <FormLabel>DP (%)</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="number" 
+                        <Input
+                          type="number"
                           placeholder="30"
                           {...field}
                           onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
@@ -385,7 +385,7 @@ export function PackageDialog({ open, onOpenChange, packageData, onPackageSaved,
             {/* Photo Specifications */}
             <div className="space-y-4">
               <h3 className="text-lg font-medium">Spesifikasi Foto</h3>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -394,8 +394,8 @@ export function PackageDialog({ open, onOpenChange, packageData, onPackageSaved,
                     <FormItem>
                       <FormLabel>Maksimal Foto Raw</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="number" 
+                        <Input
+                          type="number"
                           placeholder="50"
                           {...field}
                           onChange={(e) => field.onChange(parseInt(e.target.value) || undefined)}
@@ -416,8 +416,8 @@ export function PackageDialog({ open, onOpenChange, packageData, onPackageSaved,
                     <FormItem>
                       <FormLabel>Maksimal Foto Edited</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="number" 
+                        <Input
+                          type="number"
                           placeholder="10"
                           {...field}
                           onChange={(e) => field.onChange(parseInt(e.target.value) || undefined)}
@@ -438,7 +438,7 @@ export function PackageDialog({ open, onOpenChange, packageData, onPackageSaved,
             {/* Facilities Selection */}
             <div className="space-y-4">
               <h3 className="text-lg font-medium">Fasilitas Termasuk</h3>
-              
+
               <FormField
                 control={form.control}
                 name="facility_ids"
@@ -457,16 +457,10 @@ export function PackageDialog({ open, onOpenChange, packageData, onPackageSaved,
                             return (
                               <Card
                                 key={facility.id}
-                                className={`p-3 cursor-pointer transition-all hover:shadow-sm ${
-                                  isSelected 
-                                    ? 'ring-1 ring-primary border-primary bg-primary/5' 
+                                className={`p-3 transition-all hover:shadow-sm ${isSelected
+                                    ? 'ring-1 ring-primary border-primary bg-primary/5'
                                     : 'hover:border-primary/30'
-                                }`}
-                                onClick={(e) => {
-                                  e.preventDefault()
-                                  e.stopPropagation()
-                                  toggleFacility(facility.id, field.value || [], field.onChange)
-                                }}
+                                  }`}
                               >
                                 <div className="flex items-center space-x-2">
                                   <Switch
@@ -504,7 +498,7 @@ export function PackageDialog({ open, onOpenChange, packageData, onPackageSaved,
             {/* Package Includes */}
             <div className="space-y-4">
               <h3 className="text-lg font-medium">Fitur Yang Termasuk</h3>
-              
+
               <div className="space-y-3">
                 <div className="flex gap-2">
                   <Input
@@ -518,8 +512,8 @@ export function PackageDialog({ open, onOpenChange, packageData, onPackageSaved,
                       }
                     }}
                   />
-                  <Button 
-                    type="button" 
+                  <Button
+                    type="button"
                     onClick={addIncludeItem}
                     variant="outline"
                     size="icon"
@@ -527,7 +521,7 @@ export function PackageDialog({ open, onOpenChange, packageData, onPackageSaved,
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
-                
+
                 {includeItems.length > 0 && (
                   <div className="space-y-2">
                     {includeItems.map((item, index) => (
@@ -554,7 +548,7 @@ export function PackageDialog({ open, onOpenChange, packageData, onPackageSaved,
             {/* Status Settings */}
             <div className="space-y-4">
               <h3 className="text-lg font-medium">Pengaturan Status</h3>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}

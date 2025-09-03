@@ -423,11 +423,10 @@ export function FacilityDialog({ open, onOpenChange, facility, onFacilitySaved, 
                           return (
                             <Card
                               key={equipment.key}
-                              className={`p-3 cursor-pointer transition-all hover:shadow-sm ${isChecked
+                              className={`p-3 transition-all hover:shadow-sm ${isChecked
                                 ? 'ring-1 ring-primary border-primary bg-primary/5'
                                 : 'hover:border-primary/30'
                                 }`}
-                              onClick={handleToggle}
                             >
                               <div className="flex items-center space-x-2">
                                 <Switch
