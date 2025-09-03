@@ -1,7 +1,17 @@
 import type { NextConfig } from "next";
 
+/** @type {import('next').NextConfig} */
 const nextConfig: NextConfig = {
-  /* config options here */
+  images: {
+    domains: [
+      'res.cloudinary.com',
+      'your-supabase-project.supabase.co'
+    ],
+    formats: ['image/webp', 'image/avif'],
+  },
+  experimental: {
+    // serverActions: true,
+  },
 };
 
 export default nextConfig;
