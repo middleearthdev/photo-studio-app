@@ -6,21 +6,25 @@ import {
   Search, 
   MoreHorizontal, 
   Edit, 
-  Trash, 
-  Package as PackageIcon,
-  Users,
-  Clock,
+  Trash,
   Eye,
   EyeOff,
   Filter,
   Grid3X3,
   List,
   AlertCircle,
-  Star,
-  Crown,
-  Gem,
   Tag,
-  Puzzle,
+  Building2,
+  DollarSign,
+  Hash,
+  Settings,
+  Camera,
+  Palette,
+  Clock,
+  Package,
+  Sparkles,
+  Video,
+  Wrench
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -43,11 +47,11 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { PackageDialog } from "@/app/(dashboard)/admin/_components/package-dialog"
-import { PackageCategoriesManagement } from "@/app/(dashboard)/admin/_components/package-categories-management"
-import { usePackages, useDeletePackage, useTogglePackageStatus, usePackageCategories } from "@/hooks/use-packages"
+import { usePaginatedAddons, useDeleteAddon, useToggleAddonStatus } from "@/hooks/use-addons"
+import { useFacilities } from "@/hooks/use-facilities"
 import { useStudios } from "@/hooks/use-studios"
-import { type Package } from "@/actions/packages"
+import { type Addon } from "@/actions/addons"
+import { ADDON_TYPES } from "@/lib/constants/addon-types"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -65,38 +69,74 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { AddonDialog } from "@/app/(dashboard)/admin/_components/addon-dialog"
+import { PaginationControls } from "@/components/pagination-controls"
+import { DEFAULT_PAGE_SIZE } from "@/lib/constants/pagination"
 
-const packageTypeIcons = {
-  basic: PackageIcon,
-  premium: Star,
-  luxury: Crown,
-  custom: Gem,
+const addonTypeIcons = {
+  photography: Camera,
+  service: Settings,
+  printing: Package,
+  storage: Building2,
+  makeup: Palette,
+  styling: Sparkles,
+  wardrobe: Tag,
+  time: Clock,
+  equipment: Wrench,
+  decoration: Sparkles,
+  video: Video,
 }
 
-const packageTypeColors = {
-  basic: 'text-blue-600 bg-blue-50 border-blue-200',
-  premium: 'text-purple-600 bg-purple-50 border-purple-200',
-  luxury: 'text-amber-600 bg-amber-50 border-amber-200',
-  custom: 'text-emerald-600 bg-emerald-50 border-emerald-200',
+const addonTypeColors = {
+  photography: 'text-blue-600 bg-blue-50 border-blue-200',
+  service: 'text-gray-600 bg-gray-50 border-gray-200',
+  printing: 'text-purple-600 bg-purple-50 border-purple-200',
+  storage: 'text-indigo-600 bg-indigo-50 border-indigo-200',
+  makeup: 'text-pink-600 bg-pink-50 border-pink-200',
+  styling: 'text-rose-600 bg-rose-50 border-rose-200',
+  wardrobe: 'text-orange-600 bg-orange-50 border-orange-200',
+  time: 'text-green-600 bg-green-50 border-green-200',
+  equipment: 'text-slate-600 bg-slate-50 border-slate-200',
+  decoration: 'text-emerald-600 bg-emerald-50 border-emerald-200',
+  video: 'text-red-600 bg-red-50 border-red-200',
 }
 
-export default function PackagesPage() {
+export default function AddonsPage() {
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedPackage, setSelectedPackage] = useState<Package | null>(null)
+  const [selectedAddon, setSelectedAddon] = useState<Addon | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [packageToDelete, setPackageToDelete] = useState<Package | null>(null)
-  const [packageToToggle, setPackageToToggle] = useState<Package | null>(null)
+  const [addonToDelete, setAddonToDelete] = useState<Addon | null>(null)
+  const [addonToToggle, setAddonToToggle] = useState<Addon | null>(null)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
-  const [categoryFilter, setCategoryFilter] = useState<string>('all')
+  const [typeFilter, setTypeFilter] = useState<string>('all')
+  const [facilityFilter, setFacilityFilter] = useState<string>('all')
   const [selectedStudioId, setSelectedStudioId] = useState<string>('')
-  const [isCategoriesManagementOpen, setIsCategoriesManagementOpen] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
 
   const { data: studios = [], isLoading: studiosLoading } = useStudios()
-  const { data: packages = [], isLoading: loading, error, refetch } = usePackages(selectedStudioId)
-  const { data: categories = [] } = usePackageCategories(selectedStudioId)
-  const deletePackageMutation = useDeletePackage()
-  const toggleStatusMutation = useTogglePackageStatus()
+  
+  // Use paginated hook instead of regular hook
+  const { 
+    data: paginatedResult, 
+    isLoading: loading, 
+    error, 
+    refetch 
+  } = usePaginatedAddons(selectedStudioId, {
+    page: currentPage,
+    pageSize,
+    search: searchTerm,
+    status: statusFilter,
+    type: typeFilter === 'all' ? undefined : typeFilter,
+    facilityId: facilityFilter === 'all' ? undefined : facilityFilter,
+  })
+
+  const addons = paginatedResult?.data || []
+  const pagination = paginatedResult?.pagination
+  const { data: facilities = [] } = useFacilities(selectedStudioId)
+  const deleteAddonMutation = useDeleteAddon()
+  const toggleStatusMutation = useToggleAddonStatus()
 
   // Set default studio
   useEffect(() => {
@@ -105,48 +145,47 @@ export default function PackagesPage() {
     }
   }, [studios, selectedStudioId])
 
-  const filteredPackages = packages.filter(pkg => {
-    const matchesSearch = pkg.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (pkg.description || '').toLowerCase().includes(searchTerm.toLowerCase())
-    
-    const matchesStatus = statusFilter === 'all' ||
-                         (statusFilter === 'active' && pkg.is_active) ||
-                         (statusFilter === 'inactive' && !pkg.is_active)
-    
-    const matchesCategory = categoryFilter === 'all' || 
-                           categoryFilter === 'uncategorized' && !pkg.category_id ||
-                           pkg.category_id === categoryFilter
-    
-    return matchesSearch && matchesStatus && matchesCategory
-  })
+  // Reset pagination when filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, statusFilter, typeFilter, facilityFilter, selectedStudioId])
 
-  const handleEdit = (pkg: Package) => {
-    setSelectedPackage(pkg)
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+  }
+
+  const handlePageSizeChange = (newPageSize: number) => {
+    setPageSize(newPageSize)
+    setCurrentPage(1)
+  }
+
+  const handleEdit = (addon: Addon) => {
+    setSelectedAddon(addon)
     setIsDialogOpen(true)
   }
 
   const handleAdd = () => {
-    setSelectedPackage(null)
+    setSelectedAddon(null)
     setIsDialogOpen(true)
   }
 
-  const handleDelete = async (pkg: Package) => {
-    deletePackageMutation.mutate(pkg.id, {
+  const handleDelete = async (addon: Addon) => {
+    deleteAddonMutation.mutate(addon.id, {
       onSuccess: () => {
-        setPackageToDelete(null)
+        setAddonToDelete(null)
       }
     })
   }
 
-  const handleToggleStatus = async (pkg: Package) => {
-    toggleStatusMutation.mutate(pkg.id, {
+  const handleToggleStatus = async (addon: Addon) => {
+    toggleStatusMutation.mutate(addon.id, {
       onSuccess: () => {
-        setPackageToToggle(null)
+        setAddonToToggle(null)
       }
     })
   }
 
-  const handlePackageSaved = () => {
+  const handleAddonSaved = () => {
     refetch()
   }
 
@@ -158,29 +197,8 @@ export default function PackagesPage() {
     }).format(amount)
   }
 
-  const formatDuration = (minutes: number) => {
-    const hours = Math.floor(minutes / 60)
-    const mins = minutes % 60
-    if (hours > 0 && mins > 0) {
-      return `${hours}j ${mins}m`
-    } else if (hours > 0) {
-      return `${hours} jam`
-    } else {
-      return `${mins} menit`
-    }
-  }
-
-  const getPackageTypeInfo = (pkg: Package) => {
-    // Determine package type based on price ranges
-    if (pkg.price >= 1000000) return 'luxury'
-    if (pkg.price >= 500000) return 'premium'
-    if (pkg.price >= 100000) return 'basic'
-    return 'custom'
-  }
-
-  const getIncludesBadges = (includes: string[] | null) => {
-    if (!includes || includes.length === 0) return []
-    return includes.slice(0, 3)
+  const getAddonTypeInfo = (type: Addon['type']) => {
+    return ADDON_TYPES.find(t => t.value === type) || ADDON_TYPES[0]
   }
 
   if (error) {
@@ -189,7 +207,7 @@ export default function PackagesPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="text-center text-muted-foreground">
-              Terjadi kesalahan saat memuat data paket
+              Terjadi kesalahan saat memuat data add-ons
             </div>
           </CardContent>
         </Card>
@@ -201,27 +219,15 @@ export default function PackagesPage() {
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold">Packages Management</h1>
+          <h1 className="text-2xl font-bold">Add-ons Management</h1>
           <p className="text-muted-foreground">
-            Kelola paket foto dan layanan studio Anda
+            Kelola add-on dan layanan tambahan untuk paket foto
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setIsCategoriesManagementOpen(true)}>
-            <Tag className="h-4 w-4 mr-2" />
-            Kelola Kategori
-          </Button>
-          <Button variant="outline" asChild>
-            <a href="/admin/packages/addons">
-              <Puzzle className="h-4 w-4 mr-2" />
-              Kelola Add-ons
-            </a>
-          </Button>
-          <Button onClick={handleAdd} disabled={!selectedStudioId}>
-            <Plus className="h-4 w-4 mr-2" />
-            Tambah Paket
-          </Button>
-        </div>
+        <Button onClick={handleAdd} disabled={!selectedStudioId}>
+          <Plus className="h-4 w-4 mr-2" />
+          Tambah Add-on
+        </Button>
       </div>
 
       <div className="space-y-4">
@@ -250,27 +256,29 @@ export default function PackagesPage() {
                   <div className="flex gap-4 pt-6 md:pt-0">
                     <div className="text-center">
                       <div className="text-2xl font-bold text-blue-600">
-                        {packages.length}
+                        {pagination?.total || addons.length}
                       </div>
-                      <div className="text-sm text-muted-foreground">Total Paket</div>
+                      <div className="text-sm text-muted-foreground">
+                        {pagination ? 'Total Add-ons' : `Page ${currentPage} Results`}
+                      </div>
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold text-green-600">
-                        {packages.filter(p => p.is_active).length}
+                        {addons.filter(a => a.is_active).length}
                       </div>
                       <div className="text-sm text-muted-foreground">Aktif</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-amber-600">
-                        {packages.filter(p => p.is_popular).length}
+                      <div className="text-2xl font-bold text-purple-600">
+                        {addons.filter(a => a.facility_id).length}
                       </div>
-                      <div className="text-sm text-muted-foreground">Popular</div>
+                      <div className="text-sm text-muted-foreground">Facility Specific</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-purple-600">
-                        {categories.length}
+                      <div className="text-2xl font-bold text-amber-600">
+                        {new Set(addons.map(a => a.type)).size}
                       </div>
-                      <div className="text-sm text-muted-foreground">Kategori</div>
+                      <div className="text-sm text-muted-foreground">Tipe</div>
                     </div>
                   </div>
                 )}
@@ -288,7 +296,7 @@ export default function PackagesPage() {
                   <div className="relative flex-1 min-w-[250px]">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                     <Input
-                      placeholder="Cari paket..."
+                      placeholder="Cari add-on..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="pl-10"
@@ -307,17 +315,32 @@ export default function PackagesPage() {
                     </SelectContent>
                   </Select>
 
-                  <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                  <Select value={typeFilter} onValueChange={setTypeFilter}>
                     <SelectTrigger className="w-[180px]">
                       <Tag className="h-4 w-4 mr-2" />
-                      <SelectValue placeholder="Semua Kategori" />
+                      <SelectValue placeholder="Semua Tipe" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Semua Kategori</SelectItem>
-                      <SelectItem value="uncategorized">Tanpa Kategori</SelectItem>
-                      {categories.map((category) => (
-                        <SelectItem key={category.id} value={category.id}>
-                          {category.name}
+                      <SelectItem value="all">Semua Tipe</SelectItem>
+                      {ADDON_TYPES.map((type) => (
+                        <SelectItem key={type.value} value={type.value}>
+                          {type.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={facilityFilter} onValueChange={setFacilityFilter}>
+                    <SelectTrigger className="w-[180px]">
+                      <Building2 className="h-4 w-4 mr-2" />
+                      <SelectValue placeholder="Semua Fasilitas" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Semua Fasilitas</SelectItem>
+                      <SelectItem value="general">General/Umum</SelectItem>
+                      {facilities.map((facility) => (
+                        <SelectItem key={facility.id} value={facility.id}>
+                          {facility.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -345,13 +368,13 @@ export default function PackagesPage() {
           </Card>
         )}
 
-        {/* Packages Display */}
+        {/* Add-ons Display */}
         {!selectedStudioId ? (
           <Card>
             <CardContent className="pt-6">
               <div className="text-center text-muted-foreground">
                 <AlertCircle className="h-8 w-8 mx-auto mb-2" />
-                Silakan pilih studio terlebih dahulu untuk melihat paket
+                Silakan pilih studio terlebih dahulu untuk melihat add-ons
               </div>
             </CardContent>
           </Card>
@@ -363,25 +386,24 @@ export default function PackagesPage() {
           </div>
         ) : viewMode === 'grid' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredPackages.length === 0 ? (
+            {addons.length === 0 ? (
               <div className="col-span-full">
                 <Card>
                   <CardContent className="pt-6">
                     <div className="text-center text-muted-foreground">
-                      {searchTerm ? "Tidak ada paket yang cocok dengan pencarian" : "Belum ada paket yang terdaftar"}
+                      {searchTerm ? "Tidak ada add-on yang cocok dengan pencarian" : "Belum ada add-on yang terdaftar"}
                     </div>
                   </CardContent>
                 </Card>
               </div>
             ) : (
-              filteredPackages.map((pkg) => {
-                const packageType = getPackageTypeInfo(pkg)
-                const TypeIcon = packageTypeIcons[packageType as keyof typeof packageTypeIcons]
-                const typeColorClass = packageTypeColors[packageType as keyof typeof packageTypeColors]
-                const includesBadges = getIncludesBadges(pkg.includes)
+              addons.map((addon) => {
+                const typeInfo = getAddonTypeInfo(addon.type)
+                const TypeIcon = addonTypeIcons[addon.type]
+                const typeColorClass = addonTypeColors[addon.type]
                 
                 return (
-                  <Card key={pkg.id} className="group hover:shadow-md transition-shadow">
+                  <Card key={addon.id} className="group hover:shadow-md transition-shadow">
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between">
                         <div className="space-y-2">
@@ -390,27 +412,26 @@ export default function PackagesPage() {
                               <TypeIcon className="h-5 w-5" />
                             </div>
                             <div>
-                              <CardTitle className="text-lg">{pkg.name}</CardTitle>
+                              <CardTitle className="text-lg">{addon.name}</CardTitle>
                               <div className="flex items-center gap-2 mt-1">
-                                <Badge variant={pkg.is_active ? "default" : "secondary"}>
-                                  {pkg.is_active ? "Aktif" : "Nonaktif"}
+                                <Badge variant={addon.is_active ? "default" : "secondary"}>
+                                  {addon.is_active ? "Aktif" : "Nonaktif"}
                                 </Badge>
-                                {pkg.is_popular && (
-                                  <Badge variant="outline" className="border-amber-300 text-amber-600">
-                                    <Star className="h-3 w-3 mr-1" />
-                                    Popular
-                                  </Badge>
-                                )}
+                                <Badge variant="outline" className={typeColorClass}>
+                                  {typeInfo.label}
+                                </Badge>
                               </div>
                             </div>
                           </div>
-                          {pkg.category && (
+                          
+                          {addon.facility && (
                             <Badge variant="outline" className="w-fit">
-                              <Tag className="h-3 w-3 mr-1" />
-                              {pkg.category.name}
+                              <Building2 className="h-3 w-3 mr-1" />
+                              {addon.facility.name}
                             </Badge>
                           )}
                         </div>
+                        
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -420,20 +441,20 @@ export default function PackagesPage() {
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Aksi</DropdownMenuLabel>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => handleEdit(pkg)}>
+                            <DropdownMenuItem onClick={() => handleEdit(addon)}>
                               <Edit className="mr-2 h-4 w-4" />
                               Edit
                             </DropdownMenuItem>
                             <DropdownMenuItem 
-                              onClick={() => setPackageToToggle(pkg)}
+                              onClick={() => setAddonToToggle(addon)}
                               className="text-orange-600"
                             >
-                              {pkg.is_active ? <EyeOff className="mr-2 h-4 w-4" /> : <Eye className="mr-2 h-4 w-4" />}
-                              {pkg.is_active ? "Nonaktifkan" : "Aktifkan"}
+                              {addon.is_active ? <EyeOff className="mr-2 h-4 w-4" /> : <Eye className="mr-2 h-4 w-4" />}
+                              {addon.is_active ? "Nonaktifkan" : "Aktifkan"}
                             </DropdownMenuItem>
                             <DropdownMenuItem 
                               className="text-red-600"
-                              onClick={() => setPackageToDelete(pkg)}
+                              onClick={() => setAddonToDelete(addon)}
                             >
                               <Trash className="mr-2 h-4 w-4" />
                               Hapus
@@ -442,49 +463,30 @@ export default function PackagesPage() {
                         </DropdownMenu>
                       </div>
                     </CardHeader>
+                    
                     <CardContent>
-                      {pkg.description && (
+                      {addon.description && (
                         <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-                          {pkg.description}
+                          {addon.description}
                         </p>
                       )}
                       
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
                           <div className="text-2xl font-bold text-green-600">
-                            {formatCurrency(pkg.price)}
+                            {formatCurrency(addon.price)}
                           </div>
-                          <div className="text-sm text-muted-foreground">
-                            DP {pkg.dp_percentage}% = {formatCurrency((pkg.price * pkg.dp_percentage) / 100)}
+                          <div className="flex items-center space-x-1 text-sm text-muted-foreground">
+                            <Hash className="h-4 w-4" />
+                            <span>Max: {addon.max_quantity}</span>
                           </div>
                         </div>
                         
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                          <div className="flex items-center space-x-1">
-                            <Clock className="h-4 w-4 text-muted-foreground" />
-                            <span>{formatDuration(pkg.duration_minutes)}</span>
-                          </div>
-                          {pkg.max_photos && (
-                            <div className="flex items-center space-x-1">
-                              <Users className="h-4 w-4 text-muted-foreground" />
-                              <span>{pkg.max_photos} foto</span>
-                            </div>
-                          )}
-                        </div>
-                        
-                        {includesBadges.length > 0 && (
-                          <div className="flex flex-wrap gap-1">
-                            {includesBadges.map((include, index) => (
-                              <Badge key={index} variant="outline" className="text-xs">
-                                {include.substring(0, 20)}...
-                              </Badge>
-                            ))}
-                            {pkg.includes && pkg.includes.length > 3 && (
-                              <Badge variant="outline" className="text-xs">
-                                +{pkg.includes.length - 3} lainnya
-                              </Badge>
-                            )}
-                          </div>
+                        {addon.is_conditional && (
+                          <Badge variant="outline" className="border-amber-300 text-amber-600">
+                            <AlertCircle className="h-3 w-3 mr-1" />
+                            Conditional
+                          </Badge>
                         )}
                       </div>
                     </CardContent>
@@ -497,11 +499,11 @@ export default function PackagesPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <PackageIcon className="h-5 w-5" />
-                Daftar Paket
+                <Package className="h-5 w-5" />
+                Daftar Add-ons
               </CardTitle>
               <CardDescription>
-                Kelola paket foto yang terdaftar dalam sistem
+                Kelola add-on dan layanan tambahan yang terdaftar dalam sistem
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -509,78 +511,78 @@ export default function PackagesPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Paket</TableHead>
-                      <TableHead>Kategori</TableHead>
+                      <TableHead>Add-on</TableHead>
+                      <TableHead>Tipe</TableHead>
+                      <TableHead>Fasilitas</TableHead>
                       <TableHead>Harga</TableHead>
-                      <TableHead>Durasi</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="w-[100px]">Aksi</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredPackages.length === 0 ? (
+                    {addons.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
-                          {searchTerm ? "Tidak ada paket yang cocok dengan pencarian" : "Belum ada paket yang terdaftar"}
+                          {searchTerm ? "Tidak ada add-on yang cocok dengan pencarian" : "Belum ada add-on yang terdaftar"}
                         </TableCell>
                       </TableRow>
                     ) : (
-                      filteredPackages.map((pkg) => {
-                        const packageType = getPackageTypeInfo(pkg)
-                        const TypeIcon = packageTypeIcons[packageType as keyof typeof packageTypeIcons]
+                      addons.map((addon) => {
+                        const typeInfo = getAddonTypeInfo(addon.type)
+                        const TypeIcon = addonTypeIcons[addon.type]
+                        const typeColorClass = addonTypeColors[addon.type]
                         
                         return (
-                          <TableRow key={pkg.id}>
+                          <TableRow key={addon.id}>
                             <TableCell>
                               <div className="flex items-center space-x-3">
-                                <div className="p-2 bg-primary/10 rounded-lg">
-                                  <TypeIcon className="h-4 w-4 text-primary" />
+                                <div className={`p-2 rounded-lg ${typeColorClass}`}>
+                                  <TypeIcon className="h-4 w-4" />
                                 </div>
                                 <div>
                                   <div className="font-medium flex items-center gap-2">
-                                    {pkg.name}
-                                    {pkg.is_popular && (
-                                      <Badge variant="outline" className="border-amber-300 text-amber-600">
-                                        <Star className="h-3 w-3 mr-1" />
-                                        Popular
+                                    {addon.name}
+                                    {addon.is_conditional && (
+                                      <Badge variant="outline" className="border-amber-300 text-amber-600 text-xs">
+                                        <AlertCircle className="h-3 w-3 mr-1" />
+                                        Conditional
                                       </Badge>
                                     )}
                                   </div>
-                                  {pkg.description && (
+                                  {addon.description && (
                                     <div className="text-sm text-muted-foreground line-clamp-1">
-                                      {pkg.description}
+                                      {addon.description}
                                     </div>
                                   )}
                                 </div>
                               </div>
                             </TableCell>
                             <TableCell>
-                              {pkg.category ? (
+                              <Badge variant="outline" className={typeColorClass}>
+                                {typeInfo.label}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {addon.facility ? (
                                 <Badge variant="outline">
-                                  <Tag className="h-3 w-3 mr-1" />
-                                  {pkg.category.name}
+                                  <Building2 className="h-3 w-3 mr-1" />
+                                  {addon.facility.name}
                                 </Badge>
                               ) : (
-                                <span className="text-muted-foreground text-sm">-</span>
+                                <span className="text-muted-foreground text-sm">General</span>
                               )}
                             </TableCell>
                             <TableCell>
                               <div>
-                                <div className="font-medium">{formatCurrency(pkg.price)}</div>
+                                <div className="font-medium">{formatCurrency(addon.price)}</div>
                                 <div className="text-xs text-muted-foreground">
-                                  DP {pkg.dp_percentage}%
+                                  Max: {addon.max_quantity}
                                 </div>
                               </div>
                             </TableCell>
                             <TableCell>
-                              <div className="flex items-center space-x-1">
-                                <Clock className="h-4 w-4 text-muted-foreground" />
-                                <span>{formatDuration(pkg.duration_minutes)}</span>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant={pkg.is_active ? "default" : "secondary"}>
-                                {pkg.is_active ? "Aktif" : "Nonaktif"}
+                              <Badge variant={addon.is_active ? "default" : "secondary"}>
+                                {addon.is_active ? "Aktif" : "Nonaktif"}
                               </Badge>
                             </TableCell>
                             <TableCell>
@@ -593,20 +595,20 @@ export default function PackagesPage() {
                                 <DropdownMenuContent align="end">
                                   <DropdownMenuLabel>Aksi</DropdownMenuLabel>
                                   <DropdownMenuSeparator />
-                                  <DropdownMenuItem onClick={() => handleEdit(pkg)}>
+                                  <DropdownMenuItem onClick={() => handleEdit(addon)}>
                                     <Edit className="mr-2 h-4 w-4" />
                                     Edit
                                   </DropdownMenuItem>
                                   <DropdownMenuItem 
-                                    onClick={() => setPackageToToggle(pkg)}
+                                    onClick={() => setAddonToToggle(addon)}
                                     className="text-orange-600"
                                   >
-                                    {pkg.is_active ? <EyeOff className="mr-2 h-4 w-4" /> : <Eye className="mr-2 h-4 w-4" />}
-                                    {pkg.is_active ? "Nonaktifkan" : "Aktifkan"}
+                                    {addon.is_active ? <EyeOff className="mr-2 h-4 w-4" /> : <Eye className="mr-2 h-4 w-4" />}
+                                    {addon.is_active ? "Nonaktifkan" : "Aktifkan"}
                                   </DropdownMenuItem>
                                   <DropdownMenuItem 
                                     className="text-red-600"
-                                    onClick={() => setPackageToDelete(pkg)}
+                                    onClick={() => setAddonToDelete(addon)}
                                   >
                                     <Trash className="mr-2 h-4 w-4" />
                                     Hapus
@@ -626,62 +628,69 @@ export default function PackagesPage() {
         )}
       </div>
 
-      {/* Dialogs */}
-      <PackageDialog
+      {/* Pagination */}
+      {pagination && pagination.totalPages > 1 && (
+        <div className="mt-8">
+          <PaginationControls
+            currentPage={pagination.page}
+            totalPages={pagination.totalPages}
+            pageSize={pagination.pageSize}
+            total={pagination.total}
+            onPageChange={handlePageChange}
+            onPageSizeChange={handlePageSizeChange}
+          />
+        </div>
+      )}
+
+      {/* Dialog */}
+      <AddonDialog
         open={isDialogOpen}
         onOpenChange={setIsDialogOpen}
-        packageData={selectedPackage}
-        onPackageSaved={handlePackageSaved}
-        studioId={selectedStudioId}
-      />
-
-      {/* Categories Management */}
-      <PackageCategoriesManagement
-        open={isCategoriesManagementOpen}
-        onOpenChange={setIsCategoriesManagementOpen}
+        addonData={selectedAddon}
+        onAddonSaved={handleAddonSaved}
         studioId={selectedStudioId}
       />
 
       {/* Toggle Status Dialog */}
-      <AlertDialog open={!!packageToToggle} onOpenChange={() => setPackageToToggle(null)}>
+      <AlertDialog open={!!addonToToggle} onOpenChange={() => setAddonToToggle(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {packageToToggle?.is_active ? "Nonaktifkan Paket" : "Aktifkan Paket"}
+              {addonToToggle?.is_active ? "Nonaktifkan Add-on" : "Aktifkan Add-on"}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {packageToToggle?.is_active 
-                ? `Apakah Anda yakin ingin menonaktifkan paket "${packageToToggle?.name}"? Paket tidak akan tersedia untuk customer.`
-                : `Apakah Anda yakin ingin mengaktifkan paket "${packageToToggle?.name}"? Paket akan tersedia untuk customer.`
+              {addonToToggle?.is_active 
+                ? `Apakah Anda yakin ingin menonaktifkan add-on "${addonToToggle?.name}"? Add-on tidak akan tersedia untuk customer.`
+                : `Apakah Anda yakin ingin mengaktifkan add-on "${addonToToggle?.name}"? Add-on akan tersedia untuk customer.`
               }
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Batal</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => packageToToggle && handleToggleStatus(packageToToggle)}
-              className={packageToToggle?.is_active ? "bg-orange-600 hover:bg-orange-700" : "bg-green-600 hover:bg-green-700"}
+              onClick={() => addonToToggle && handleToggleStatus(addonToToggle)}
+              className={addonToToggle?.is_active ? "bg-orange-600 hover:bg-orange-700" : "bg-green-600 hover:bg-green-700"}
             >
-              {packageToToggle?.is_active ? "Nonaktifkan" : "Aktifkan"}
+              {addonToToggle?.is_active ? "Nonaktifkan" : "Aktifkan"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
       {/* Delete Dialog */}
-      <AlertDialog open={!!packageToDelete} onOpenChange={() => setPackageToDelete(null)}>
+      <AlertDialog open={!!addonToDelete} onOpenChange={() => setAddonToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Hapus Paket</AlertDialogTitle>
+            <AlertDialogTitle>Hapus Add-on</AlertDialogTitle>
             <AlertDialogDescription>
               <div className="space-y-2">
                 <p className="font-semibold text-red-600">⚠️ PERINGATAN: Aksi ini tidak dapat dibatalkan!</p>
                 <p>
-                  Apakah Anda yakin ingin menghapus paket "{packageToDelete?.name}" secara permanen? 
+                  Apakah Anda yakin ingin menghapus add-on "{addonToDelete?.name}" secara permanen? 
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Paket dan semua data terkaitnya akan dihapus dari database dan tidak dapat dipulihkan. 
-                  Pastikan tidak ada reservasi yang masih menggunakan paket ini.
+                  Add-on dan semua data terkaitnya akan dihapus dari database dan tidak dapat dipulihkan. 
+                  Pastikan tidak ada reservasi yang masih menggunakan add-on ini.
                 </p>
               </div>
             </AlertDialogDescription>
@@ -689,7 +698,7 @@ export default function PackagesPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>Batal</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => packageToDelete && handleDelete(packageToDelete)}
+              onClick={() => addonToDelete && handleDelete(addonToDelete)}
               className="bg-red-600 hover:bg-red-700"
             >
               Hapus Permanen

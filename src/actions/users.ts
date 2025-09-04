@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { PaginationParams, PaginatedResult, calculatePagination } from '@/lib/constants/pagination'
 
 export type UserRole = 'customer' | 'admin' | 'customer_service'
 
@@ -96,6 +97,79 @@ export async function getUsersAction(): Promise<ActionResult<UserProfile[]>> {
   } catch (error: any) {
     console.error('Error in getUsersAction:', error)
     return { success: false, error: error.message || 'An error occurred' }
+  }
+}
+
+// Get paginated users
+export async function getPaginatedUsers(
+  params: PaginationParams & {
+    role?: UserRole | 'all'
+    status?: 'active' | 'inactive' | 'all'
+    studioId?: string
+  } = {}
+): Promise<PaginatedResult<UserProfile>> {
+  const supabase = await createClient()
+  
+  const { page = 1, pageSize = 10, search = '', role = 'all', status = 'all', studioId } = params
+  const { offset, pageSize: validPageSize } = calculatePagination(page, pageSize, 0)
+
+  // Build the query
+  let query = supabase
+    .from('user_profiles')
+    .select('*', { count: 'exact' })
+
+  // Apply filters
+  if (role !== 'all') {
+    query = query.eq('role', role)
+  }
+
+  if (status !== 'all') {
+    query = query.eq('is_active', status === 'active')
+  }
+
+  if (studioId && studioId !== 'all') {
+    query = query.eq('studio_id', studioId)
+  }
+
+  // Apply search
+  if (search.trim()) {
+    query = query.or(`full_name.ilike.%${search}%,phone.ilike.%${search}%`)
+  }
+
+  // Apply pagination and ordering
+  const { data: profiles, error, count } = await query
+    .order('created_at', { ascending: false })
+    .range(offset, offset + validPageSize - 1)
+
+  if (error) {
+    console.error('Error fetching paginated users:', error)
+    throw new Error(`Failed to fetch users: ${error.message}`)
+  }
+
+  // Get auth users to get email information (for current page only)
+  let usersWithEmail = profiles || []
+  try {
+    const { data: { users: authUsers }, error: authError } = await supabase.auth.admin.listUsers()
+    
+    if (!authError && authUsers) {
+      usersWithEmail = profiles?.map(profile => {
+        const authUser = authUsers.find(user => user.id === profile.id)
+        return {
+          ...profile,
+          email: authUser?.email || 'No email'
+        }
+      }) as UserProfile[] || []
+    }
+  } catch (error) {
+    console.warn('Could not fetch email data:', error)
+  }
+
+  const total = count || 0
+  const pagination = calculatePagination(page, validPageSize, total)
+
+  return {
+    data: usersWithEmail,
+    pagination
   }
 }
 

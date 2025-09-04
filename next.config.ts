@@ -5,7 +5,8 @@ const nextConfig: NextConfig = {
   images: {
     domains: [
       'res.cloudinary.com',
-      'your-supabase-project.supabase.co'
+      'your-supabase-project.supabase.co',
+      'images.unsplash.com'
     ],
     formats: ['image/webp', 'image/avif'],
   },

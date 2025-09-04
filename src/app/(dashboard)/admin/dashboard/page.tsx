@@ -255,8 +255,8 @@ export default function AdminDashboard() {
 
       {/* Quick Actions */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="hover:shadow-md transition-shadow cursor-pointer" asChild>
-          <Link href="/admin/reservations/calendar">
+        <Link href="/admin/reservations/calendar">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer">
             <CardHeader className="text-center">
               <Calendar className="h-8 w-8 mx-auto text-blue-600" />
               <CardTitle className="text-lg">View Calendar</CardTitle>
@@ -264,11 +264,11 @@ export default function AdminDashboard() {
                 See all bookings in calendar view
               </CardDescription>
             </CardHeader>
-          </Link>
-        </Card>
+          </Card>
+        </Link>
         
-        <Card className="hover:shadow-md transition-shadow cursor-pointer" asChild>
-          <Link href="/admin/customers">
+        <Link href="/admin/customers">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer">
             <CardHeader className="text-center">
               <Users className="h-8 w-8 mx-auto text-green-600" />
               <CardTitle className="text-lg">Manage Customers</CardTitle>
@@ -276,11 +276,11 @@ export default function AdminDashboard() {
                 View and manage customer profiles
               </CardDescription>
             </CardHeader>
-          </Link>
-        </Card>
+          </Card>
+        </Link>
 
-        <Card className="hover:shadow-md transition-shadow cursor-pointer" asChild>
-          <Link href="/admin/packages">
+        <Link href="/admin/packages">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer">
             <CardHeader className="text-center">
               <Camera className="h-8 w-8 mx-auto text-purple-600" />
               <CardTitle className="text-lg">Photo Packages</CardTitle>
@@ -288,11 +288,11 @@ export default function AdminDashboard() {
                 Manage packages and pricing
               </CardDescription>
             </CardHeader>
-          </Link>
-        </Card>
+          </Card>
+        </Link>
 
-        <Card className="hover:shadow-md transition-shadow cursor-pointer" asChild>
-          <Link href="/admin/analytics">
+        <Link href="/admin/analytics">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer">
             <CardHeader className="text-center">
               <TrendingUp className="h-8 w-8 mx-auto text-orange-600" />
               <CardTitle className="text-lg">Analytics</CardTitle>
@@ -300,8 +300,8 @@ export default function AdminDashboard() {
                 View performance insights
               </CardDescription>
             </CardHeader>
-          </Link>
-        </Card>
+          </Card>
+        </Link>
       </div>
     </div>
   )

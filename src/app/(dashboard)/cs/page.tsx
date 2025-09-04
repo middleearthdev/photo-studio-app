@@ -307,8 +307,8 @@ export default function CustomerServiceDashboard() {
 
       {/* Quick Actions */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="hover:shadow-md transition-shadow cursor-pointer" asChild>
-          <Link href="/cs/tickets">
+        <Link href="/cs/tickets">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer">
             <CardHeader className="text-center">
               <MessageSquare className="h-8 w-8 mx-auto text-orange-600" />
               <CardTitle className="text-lg">Support Tickets</CardTitle>
@@ -316,11 +316,11 @@ export default function CustomerServiceDashboard() {
                 Handle customer support tickets
               </CardDescription>
             </CardHeader>
-          </Link>
-        </Card>
+          </Card>
+        </Link>
 
-        <Card className="hover:shadow-md transition-shadow cursor-pointer" asChild>
-          <Link href="/cs/bookings">
+        <Link href="/cs/bookings">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer">
             <CardHeader className="text-center">
               <Calendar className="h-8 w-8 mx-auto text-blue-600" />
               <CardTitle className="text-lg">Booking Assistance</CardTitle>
@@ -328,11 +328,11 @@ export default function CustomerServiceDashboard() {
                 Help customers with bookings
               </CardDescription>
             </CardHeader>
-          </Link>
-        </Card>
+          </Card>
+        </Link>
 
-        <Card className="hover:shadow-md transition-shadow cursor-pointer" asChild>
-          <Link href="/cs/customers">
+        <Link href="/cs/customers">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer">
             <CardHeader className="text-center">
               <Users className="h-8 w-8 mx-auto text-green-600" />
               <CardTitle className="text-lg">Customer Database</CardTitle>
@@ -340,11 +340,11 @@ export default function CustomerServiceDashboard() {
                 Search and manage customers
               </CardDescription>
             </CardHeader>
-          </Link>
-        </Card>
+          </Card>
+        </Link>
 
-        <Card className="hover:shadow-md transition-shadow cursor-pointer" asChild>
-          <Link href="/cs/communications">
+        <Link href="/cs/communications">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer">
             <CardHeader className="text-center">
               <Bell className="h-8 w-8 mx-auto text-purple-600" />
               <CardTitle className="text-lg">Communications</CardTitle>
@@ -352,8 +352,8 @@ export default function CustomerServiceDashboard() {
                 Send notifications and messages
               </CardDescription>
             </CardHeader>
-          </Link>
-        </Card>
+          </Card>
+        </Link>
       </div>
     </div>
   )

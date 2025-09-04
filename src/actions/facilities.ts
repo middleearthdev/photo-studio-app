@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { PaginationParams, PaginatedResult, calculatePagination } from '@/lib/constants/pagination'
 
 export interface Facility {
   id: string
@@ -81,6 +82,53 @@ export async function getFacilitiesAction(studioId?: string): Promise<ActionResu
   } catch (error: any) {
     console.error('Error in getFacilitiesAction:', error)
     return { success: false, error: error.message || 'An error occurred' }
+  }
+}
+
+// Get paginated facilities for a studio
+export async function getPaginatedFacilities(
+  studioId: string,
+  params: PaginationParams & {
+    status?: 'available' | 'unavailable' | 'all'
+  } = {}
+): Promise<PaginatedResult<Facility>> {
+  const supabase = await createClient()
+  
+  const { page = 1, pageSize = 10, search = '', status = 'all' } = params
+  const { offset, pageSize: validPageSize } = calculatePagination(page, pageSize, 0)
+
+  // Build the query
+  let query = supabase
+    .from('facilities')
+    .select('*', { count: 'exact' })
+    .eq('studio_id', studioId)
+
+  // Apply filters
+  if (status !== 'all') {
+    query = query.eq('is_available', status === 'available')
+  }
+
+  // Apply search
+  if (search.trim()) {
+    query = query.or(`name.ilike.%${search}%,description.ilike.%${search}%`)
+  }
+
+  // Apply pagination and ordering
+  const { data, error, count } = await query
+    .order('created_at', { ascending: false })
+    .range(offset, offset + validPageSize - 1)
+
+  if (error) {
+    console.error('Error fetching paginated facilities:', error)
+    throw new Error(`Failed to fetch facilities: ${error.message}`)
+  }
+
+  const total = count || 0
+  const pagination = calculatePagination(page, validPageSize, total)
+
+  return {
+    data: data || [],
+    pagination
   }
 }
 

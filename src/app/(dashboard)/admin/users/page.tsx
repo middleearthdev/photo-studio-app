@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import React, { useState, useEffect } from "react"
 import { Plus, Search, MoreHorizontal, Edit, Trash, Shield } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -31,8 +31,10 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { UserDialog } from "@/app/(dashboard)/admin/_components/user-dialog"
-import { useUsers, useDeactivateUser } from "@/hooks/use-users"
+import { usePaginatedUsers, useDeactivateUser } from "@/hooks/use-users"
 import { type UserRole, type UserProfile } from "@/actions/users"
+import { PaginationControls } from "@/components/pagination-controls"
+import { DEFAULT_PAGE_SIZE } from "@/lib/constants/pagination"
 
 const roleLabels: Record<UserRole, string> = {
   customer: 'Customer',
@@ -49,25 +51,42 @@ const roleColors: Record<UserRole, 'default' | 'secondary' | 'destructive' | 'ou
 export default function UsersPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [roleFilter, setRoleFilter] = useState<string>('all')
+  const [statusFilter, setStatusFilter] = useState<'active' | 'inactive' | 'all'>('all')
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
 
-  // TanStack Query hooks
-  const { data: users = [], isLoading: loading, error } = useUsers()
+  // TanStack Query hooks with pagination
+  const { 
+    data: paginatedResult, 
+    isLoading: loading, 
+    error 
+  } = usePaginatedUsers({
+    page: currentPage,
+    pageSize,
+    search: searchTerm,
+    role: roleFilter === 'all' ? 'all' : roleFilter as UserRole,
+    status: statusFilter,
+  })
+
+  const users = paginatedResult?.data || []
+  const pagination = paginatedResult?.pagination
   const deactivateUserMutation = useDeactivateUser()
 
-  const filteredUsers = useMemo(() => {
-    return users.filter(user => {
-      const matchesSearch = !searchTerm ||
-        user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.phone?.includes(searchTerm)
+  // Reset pagination when filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, roleFilter, statusFilter])
 
-      const matchesRole = roleFilter === 'all' || user.role === roleFilter
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+  }
 
-      return matchesSearch && matchesRole
-    })
-  }, [users, searchTerm, roleFilter])
+  const handlePageSizeChange = (newPageSize: number) => {
+    setPageSize(newPageSize)
+    setCurrentPage(1)
+  }
 
   const handleCreateUser = () => {
     setSelectedUser(null)
@@ -121,6 +140,7 @@ export default function UsersPage() {
 
         <div className="grid gap-4 md:grid-cols-4">
           {Object.entries(roleLabels).map(([role, label]) => {
+            // Show current page counts for role breakdown
             const count = users.filter(u => u.role === role && u.is_active).length
             return (
               <Card key={role}>
@@ -131,7 +151,7 @@ export default function UsersPage() {
                 <CardContent>
                   <div className="text-2xl font-bold">{count}</div>
                   <p className="text-xs text-muted-foreground">
-                    Active users
+                    {pagination ? `Page ${currentPage} results` : 'Active users'}
                   </p>
                 </CardContent>
               </Card>
@@ -170,6 +190,16 @@ export default function UsersPage() {
                   ))}
                 </SelectContent>
               </Select>
+              <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as 'active' | 'inactive' | 'all')}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua Status</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="rounded-md border">
@@ -199,14 +229,14 @@ export default function UsersPage() {
                         </TableCell>
                       </TableRow>
                     ))
-                  ) : filteredUsers.length === 0 ? (
+                  ) : users.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={6} className="text-center py-4">
                         Tidak ada pengguna ditemukan
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredUsers.map((user) => (
+                    users.map((user) => (
                       <TableRow key={user.id}>
                         <TableCell>
                           <div className="flex items-center space-x-4">
@@ -281,6 +311,20 @@ export default function UsersPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Pagination */}
+        {pagination && pagination.totalPages > 1 && (
+          <div className="mt-8">
+            <PaginationControls
+              currentPage={pagination.page}
+              totalPages={pagination.totalPages}
+              pageSize={pagination.pageSize}
+              total={pagination.total}
+              onPageChange={handlePageChange}
+              onPageSizeChange={handlePageSizeChange}
+            />
+          </div>
+        )}
 
         <UserDialog
           open={isDialogOpen}
