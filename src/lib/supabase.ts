@@ -42,7 +42,7 @@ export interface Database {
             user_profiles: {
                 Row: {
                     id: string
-                    role: 'admin' | 'customer_service' | 'customer'
+                    role: 'admin' | 'cs' | 'customer'
                     is_active: boolean
                     studio_id: string | null
                     last_login: string | null

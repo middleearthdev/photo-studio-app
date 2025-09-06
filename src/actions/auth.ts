@@ -4,7 +4,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 
-type UserRole = 'customer' | 'admin' | 'customer_service'
+export type UserRole = 'customer' | 'admin' | 'cs'
 
 export interface AuthResult {
   success: boolean
@@ -51,7 +51,7 @@ export async function signInAction(
     }
 
     // Validate user type matches role
-    const isStaff = ['admin', 'customer_service'].includes(profile.role)
+    const isStaff = ['admin', 'cs'].includes(profile.role)
 
     if (userType === 'staff' && !isStaff) {
       await supabase.auth.signOut()
@@ -73,7 +73,7 @@ export async function signInAction(
     let redirectTo = '/dashboard' // Default for customers
     if (profile.role === 'admin') {
       redirectTo = '/admin/dashboard'
-    } else if (profile.role === 'customer_service') {
+    } else if (profile.role === 'cs') {
       redirectTo = '/cs'
     }
 
@@ -202,7 +202,7 @@ export async function createStaffUserAction(
   email: string,
   password: string,
   fullName: string,
-  role: 'admin' | 'customer_service',
+  role: 'admin' | 'cs',
   phone?: string,
   studioId?: string
 ): Promise<AuthResult> {

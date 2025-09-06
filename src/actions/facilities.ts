@@ -10,7 +10,7 @@ export interface Facility {
   name: string
   description: string | null
   capacity: number
-  equipment: Record<string, any>
+  equipment: Record<string, unknown>
   hourly_rate: number | null
   is_available: boolean
   icon: string | null
@@ -23,7 +23,7 @@ export interface CreateFacilityData {
   name: string
   description?: string
   capacity: number
-  equipment?: Record<string, any>
+  equipment?: Record<string, unknown>
   hourly_rate?: number
   icon?: string
 }
@@ -32,7 +32,7 @@ export interface UpdateFacilityData extends Partial<CreateFacilityData> {
   is_available?: boolean
 }
 
-export interface ActionResult<T = any> {
+export interface ActionResult<T = unknown> {
   success: boolean
   data?: T
   error?: string
@@ -79,9 +79,10 @@ export async function getFacilitiesAction(studioId?: string): Promise<ActionResu
     }
 
     return { success: true, data: facilities || [] }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in getFacilitiesAction:', error)
-    return { success: false, error: error.message || 'An error occurred' }
+    const errorMessage = error instanceof Error ? error.message : 'An error occurred'
+    return { success: false, error: errorMessage }
   }
 }
 
@@ -166,9 +167,10 @@ export async function getFacilityAction(facilityId: string): Promise<ActionResul
     }
 
     return { success: true, data: facility }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in getFacilityAction:', error)
-    return { success: false, error: error.message || 'An error occurred' }
+    const errorMessage = error instanceof Error ? error.message : 'An error occurred'
+    return { success: false, error: errorMessage }
   }
 }
 
@@ -214,11 +216,12 @@ export async function createFacilityAction(facilityData: CreateFacilityData): Pr
       return { success: false, error: error.message }
     }
 
-    revalidatePath('/admin/studio/facilities')
+    revalidatePath('/admin/facilities')
     return { success: true }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in createFacilityAction:', error)
-    return { success: false, error: error.message || 'Failed to create facility' }
+    const errorMessage = error instanceof Error ? error.message : 'Failed to create facility'
+    return { success: false, error: errorMessage }
   }
 }
 
@@ -257,11 +260,12 @@ export async function updateFacilityAction(facilityId: string, facilityData: Upd
       return { success: false, error: error.message }
     }
 
-    revalidatePath('/admin/studio/facilities')
+    revalidatePath('/admin/facilities')
     return { success: true }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in updateFacilityAction:', error)
-    return { success: false, error: error.message || 'Failed to update facility' }
+    const errorMessage = error instanceof Error ? error.message : 'Failed to update facility'
+    return { success: false, error: errorMessage }
   }
 }
 
@@ -313,15 +317,16 @@ export async function deleteFacilityAction(facilityId: string): Promise<ActionRe
       return { success: false, error: error.message }
     }
 
-    revalidatePath('/admin/studio/facilities')
+    revalidatePath('/admin/facilities')
     return { success: true }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in deleteFacilityAction:', error)
-    return { success: false, error: error.message || 'Failed to delete facility' }
+    const errorMessage = error instanceof Error ? error.message : 'Failed to delete facility'
+    return { success: false, error: errorMessage }
   }
 }
 
-export async function toggleFacilityAvailabilityAction(facilityId: string): Promise<ActionResult> {
+export async function toggleFacilityAvailabilityAction(facilityId: string, isAvailable: boolean): Promise<ActionResult> {
   try {
     const supabase = await createClient()
 
@@ -342,24 +347,11 @@ export async function toggleFacilityAvailabilityAction(facilityId: string): Prom
       return { success: false, error: 'Insufficient permissions' }
     }
 
-    // Get current facility status
-    const { data: facility, error: fetchError } = await supabase
-      .from('facilities')
-      .select('is_available')
-      .eq('id', facilityId)
-      .single()
-
-    if (fetchError) {
-      console.error('Error fetching facility:', fetchError)
-      return { success: false, error: 'Facility not found' }
-    }
-
-    // Toggle availability
-    const newStatus = !facility.is_available
+    // Update availability directly to the specified value
     const { error } = await supabase
       .from('facilities')
       .update({
-        is_available: newStatus,
+        is_available: isAvailable,
         updated_at: new Date().toISOString()
       })
       .eq('id', facilityId)
@@ -369,10 +361,11 @@ export async function toggleFacilityAvailabilityAction(facilityId: string): Prom
       return { success: false, error: error.message }
     }
 
-    revalidatePath('/admin/studio/facilities')
+    revalidatePath('/admin/facilities')
     return { success: true }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in toggleFacilityAvailabilityAction:', error)
-    return { success: false, error: error.message || 'Failed to update facility availability' }
+    const errorMessage = error instanceof Error ? error.message : 'Failed to update facility availability'
+    return { success: false, error: errorMessage }
   }
 }

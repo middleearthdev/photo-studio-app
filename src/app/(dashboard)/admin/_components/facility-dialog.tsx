@@ -61,8 +61,8 @@ const facilitySchema = z.object({
   name: z.string().min(2, "Nama fasilitas minimal 2 karakter"),
   description: z.string().optional(),
   capacity: z.number().min(1, "Kapasitas minimal 1 orang").max(100, "Kapasitas maksimal 100 orang"),
-  hourly_rate: z.number().min(0, "Tarif per jam tidak boleh negatif").optional(),
-  is_available: z.boolean().optional(),
+  hourly_rate: z.number().min(0, "Tarif per jam tidak boleh negatif").optional().nullable(),
+  is_available: z.boolean(),
   icon: z.string().optional(),
   equipment: z.record(z.string(), z.boolean()).optional(),
 })
@@ -145,7 +145,7 @@ export function FacilityDialog({ open, onOpenChange, facility, onFacilitySaved, 
       name: "",
       description: "",
       capacity: 1,
-      hourly_rate: 0,
+      hourly_rate: null,
       is_available: true,
       icon: "camera",
       equipment: {},
@@ -158,8 +158,8 @@ export function FacilityDialog({ open, onOpenChange, facility, onFacilitySaved, 
         name: facility.name || "",
         description: facility.description || "",
         capacity: facility.capacity || 1,
-        hourly_rate: facility.hourly_rate || 0,
-        is_available: facility.is_available,
+        hourly_rate: facility.hourly_rate || null,
+        is_available: facility.is_available !== undefined ? facility.is_available : true,
         icon: facility.icon || "camera",
         equipment: facility.equipment || {},
       })
@@ -168,7 +168,7 @@ export function FacilityDialog({ open, onOpenChange, facility, onFacilitySaved, 
         name: "",
         description: "",
         capacity: 1,
-        hourly_rate: 0,
+        hourly_rate: null,
         is_available: true,
         icon: "camera",
         equipment: {},
@@ -206,6 +206,7 @@ export function FacilityDialog({ open, onOpenChange, facility, onFacilitySaved, 
           description: data.description,
           capacity: data.capacity,
           hourly_rate: data.hourly_rate,
+          is_available: data.is_available,
           icon: data.icon,
           equipment: data.equipment,
         },
@@ -270,8 +271,11 @@ export function FacilityDialog({ open, onOpenChange, facility, onFacilitySaved, 
                       <Input
                         type="number"
                         placeholder="1"
-                        {...field}
-                        onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                        value={field.value || ''}
+                        onChange={(e) => {
+                          const value = parseInt(e.target.value) || 1
+                          field.onChange(value)
+                        }}
                       />
                     </FormControl>
                     <FormMessage />
@@ -309,8 +313,15 @@ export function FacilityDialog({ open, onOpenChange, facility, onFacilitySaved, 
                     <Input
                       type="number"
                       placeholder="0"
-                      {...field}
-                      onChange={(e) => field.onChange(parseFloat(e.target.value) || undefined)}
+                      value={field.value || ''}
+                      onChange={(e) => {
+                        const value = e.target.value
+                        if (value === '' || value === '0') {
+                          field.onChange(null)
+                        } else {
+                          field.onChange(parseFloat(value) || null)
+                        }
+                      }}
                     />
                   </FormControl>
                   <FormMessage />
@@ -318,28 +329,26 @@ export function FacilityDialog({ open, onOpenChange, facility, onFacilitySaved, 
               )}
             />
 
-            {isEdit && (
-              <FormField
-                control={form.control}
-                name="is_available"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <FormLabel className="text-base">Status Tersedia</FormLabel>
-                      <div className="text-sm text-muted-foreground">
-                        Fasilitas dapat digunakan untuk booking
-                      </div>
+            <FormField
+              control={form.control}
+              name="is_available"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                  <div className="space-y-0.5">
+                    <FormLabel className="text-base">Status Tersedia</FormLabel>
+                    <div className="text-sm text-muted-foreground">
+                      Fasilitas dapat digunakan untuk booking
                     </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-            )}
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
 
             {/* Icon Selection */}
             <div className="space-y-4">

@@ -155,7 +155,7 @@ export function TimeSlotDialog({
   const isLoading = createTimeSlotMutation.isPending || updateTimeSlotMutation.isPending
 
   // Generate time options (every 30 minutes from 06:00 to 22:00)
-  const timeOptions = []
+  const timeOptions: string[] = []
   for (let hour = 6; hour <= 22; hour++) {
     for (let minute = 0; minute < 60; minute += 30) {
       const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`

@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
-import { Plus, Search, MoreHorizontal, Edit, Trash, Shield } from "lucide-react"
+import { Plus, Search, MoreHorizontal, Edit, Trash, Shield, UserCheck, UserX, AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -30,8 +30,18 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { UserDialog } from "@/app/(dashboard)/admin/_components/user-dialog"
-import { usePaginatedUsers, useDeactivateUser } from "@/hooks/use-users"
+import { usePaginatedUsers, useDeactivateUser, useActivateUser, useDeleteUserPermanently } from "@/hooks/use-users"
 import { type UserRole, type UserProfile } from "@/actions/users"
 import { PaginationControls } from "@/components/pagination-controls"
 import { DEFAULT_PAGE_SIZE } from "@/lib/constants/pagination"
@@ -39,13 +49,13 @@ import { DEFAULT_PAGE_SIZE } from "@/lib/constants/pagination"
 const roleLabels: Record<UserRole, string> = {
   customer: 'Customer',
   admin: 'Admin',
-  customer_service: 'Customer Service'
+  cs: 'Customer Service'
 }
 
 const roleColors: Record<UserRole, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   customer: 'default',
   admin: 'destructive',
-  customer_service: 'outline'
+  cs: 'outline'
 }
 
 export default function UsersPage() {
@@ -56,6 +66,8 @@ export default function UsersPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
+  const [userToDelete, setUserToDelete] = useState<UserProfile | null>(null)
+  const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false)
 
   // TanStack Query hooks with pagination
   const { 
@@ -73,6 +85,8 @@ export default function UsersPage() {
   const users = paginatedResult?.data || []
   const pagination = paginatedResult?.pagination
   const deactivateUserMutation = useDeactivateUser()
+  const activateUserMutation = useActivateUser()
+  const deleteUserPermanentlyMutation = useDeleteUserPermanently()
 
   // Reset pagination when filters change
   useEffect(() => {
@@ -98,12 +112,33 @@ export default function UsersPage() {
     setIsDialogOpen(true)
   }
 
-  const handleDeleteUser = async (user: UserProfile) => {
-    if (!confirm('Apakah Anda yakin ingin menghapus pengguna ini?')) {
+  const handleDeactivateUser = async (user: UserProfile) => {
+    if (!confirm(`Apakah Anda yakin ingin menonaktifkan pengguna "${user.full_name}"?`)) {
       return
     }
 
     deactivateUserMutation.mutate(user.id)
+  }
+
+  const handleActivateUser = async (user: UserProfile) => {
+    if (!confirm(`Apakah Anda yakin ingin mengaktifkan pengguna "${user.full_name}"?`)) {
+      return
+    }
+
+    activateUserMutation.mutate(user.id)
+  }
+
+  const handleDeleteUserPermanently = (user: UserProfile) => {
+    setUserToDelete(user)
+    setIsDeleteAlertOpen(true)
+  }
+
+  const confirmDeleteUser = () => {
+    if (userToDelete) {
+      deleteUserPermanentlyMutation.mutate(userToDelete.id)
+      setIsDeleteAlertOpen(false)
+      setUserToDelete(null)
+    }
   }
 
   const handleUserSaved = () => {
@@ -292,13 +327,35 @@ export default function UsersPage() {
                                 <Edit className="mr-2 h-4 w-4" />
                                 Edit
                               </DropdownMenuItem>
+                              
                               <DropdownMenuSeparator />
+                              
+                              {user.is_active ? (
+                                <DropdownMenuItem
+                                  onClick={() => handleDeactivateUser(user)}
+                                  className="text-orange-600"
+                                >
+                                  <UserX className="mr-2 h-4 w-4" />
+                                  Deactivate
+                                </DropdownMenuItem>
+                              ) : (
+                                <DropdownMenuItem
+                                  onClick={() => handleActivateUser(user)}
+                                  className="text-green-600"
+                                >
+                                  <UserCheck className="mr-2 h-4 w-4" />
+                                  Activate
+                                </DropdownMenuItem>
+                              )}
+                              
+                              <DropdownMenuSeparator />
+                              
                               <DropdownMenuItem
-                                onClick={() => handleDeleteUser(user)}
+                                onClick={() => handleDeleteUserPermanently(user)}
                                 className="text-red-600"
                               >
-                                <Trash className="mr-2 h-4 w-4" />
-                                Deactivate
+                                <AlertTriangle className="mr-2 h-4 w-4" />
+                                Delete Permanently
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -332,6 +389,40 @@ export default function UsersPage() {
           user={selectedUser}
           onUserSaved={handleUserSaved}
         />
+
+        {/* Delete Confirmation Alert */}
+        <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2 text-red-600">
+                <AlertTriangle className="h-5 w-5" />
+                Hapus User Secara Permanen
+              </AlertDialogTitle>
+              <AlertDialogDescription className="space-y-2">
+                <p>
+                  <strong>⚠️ PERINGATAN:</strong> Tindakan ini akan menghapus pengguna{" "}
+                  <strong>"{userToDelete?.full_name}"</strong> secara PERMANEN dan tidak dapat dibatalkan.
+                </p>
+                <p>
+                  Semua data terkait pengguna ini akan hilang selamanya. Jika pengguna memiliki reservasi aktif, 
+                  operasi ini akan gagal dan Anda harus menonaktifkan pengguna terlebih dahulu.
+                </p>
+                <p className="text-red-600 font-medium">
+                  Apakah Anda yakin ingin melanjutkan?
+                </p>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={confirmDeleteUser}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                Ya, Hapus Permanen
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
   )
 }

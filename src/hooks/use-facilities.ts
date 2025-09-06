@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { 
   getFacilitiesAction, 
   getFacilityAction,
+  getPaginatedFacilities,
   createFacilityAction, 
   updateFacilityAction, 
   deleteFacilityAction,
@@ -12,12 +13,15 @@ import {
   type CreateFacilityData,
   type UpdateFacilityData
 } from '@/actions/facilities'
+import { PaginationParams } from '@/lib/constants/pagination'
 
 // Query keys
 export const facilityKeys = {
   all: ['facilities'] as const,
   lists: () => [...facilityKeys.all, 'list'] as const,
   list: (studioId?: string) => [...facilityKeys.lists(), { studioId }] as const,
+  paginatedLists: () => [...facilityKeys.all, 'paginated'] as const,
+  paginatedList: (studioId: string, params: unknown) => [...facilityKeys.paginatedLists(), studioId, params] as const,
   details: () => [...facilityKeys.all, 'detail'] as const,
   detail: (id: string) => [...facilityKeys.details(), id] as const,
 }
@@ -47,6 +51,21 @@ export function useFacility(facilityId: string) {
       return result.data
     },
     enabled: !!facilityId,
+  })
+}
+
+// Get paginated facilities
+export function usePaginatedFacilities(
+  studioId: string,
+  params: PaginationParams & {
+    status?: 'available' | 'unavailable' | 'all'
+  } = {}
+) {
+  return useQuery({
+    queryKey: facilityKeys.paginatedList(studioId, params),
+    queryFn: () => getPaginatedFacilities(studioId, params),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    enabled: !!studioId,
   })
 }
 
@@ -113,10 +132,13 @@ export function useToggleFacilityAvailability() {
   const queryClient = useQueryClient()
   
   return useMutation({
-    mutationFn: (facilityId: string) => toggleFacilityAvailabilityAction(facilityId),
-    onSuccess: (result) => {
+    mutationFn: ({ facilityId, isAvailable }: { facilityId: string; isAvailable: boolean }) => 
+      toggleFacilityAvailabilityAction(facilityId, isAvailable),
+    onSuccess: (result, { facilityId }) => {
       if (result.success) {
         queryClient.invalidateQueries({ queryKey: facilityKeys.lists() })
+        queryClient.invalidateQueries({ queryKey: facilityKeys.paginatedLists() })
+        queryClient.invalidateQueries({ queryKey: facilityKeys.detail(facilityId) })
         toast.success('Status ketersediaan fasilitas berhasil diubah')
       } else {
         toast.error(result.error || 'Gagal mengubah status ketersediaan fasilitas')

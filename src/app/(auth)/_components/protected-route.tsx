@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { useAuthStore } from "@/stores/auth-store"
 import { Skeleton } from "@/components/ui/skeleton"
 
-type UserRole = 'customer' | 'admin' | 'customer_service'
+type UserRole = 'customer' | 'admin' | 'cs'
 
 interface ProtectedRouteProps {
   children: React.ReactNode

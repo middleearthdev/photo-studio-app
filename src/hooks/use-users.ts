@@ -6,6 +6,8 @@ import {
   createUserAction, 
   updateUserAction, 
   deactivateUserAction,
+  activateUserAction,
+  deleteUserPermanentlyAction,
   type CreateUserData,
   type UpdateUserData,
   type UserProfile,
@@ -17,9 +19,9 @@ import { PaginationParams } from '@/lib/constants/pagination'
 export const userKeys = {
   all: ['users'] as const,
   lists: () => [...userKeys.all, 'list'] as const,
-  list: (filters: Record<string, any>) => [...userKeys.lists(), { filters }] as const,
+  list: (filters: Record<string, unknown>) => [...userKeys.lists(), { filters }] as const,
   paginatedLists: () => [...userKeys.all, 'paginated'] as const,
-  paginatedList: (params: any) => [...userKeys.paginatedLists(), params] as const,
+  paginatedList: (params: unknown) => [...userKeys.paginatedLists(), params] as const,
   details: () => [...userKeys.all, 'detail'] as const,
   detail: (id: string) => [...userKeys.details(), id] as const,
 }
@@ -115,6 +117,50 @@ export function useDeactivateUser() {
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Gagal menonaktifkan user')
+    },
+  })
+}
+
+export function useActivateUser() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (userId: string) => {
+      const result = await activateUserAction(userId)
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to activate user')
+      }
+      return result
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: userKeys.lists() })
+      queryClient.invalidateQueries({ queryKey: userKeys.paginatedLists() })
+      toast.success('User berhasil diaktifkan')
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Gagal mengaktifkan user')
+    },
+  })
+}
+
+export function useDeleteUserPermanently() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (userId: string) => {
+      const result = await deleteUserPermanentlyAction(userId)
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to delete user permanently')
+      }
+      return result
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: userKeys.lists() })
+      queryClient.invalidateQueries({ queryKey: userKeys.paginatedLists() })
+      toast.success('User berhasil dihapus secara permanen')
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Gagal menghapus user secara permanen')
     },
   })
 }

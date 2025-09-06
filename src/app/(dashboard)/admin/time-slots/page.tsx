@@ -59,6 +59,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { Calendar as CalendarComponent } from "@/components/ui/calendar"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import { TimeSlotDialog } from "@/app/(dashboard)/admin/_components/time-slot-dialog"
 import { BulkTimeSlotsDialog } from "@/app/(dashboard)/admin/_components/bulk-time-slots-dialog"
 import { usePaginatedTimeSlots, useDeleteTimeSlot, useToggleTimeSlotAvailability } from "@/hooks/use-time-slots"
@@ -67,6 +73,8 @@ import { useStudios } from "@/hooks/use-studios"
 import { type TimeSlot } from "@/actions/time-slots"
 import { PaginationControls } from "@/components/pagination-controls"
 import { DEFAULT_PAGE_SIZE } from "@/lib/constants/pagination"
+import { format } from "date-fns"
+import { id } from "date-fns/locale"
 
 export default function TimeSlotsPage() {
   const [searchTerm, setSearchTerm] = useState('')
@@ -78,35 +86,22 @@ export default function TimeSlotsPage() {
   const [selectedStudioId, setSelectedStudioId] = useState<string>('')
   const [selectedFacilityId, setSelectedFacilityId] = useState<string>('all')
   const [selectedStatus, setSelectedStatus] = useState<'all' | 'available' | 'blocked' | 'unavailable'>('all')
-  const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'week' | 'month'>('all')
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
 
   const { data: studios = [], isLoading: studiosLoading } = useStudios()
   const { data: facilities = [] } = useFacilities(selectedStudioId)
   
-  // Calculate date range for filtering
-  const getDateRange = () => {
-    const today = new Date()
-    const startOfToday = new Date(today.setHours(0, 0, 0, 0)).toISOString().split('T')[0]
-    
-    switch (dateFilter) {
-      case 'today':
-        return { startDate: startOfToday, endDate: startOfToday }
-      case 'week':
-        const startOfWeek = new Date(today.setDate(today.getDate() - today.getDay())).toISOString().split('T')[0]
-        const endOfWeek = new Date(today.setDate(today.getDate() - today.getDay() + 6)).toISOString().split('T')[0]
-        return { startDate: startOfWeek, endDate: endOfWeek }
-      case 'month':
-        const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0]
-        const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0]
-        return { startDate: startOfMonth, endDate: endOfMonth }
-      default:
-        return { startDate: undefined, endDate: undefined }
-    }
+  // Format date for API calls
+  const formatDateForApi = (date: Date | undefined): string | undefined => {
+    if (!date) return undefined
+    return date.toISOString().split('T')[0]
   }
 
-  const { startDate, endDate } = getDateRange()
+  const startDate = formatDateForApi(selectedDate)
+  const endDate = startDate // For single date filtering
   
   // Use paginated hook instead of regular hook
   const { 
@@ -140,7 +135,7 @@ export default function TimeSlotsPage() {
   // Reset pagination when filters change
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchTerm, selectedStatus, selectedFacilityId, dateFilter, selectedStudioId])
+  }, [searchTerm, selectedStatus, selectedFacilityId, selectedDate, selectedStudioId])
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page)
@@ -346,18 +341,66 @@ export default function TimeSlotsPage() {
                     </SelectContent>
                   </Select>
 
-                  <Select value={dateFilter} onValueChange={(value: any) => setDateFilter(value)}>
-                    <SelectTrigger className="w-[150px]">
-                      <Calendar className="h-4 w-4 mr-2" />
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Semua Tanggal</SelectItem>
-                      <SelectItem value="today">Hari Ini</SelectItem>
-                      <SelectItem value="week">Minggu Ini</SelectItem>
-                      <SelectItem value="month">Bulan Ini</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <div className="flex items-center gap-2">
+                    <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="w-[150px] justify-start text-left font-normal"
+                        >
+                          <Calendar className="h-4 w-4 mr-2" />
+                          {selectedDate ? format(selectedDate, "dd MMM yyyy", { locale: id }) : "Pilih Tanggal"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent
+                          mode="single"
+                          selected={selectedDate}
+                          onSelect={(date) => {
+                            // Check if date is not in the past
+                            if (date) {
+                              const today = new Date()
+                              today.setHours(0, 0, 0, 0)
+                              if (date < today) {
+                                // Don't allow backdating
+                                return
+                              }
+                              
+                              // Check if date is not more than 1 month ahead
+                              const maxDate = new Date()
+                              maxDate.setMonth(maxDate.getMonth() + 1)
+                              maxDate.setHours(0, 0, 0, 0)
+                              if (date > maxDate) {
+                                // Don't allow dates more than 1 month ahead
+                                return
+                              }
+                            }
+                            
+                            setSelectedDate(date)
+                            setIsCalendarOpen(false)
+                          }}
+                          disabled={(date) => {
+                            const today = new Date()
+                            today.setHours(0, 0, 0, 0)
+                            const maxDate = new Date()
+                            maxDate.setMonth(maxDate.getMonth() + 1)
+                            maxDate.setHours(0, 0, 0, 0)
+                            return date < today || date > maxDate
+                          }}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    {selectedDate && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSelectedDate(undefined)}
+                      >
+                        Clear
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
             </CardContent>

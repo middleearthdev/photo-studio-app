@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
         let redirectPath = '/'
         if (profile?.role === 'admin') {
           redirectPath = '/admin'
-        } else if (profile?.role === 'customer_service') {
+        } else if (profile?.role === 'cs') {
           redirectPath = '/customer-service'
         }
 

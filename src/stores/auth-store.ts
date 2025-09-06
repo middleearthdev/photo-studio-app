@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 import type { User, Session, AuthError } from '@supabase/supabase-js'
 import type { Database } from '@/lib/supabase'
 
-type UserRole = 'customer' | 'admin' | 'customer_service'
+type UserRole = 'customer' | 'admin' | 'cs'
 
 interface UserProfile {
   id: string

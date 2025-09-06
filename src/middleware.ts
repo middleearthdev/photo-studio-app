@@ -7,7 +7,7 @@ import { createServerClient } from '@supabase/ssr'
 // Define protected routes by role
 const protectedRoutes = {
   admin: ['/admin'],
-  customer_service: ['/cs'],
+  cs: ['/cs'],
   customer: ['/profile', '/bookings', '/history', '/dashboard']
 }
 
@@ -101,7 +101,7 @@ export async function middleware(req: NextRequest) {
 
   // Customer Service routes
   if (pathname.startsWith('/cs')) {
-    if (userRole !== 'customer_service' && userRole !== 'admin') {
+    if (userRole !== 'cs' && userRole !== 'admin') {
       return NextResponse.redirect(new URL('/unauthorized', req.url))
     }
   }
@@ -117,7 +117,7 @@ export async function middleware(req: NextRequest) {
   if (user && (pathname === '/login' || pathname === '/staff/login' || pathname === '/register')) {
     if (userRole === 'admin') {
       return NextResponse.redirect(new URL('/admin/dashboard', req.url))
-    } else if (userRole === 'customer_service') {
+    } else if (userRole === 'cs') {
       return NextResponse.redirect(new URL('/cs', req.url))
     } else {
       return NextResponse.redirect(new URL('/dashboard', req.url))

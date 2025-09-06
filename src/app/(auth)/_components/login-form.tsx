@@ -64,7 +64,7 @@ export function LoginForm({ onSuccess, redirectTo = "/" }: LoginFormProps) {
         const userProfile = useAuthStore.getState().profile
         if (userProfile?.role === 'admin') {
           router.push('/admin')
-        } else if (userProfile?.role === 'customer_service') {
+        } else if (userProfile?.role === 'cs') {
           router.push('/customer-service')
         } else {
           router.push(redirectTo)

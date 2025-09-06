@@ -1,7 +1,15 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { 
   Calendar,
   DollarSign,
@@ -10,9 +18,11 @@ import {
   TrendingUp,
   AlertCircle,
   Clock,
-  Star
+  Star,
+  RefreshCw
 } from "lucide-react"
 import Link from "next/link"
+import { useStudios } from "@/hooks/use-studios"
 
 const dashboardStats = [
   {
@@ -120,13 +130,40 @@ const getStatusColor = (status: string) => {
 }
 
 export default function AdminDashboard() {
+  const [selectedStudioId, setSelectedStudioId] = useState<string>('')
+  const { data: studios = [], isLoading: studiosLoading } = useStudios()
+
+  // Auto-select first studio
+  useEffect(() => {
+    if (studios.length > 0 && !selectedStudioId) {
+      setSelectedStudioId(studios[0].id)
+    }
+  }, [studios, selectedStudioId])
+
+  // Show loading if studios not loaded yet
+  if (studiosLoading || (studios.length > 0 && !selectedStudioId)) {
+    return (
+      <div className="flex-1 space-y-4 p-4">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-muted-foreground" />
+            <p className="text-lg font-medium text-gray-900">Loading...</p>
+            <p className="text-sm text-gray-500 mt-1">Fetching studio data</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const selectedStudio = studios.find(s => s.id === selectedStudioId)
+
   return (
     <div className="flex-1 space-y-6 p-6">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Studio Dashboard</h2>
           <p className="text-muted-foreground">
-            Overview statistik dan aktivitas studio Anda
+            Overview statistik dan aktivitas studio {selectedStudio?.name || 'Anda'}
           </p>
         </div>
         <div className="flex items-center space-x-2">
@@ -136,6 +173,25 @@ export default function AdminDashboard() {
           <Button asChild>
             <Link href="/admin/reservations">Manage Bookings</Link>
           </Button>
+        </div>
+      </div>
+
+      {/* Studio Selector */}
+      <div className="flex items-center space-x-4">
+        <div className="flex-1 max-w-sm">
+          <label className="text-sm font-medium mb-2 block">Select Studio:</label>
+          <Select value={selectedStudioId} onValueChange={setSelectedStudioId}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select studio..." />
+            </SelectTrigger>
+            <SelectContent>
+              {studios.map((studio) => (
+                <SelectItem key={studio.id} value={studio.id}>
+                  {studio.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 

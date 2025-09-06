@@ -36,7 +36,7 @@ const userSchema = z.object({
   full_name: z.string().min(2, "Nama lengkap minimal 2 karakter"),
   email: z.string().email("Email tidak valid"),
   phone: z.string().optional(),
-  role: z.enum(['customer', 'admin', 'customer_service']),
+  role: z.enum(['customer', 'admin', 'cs']),
   is_active: z.boolean(),
   password: z.string().optional(),
 })
@@ -53,7 +53,7 @@ interface UserDialogProps {
 const roleLabels: Record<UserRole, string> = {
   customer: 'Customer',
   admin: 'Admin',
-  customer_service: 'Customer Service'
+  cs: 'Customer Service'
 }
 
 export function UserDialog({ open, onOpenChange, user, onUserSaved }: UserDialogProps) {
@@ -69,7 +69,7 @@ export function UserDialog({ open, onOpenChange, user, onUserSaved }: UserDialog
       full_name: "",
       email: "",
       phone: "",
-      role: "customer_service",
+      role: "cs",
       is_active: true,
       password: "",
     },
@@ -90,7 +90,7 @@ export function UserDialog({ open, onOpenChange, user, onUserSaved }: UserDialog
         full_name: "",
         email: "",
         phone: "",
-        role: "customer_service",
+        role: "cs",
         is_active: true,
         password: "",
       })

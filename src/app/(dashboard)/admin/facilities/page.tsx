@@ -7,16 +7,22 @@ import {
   MoreHorizontal,
   Edit,
   Trash,
-  Camera,
+  Building as BuildingIcon,
   Users,
-  DollarSign,
-  Settings,
+  Clock,
   Eye,
   EyeOff,
   Filter,
   Grid3X3,
   List,
   AlertCircle,
+  Star,
+  Crown,
+  Gem,
+  Zap,
+  Sparkles,
+  Camera,
+  RefreshCw,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -39,11 +45,12 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { FacilityDialog } from "@/app/(dashboard)/admin/_components/facility-dialog"
-import { useFacilities, useDeleteFacility, useToggleFacilityAvailability } from "@/hooks/use-facilities"
+import { usePaginatedFacilities, useDeleteFacility, useToggleFacilityAvailability } from "@/hooks/use-facilities"
 import { useStudios } from "@/hooks/use-studios"
 import { type Facility } from "@/actions/facilities"
+import { PaginationControls } from "@/components/pagination-controls"
+import { DEFAULT_PAGE_SIZE } from "@/lib/constants/pagination"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -62,7 +69,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
-// Import the available icons from the dialog
+// Icon components mapping
 import {
   Video,
   Lightbulb,
@@ -75,25 +82,30 @@ import {
   Coffee,
   Wifi,
   AirVent,
-  Sparkles,
-  Building,
   TreePine,
   Waves,
   Sun,
   Moon,
-  Star,
-  Heart,
-  Crown,
-  Zap,
   Target,
   Award,
   Gift,
-  Gem,
   Flame,
   Diamond,
+  Building,
 } from "lucide-react"
 
-const iconMap: Record<string, any> = {
+
+
+const facilityTypeColors = {
+  basic: 'text-blue-600 bg-blue-50 border-blue-200',
+  premium: 'text-purple-600 bg-purple-50 border-purple-200',
+  luxury: 'text-amber-600 bg-amber-50 border-amber-200',
+  custom: 'text-emerald-600 bg-emerald-50 border-emerald-200',
+  equipment: 'text-orange-600 bg-orange-50 border-orange-200',
+  space: 'text-teal-600 bg-teal-50 border-teal-200',
+}
+
+const iconMap = {
   camera: Camera,
   video: Video,
   lightbulb: Lightbulb,
@@ -112,8 +124,6 @@ const iconMap: Record<string, any> = {
   waves: Waves,
   sun: Sun,
   moon: Moon,
-  star: Star,
-  heart: Heart,
   crown: Crown,
   zap: Zap,
   target: Target,
@@ -124,61 +134,124 @@ const iconMap: Record<string, any> = {
   diamond: Diamond,
 }
 
+const getFacilityIcon = (iconName?: string | null) => {
+  if (!iconName) return Camera
+  return iconMap[iconName as keyof typeof iconMap] || Camera
+}
+
+const getFacilityTypeInfo = (facility: Facility) => {
+  // Determine facility type based on capacity and rate
+  if (facility.capacity >= 20) return 'space'
+  if (facility.hourly_rate && facility.hourly_rate >= 300000) return 'luxury'
+  if (facility.hourly_rate && facility.hourly_rate >= 150000) return 'premium'
+  if (facility.hourly_rate && facility.hourly_rate > 0) return 'basic'
+  return 'equipment'
+}
+
 export default function FacilitiesPage() {
   const [searchTerm, setSearchTerm] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'available' | 'unavailable' | 'all'>('all')
   const [selectedFacility, setSelectedFacility] = useState<Facility | null>(null)
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [facilityToDelete, setFacilityToDelete] = useState<Facility | null>(null)
-  const [facilityToToggle, setFacilityToToggle] = useState<Facility | null>(null)
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
-  const [availabilityFilter, setAvailabilityFilter] = useState<'all' | 'available' | 'unavailable'>('all')
+  const [isFacilityDialogOpen, setIsFacilityDialogOpen] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [selectedStudioId, setSelectedStudioId] = useState<string>('')
+  const [facilityToDelete, setFacilityToDelete] = useState<Facility | null>(null)
+  const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false)
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
 
+  // Studio selection for multi-studio admin
   const { data: studios = [], isLoading: studiosLoading } = useStudios()
-  const { data: facilities = [], isLoading: loading, error, refetch } = useFacilities(selectedStudioId)
-  const deleteFacilityMutation = useDeleteFacility()
-  const toggleAvailabilityMutation = useToggleFacilityAvailability()
 
-  // Set default studio
+  // Auto-select first studio
   useEffect(() => {
     if (studios.length > 0 && !selectedStudioId) {
       setSelectedStudioId(studios[0].id)
     }
   }, [studios, selectedStudioId])
 
-  const filteredFacilities = facilities.filter(facility => {
-    const matchesSearch = facility.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (facility.description || '').toLowerCase().includes(searchTerm.toLowerCase())
+  // Reset pagination when filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, statusFilter, selectedStudioId])
 
-    const matchesAvailability = availabilityFilter === 'all' ||
-      (availabilityFilter === 'available' && facility.is_available) ||
-      (availabilityFilter === 'unavailable' && !facility.is_available)
-
-    return matchesSearch && matchesAvailability
+  // TanStack Query hooks with pagination
+  const {
+    data: paginatedResult,
+    isLoading: loading,
+    error,
+    refetch
+  } = usePaginatedFacilities(selectedStudioId, {
+    page: currentPage,
+    pageSize,
+    search: searchTerm,
+    status: statusFilter,
   })
 
-  const handleEdit = (facility: Facility) => {
-    setSelectedFacility(facility)
-    setIsDialogOpen(true)
+  const facilities = paginatedResult?.data || []
+  const pagination = paginatedResult?.pagination
+  const deleteFacilityMutation = useDeleteFacility()
+  const toggleAvailabilityMutation = useToggleFacilityAvailability()
+
+  // Show loading if studios not loaded yet
+  if (studiosLoading || (studios.length > 0 && !selectedStudioId)) {
+    return (
+      <div className="p-8">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center text-muted-foreground">
+              <BuildingIcon className="h-8 w-8 mx-auto mb-2 animate-spin" />
+              Loading studio data...
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
-  const handleAdd = () => {
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+  }
+
+  const handlePageSizeChange = (newPageSize: number) => {
+    setPageSize(newPageSize)
+    setCurrentPage(1)
+  }
+
+  const handleCreateFacility = () => {
     setSelectedFacility(null)
-    setIsDialogOpen(true)
+    setIsFacilityDialogOpen(true)
   }
 
-  const handleDelete = async (facility: Facility) => {
-    deleteFacilityMutation.mutate(facility.id, {
-      onSuccess: () => {
-        setFacilityToDelete(null)
-      }
-    })
+  const handleEditFacility = (facility: Facility) => {
+    setSelectedFacility(facility)
+    setIsFacilityDialogOpen(true)
   }
 
-  const handleToggleAvailability = async (facility: Facility) => {
-    toggleAvailabilityMutation.mutate(facility.id, {
+  const handleDeleteFacility = (facility: Facility) => {
+    setFacilityToDelete(facility)
+    setIsDeleteAlertOpen(true)
+  }
+
+  const confirmDeleteFacility = () => {
+    if (facilityToDelete) {
+      deleteFacilityMutation.mutate(facilityToDelete.id, {
+        onSuccess: () => {
+          setIsDeleteAlertOpen(false)
+          setFacilityToDelete(null)
+          refetch()
+        }
+      })
+    }
+  }
+
+  const handleToggleAvailability = (facility: Facility) => {
+    toggleAvailabilityMutation.mutate({
+      facilityId: facility.id,
+      isAvailable: !facility.is_available
+    }, {
       onSuccess: () => {
-        setFacilityToToggle(null)
+        refetch()
       }
     })
   }
@@ -187,25 +260,26 @@ export default function FacilitiesPage() {
     refetch()
   }
 
-  const getIconComponent = (iconName: string | null) => {
-    if (!iconName) return Camera
-    return iconMap[iconName] || Camera
-  }
+  // Filter facilities based on search and status
+  const filteredFacilities = facilities.filter(facility => {
+    const matchesSearch = !searchTerm ||
+      facility.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      facility.description?.toLowerCase().includes(searchTerm.toLowerCase())
+
+    const matchesStatus = statusFilter === 'all' ||
+      (statusFilter === 'available' && facility.is_available) ||
+      (statusFilter === 'unavailable' && !facility.is_available)
+
+    return matchesSearch && matchesStatus
+  })
 
   const formatCurrency = (amount: number | null) => {
-    if (!amount) return 'Gratis'
+    if (!amount) return '-'
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
       currency: 'IDR',
       minimumFractionDigits: 0,
     }).format(amount)
-  }
-
-  const getEquipmentBadges = (equipment: Record<string, any> | null) => {
-    if (!equipment) return []
-    return Object.entries(equipment)
-      .filter(([_, value]) => value === true)
-      .slice(0, 3)
   }
 
   if (error) {
@@ -228,13 +302,19 @@ export default function FacilitiesPage() {
         <div>
           <h1 className="text-2xl font-bold">Facilities Management</h1>
           <p className="text-muted-foreground">
-            Kelola fasilitas studio foto Anda
+            Kelola fasilitas dan peralatan studio Anda
           </p>
         </div>
-        <Button onClick={handleAdd} disabled={!selectedStudioId}>
-          <Plus className="h-4 w-4 mr-2" />
-          Tambah Fasilitas
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => refetch()}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+          <Button onClick={handleCreateFacility} disabled={!selectedStudioId}>
+            <Plus className="h-4 w-4 mr-2" />
+            Tambah Fasilitas
+          </Button>
+        </div>
       </div>
 
       <div className="space-y-4">
@@ -274,10 +354,16 @@ export default function FacilitiesPage() {
                       <div className="text-sm text-muted-foreground">Tersedia</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-orange-600">
-                        {facilities.filter(f => !f.is_available).length}
+                      <div className="text-2xl font-bold text-purple-600">
+                        {facilities.reduce((acc, f) => acc + f.capacity, 0)}
                       </div>
-                      <div className="text-sm text-muted-foreground">Tidak Tersedia</div>
+                      <div className="text-sm text-muted-foreground">Total Kapasitas</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-amber-600">
+                        {facilities.filter(f => f.hourly_rate && f.hourly_rate > 0).length}
+                      </div>
+                      <div className="text-sm text-muted-foreground">Berbayar</div>
                     </div>
                   </div>
                 )}
@@ -302,8 +388,8 @@ export default function FacilitiesPage() {
                     />
                   </div>
 
-                  <Select value={availabilityFilter} onValueChange={(value: any) => setAvailabilityFilter(value)}>
-                    <SelectTrigger className="w-[180px]">
+                  <Select value={statusFilter} onValueChange={(value: any) => setStatusFilter(value)}>
+                    <SelectTrigger className="w-auto">
                       <Filter className="h-4 w-4 mr-2" />
                       <SelectValue />
                     </SelectTrigger>
@@ -349,7 +435,7 @@ export default function FacilitiesPage() {
         ) : loading ? (
           <div className="space-y-2">
             {[...Array(3)].map((_, i) => (
-              <Skeleton key={i} className="h-32 w-full" />
+              <Skeleton key={i} className="h-40 w-full" />
             ))}
           </div>
         ) : viewMode === 'grid' ? (
@@ -366,23 +452,27 @@ export default function FacilitiesPage() {
               </div>
             ) : (
               filteredFacilities.map((facility) => {
-                const IconComponent = getIconComponent(facility.icon)
-                const equipmentBadges = getEquipmentBadges(facility.equipment)
+                const facilityType = getFacilityTypeInfo(facility)
+                const typeColorClass = facilityTypeColors[facilityType as keyof typeof facilityTypeColors]
+                const IconComponent = getFacilityIcon(facility.icon)
+                const equipmentCount = Object.entries(facility.equipment || {}).filter(([_, value]) => value).length
 
                 return (
                   <Card key={facility.id} className="group hover:shadow-md transition-shadow">
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between">
-                        <div className="flex items-center space-x-2">
-                          <div className="p-2 bg-primary/10 rounded-lg">
-                            <IconComponent className="h-5 w-5 text-primary" />
-                          </div>
-                          <div>
-                            <CardTitle className="text-lg">{facility.name}</CardTitle>
-                            <div className="flex items-center space-x-2 mt-1">
-                              <Badge variant={facility.is_available ? "default" : "secondary"}>
-                                {facility.is_available ? "Tersedia" : "Tidak Tersedia"}
-                              </Badge>
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <div className={`p-2 rounded-lg ${typeColorClass}`}>
+                              <IconComponent className="h-5 w-5" />
+                            </div>
+                            <div>
+                              <CardTitle className="text-lg">{facility.name}</CardTitle>
+                              <div className="flex items-center gap-2 mt-1">
+                                <Badge variant={facility.is_available ? "default" : "secondary"}>
+                                  {facility.is_available ? "Tersedia" : "Tidak Tersedia"}
+                                </Badge>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -395,12 +485,12 @@ export default function FacilitiesPage() {
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Aksi</DropdownMenuLabel>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => handleEdit(facility)}>
+                            <DropdownMenuItem onClick={() => handleEditFacility(facility)}>
                               <Edit className="mr-2 h-4 w-4" />
                               Edit
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              onClick={() => setFacilityToToggle(facility)}
+                              onClick={() => handleToggleAvailability(facility)}
                               className="text-orange-600"
                             >
                               {facility.is_available ? <EyeOff className="mr-2 h-4 w-4" /> : <Eye className="mr-2 h-4 w-4" />}
@@ -408,7 +498,7 @@ export default function FacilitiesPage() {
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               className="text-red-600"
-                              onClick={() => setFacilityToDelete(facility)}
+                              onClick={() => handleDeleteFacility(facility)}
                             >
                               <Trash className="mr-2 h-4 w-4" />
                               Hapus
@@ -424,34 +514,28 @@ export default function FacilitiesPage() {
                         </p>
                       )}
 
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between text-sm">
-                          <div className="flex items-center space-x-1">
-                            <Users className="h-4 w-4 text-muted-foreground" />
-                            <span>Kapasitas: {facility.capacity} orang</span>
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="text-2xl font-bold text-green-600">
+                            {formatCurrency(facility.hourly_rate)}
                           </div>
-                          {facility.hourly_rate && (
+                          <div className="text-sm text-muted-foreground">
+                            {facility.capacity} orang
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div className="flex items-center space-x-1">
+                            <IconComponent className="h-4 w-4 text-muted-foreground" />
+                            <span>{facility.icon?.replace('-', ' ') || 'Facility'}</span>
+                          </div>
+                          {equipmentCount > 0 && (
                             <div className="flex items-center space-x-1">
-                              <DollarSign className="h-4 w-4 text-muted-foreground" />
-                              <span className="font-medium">{formatCurrency(facility.hourly_rate)}/jam</span>
+                              <Zap className="h-4 w-4 text-muted-foreground" />
+                              <span>{equipmentCount} peralatan</span>
                             </div>
                           )}
                         </div>
-
-                        {equipmentBadges.length > 0 && (
-                          <div className="flex flex-wrap gap-1">
-                            {equipmentBadges.map(([key, _]) => (
-                              <Badge key={key} variant="outline" className="text-xs">
-                                {key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                              </Badge>
-                            ))}
-                            {Object.entries(facility.equipment || {}).filter(([_, value]) => value === true).length > 3 && (
-                              <Badge variant="outline" className="text-xs">
-                                +{Object.entries(facility.equipment || {}).filter(([_, value]) => value === true).length - 3} lainnya
-                              </Badge>
-                            )}
-                          </div>
-                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -463,11 +547,11 @@ export default function FacilitiesPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Camera className="h-5 w-5" />
+                <BuildingIcon className="h-5 w-5" />
                 Daftar Fasilitas
               </CardTitle>
               <CardDescription>
-                Kelola fasilitas studio foto yang terdaftar dalam sistem
+                Kelola fasilitas studio yang terdaftar dalam sistem
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -476,8 +560,9 @@ export default function FacilitiesPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Fasilitas</TableHead>
+                      <TableHead>Icon</TableHead>
                       <TableHead>Kapasitas</TableHead>
-                      <TableHead>Tarif/Jam</TableHead>
+                      <TableHead>Harga</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="w-[100px]">Aksi</TableHead>
                     </TableRow>
@@ -485,20 +570,21 @@ export default function FacilitiesPage() {
                   <TableBody>
                     {filteredFacilities.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
+                        <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
                           {searchTerm ? "Tidak ada fasilitas yang cocok dengan pencarian" : "Belum ada fasilitas yang terdaftar"}
                         </TableCell>
                       </TableRow>
                     ) : (
                       filteredFacilities.map((facility) => {
-                        const IconComponent = getIconComponent(facility.icon)
+                        const facilityType = getFacilityTypeInfo(facility)
+                        const IconComponent = getFacilityIcon(facility.icon)
 
                         return (
                           <TableRow key={facility.id}>
                             <TableCell>
                               <div className="flex items-center space-x-3">
-                                <div className="p-2 bg-primary/10 rounded-lg">
-                                  <IconComponent className="h-4 w-4 text-primary" />
+                                <div className={`p-2 rounded-lg ${facilityTypeColors[facilityType as keyof typeof facilityTypeColors]}`}>
+                                  <IconComponent className="h-4 w-4" />
                                 </div>
                                 <div>
                                   <div className="font-medium">{facility.name}</div>
@@ -511,13 +597,16 @@ export default function FacilitiesPage() {
                               </div>
                             </TableCell>
                             <TableCell>
+                              <IconComponent className="h-5 w-5 text-muted-foreground" />
+                            </TableCell>
+                            <TableCell>
                               <div className="flex items-center space-x-1">
                                 <Users className="h-4 w-4 text-muted-foreground" />
                                 <span>{facility.capacity} orang</span>
                               </div>
                             </TableCell>
                             <TableCell>
-                              {facility.hourly_rate ? formatCurrency(facility.hourly_rate) : 'Gratis'}
+                              <div className="font-medium">{formatCurrency(facility.hourly_rate)}</div>
                             </TableCell>
                             <TableCell>
                               <Badge variant={facility.is_available ? "default" : "secondary"}>
@@ -534,12 +623,12 @@ export default function FacilitiesPage() {
                                 <DropdownMenuContent align="end">
                                   <DropdownMenuLabel>Aksi</DropdownMenuLabel>
                                   <DropdownMenuSeparator />
-                                  <DropdownMenuItem onClick={() => handleEdit(facility)}>
+                                  <DropdownMenuItem onClick={() => handleEditFacility(facility)}>
                                     <Edit className="mr-2 h-4 w-4" />
                                     Edit
                                   </DropdownMenuItem>
                                   <DropdownMenuItem
-                                    onClick={() => setFacilityToToggle(facility)}
+                                    onClick={() => handleToggleAvailability(facility)}
                                     className="text-orange-600"
                                   >
                                     {facility.is_available ? <EyeOff className="mr-2 h-4 w-4" /> : <Eye className="mr-2 h-4 w-4" />}
@@ -547,7 +636,7 @@ export default function FacilitiesPage() {
                                   </DropdownMenuItem>
                                   <DropdownMenuItem
                                     className="text-red-600"
-                                    onClick={() => setFacilityToDelete(facility)}
+                                    onClick={() => handleDeleteFacility(facility)}
                                   >
                                     <Trash className="mr-2 h-4 w-4" />
                                     Hapus
@@ -565,49 +654,36 @@ export default function FacilitiesPage() {
             </CardContent>
           </Card>
         )}
+
+        {/* Pagination */}
+        {pagination && pagination.totalPages > 1 && (
+          <div className="mt-8">
+            <PaginationControls
+              currentPage={pagination.page}
+              totalPages={pagination.totalPages}
+              pageSize={pagination.pageSize}
+              total={pagination.total}
+              onPageChange={handlePageChange}
+              onPageSizeChange={handlePageSizeChange}
+            />
+          </div>
+        )}
       </div>
 
-      {/* Dialogs */}
       <FacilityDialog
-        open={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
+        open={isFacilityDialogOpen}
+        onOpenChange={setIsFacilityDialogOpen}
         facility={selectedFacility}
         onFacilitySaved={handleFacilitySaved}
         studioId={selectedStudioId}
       />
 
-      {/* Toggle Availability Dialog */}
-      <AlertDialog open={!!facilityToToggle} onOpenChange={() => setFacilityToToggle(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {facilityToToggle?.is_available ? "Nonaktifkan Fasilitas" : "Aktifkan Fasilitas"}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {facilityToToggle?.is_available
-                ? `Apakah Anda yakin ingin menonaktifkan fasilitas "${facilityToToggle?.name}"? Fasilitas tidak akan tersedia untuk booking baru.`
-                : `Apakah Anda yakin ingin mengaktifkan fasilitas "${facilityToToggle?.name}"? Fasilitas akan tersedia untuk booking baru.`
-              }
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Batal</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => facilityToToggle && handleToggleAvailability(facilityToToggle)}
-              className={facilityToToggle?.is_available ? "bg-orange-600 hover:bg-orange-700" : "bg-green-600 hover:bg-green-700"}
-            >
-              {facilityToToggle?.is_available ? "Nonaktifkan" : "Aktifkan"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Delete Dialog */}
-      <AlertDialog open={!!facilityToDelete} onOpenChange={() => setFacilityToDelete(null)}>
+      {/* Delete Confirmation Alert */}
+      <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Hapus Fasilitas</AlertDialogTitle>
-            <AlertDialogDescription asChild>
+            <AlertDialogDescription>
               <div className="space-y-2">
                 <p className="font-semibold text-red-600">⚠️ PERINGATAN: Aksi ini tidak dapat dibatalkan!</p>
                 <p>
@@ -615,7 +691,6 @@ export default function FacilitiesPage() {
                 </p>
                 <p className="text-sm text-muted-foreground">
                   Fasilitas dan semua data terkaitnya akan dihapus dari database dan tidak dapat dipulihkan.
-                  Pastikan tidak ada time slot yang masih terkait dengan fasilitas ini.
                 </p>
               </div>
             </AlertDialogDescription>
@@ -623,7 +698,7 @@ export default function FacilitiesPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>Batal</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => facilityToDelete && handleDelete(facilityToDelete)}
+              onClick={confirmDeleteFacility}
               className="bg-red-600 hover:bg-red-700"
             >
               Hapus Permanen

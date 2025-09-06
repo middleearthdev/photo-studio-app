@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { PaginationParams, PaginatedResult, calculatePagination } from '@/lib/constants/pagination'
 
-export type UserRole = 'customer' | 'admin' | 'customer_service'
+export type UserRole = 'customer' | 'admin' | 'cs'
 
 export interface UserProfile {
   id: string
@@ -38,7 +38,7 @@ export interface UpdateUserData {
   password?: string
 }
 
-export interface ActionResult<T = any> {
+export interface ActionResult<T = unknown> {
   success: boolean
   data?: T
   error?: string
@@ -94,9 +94,10 @@ export async function getUsersAction(): Promise<ActionResult<UserProfile[]>> {
     }) as UserProfile[]
 
     return { success: true, data: usersWithEmail || [] }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in getUsersAction:', error)
-    return { success: false, error: error.message || 'An error occurred' }
+    const errorMessage = error instanceof Error ? error.message : 'An error occurred'
+    return { success: false, error: errorMessage }
   }
 }
 
@@ -109,7 +110,7 @@ export async function getPaginatedUsers(
   } = {}
 ): Promise<PaginatedResult<UserProfile>> {
   const supabase = await createClient()
-  
+
   const { page = 1, pageSize = 10, search = '', role = 'all', status = 'all', studioId } = params
   const { offset, pageSize: validPageSize } = calculatePagination(page, pageSize, 0)
 
@@ -150,7 +151,7 @@ export async function getPaginatedUsers(
   let usersWithEmail = profiles || []
   try {
     const { data: { users: authUsers }, error: authError } = await supabase.auth.admin.listUsers()
-    
+
     if (!authError && authUsers) {
       usersWithEmail = profiles?.map(profile => {
         const authUser = authUsers.find(user => user.id === profile.id)
@@ -214,11 +215,13 @@ export async function createUserAction(userData: CreateUserData): Promise<Action
     }
 
     // Create user profile
+    // Admin users have studio_id = null (general access)
+    // CS users have studio_id = currentProfile.studio_id (studio-specific access)
     const { error: profileError } = await supabase
       .from('user_profiles')
       .insert({
         id: authData.user.id,
-        studio_id: currentProfile.studio_id,
+        studio_id: userData.role === 'admin' ? null : currentProfile.studio_id,
         role: userData.role,
         full_name: userData.full_name,
         phone: userData.phone,
@@ -234,9 +237,10 @@ export async function createUserAction(userData: CreateUserData): Promise<Action
 
     revalidatePath('/admin/users')
     return { success: true }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in createUserAction:', error)
-    return { success: false, error: error.message || 'Failed to create user' }
+    const errorMessage = error instanceof Error ? error.message : 'Failed to create user'
+    return { success: false, error: errorMessage }
   }
 }
 
@@ -291,9 +295,10 @@ export async function updateUserAction(userId: string, userData: UpdateUserData)
 
     revalidatePath('/admin/users')
     return { success: true }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in updateUserAction:', error)
-    return { success: false, error: error.message || 'Failed to update user' }
+    const errorMessage = error instanceof Error ? error.message : 'Failed to update user'
+    return { success: false, error: errorMessage }
   }
 }
 
@@ -318,6 +323,11 @@ export async function deactivateUserAction(userId: string): Promise<ActionResult
       return { success: false, error: 'Insufficient permissions' }
     }
 
+    // Prevent self-deactivation
+    if (userId === user.id) {
+      return { success: false, error: 'Cannot deactivate your own account' }
+    }
+
     // Deactivate user
     const { error } = await supabase
       .from('user_profiles')
@@ -333,8 +343,131 @@ export async function deactivateUserAction(userId: string): Promise<ActionResult
 
     revalidatePath('/admin/users')
     return { success: true }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in deactivateUserAction:', error)
-    return { success: false, error: error.message || 'Failed to deactivate user' }
+    const errorMessage = error instanceof Error ? error.message : 'Failed to deactivate user'
+    return { success: false, error: errorMessage }
+  }
+}
+
+export async function activateUserAction(userId: string): Promise<ActionResult> {
+  try {
+    const supabase = await createClient()
+
+    // Get current user to check permissions
+    const { data: { user }, error: authError1 } = await supabase.auth.getUser()
+    if (authError1 || !user) {
+      return { success: false, error: 'Unauthorized' }
+    }
+
+    // Get current user profile
+    const { data: currentProfile } = await supabase
+      .from('user_profiles')
+      .select('role, studio_id')
+      .eq('id', user.id)
+      .single()
+
+    if (!currentProfile || currentProfile.role !== 'admin') {
+      return { success: false, error: 'Insufficient permissions' }
+    }
+
+    // Activate user
+    const { error } = await supabase
+      .from('user_profiles')
+      .update({
+        is_active: true,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', userId)
+
+    if (error) {
+      return { success: false, error: error.message }
+    }
+
+    revalidatePath('/admin/users')
+    return { success: true }
+  } catch (error: unknown) {
+    console.error('Error in activateUserAction:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Failed to activate user'
+    return { success: false, error: errorMessage }
+  }
+}
+
+export async function deleteUserPermanentlyAction(userId: string): Promise<ActionResult> {
+  try {
+    const supabase = await createClient()
+
+    // Get current user to check permissions
+    const { data: { user }, error: authError1 } = await supabase.auth.getUser()
+    if (authError1 || !user) {
+      return { success: false, error: 'Unauthorized' }
+    }
+
+    // Get current user profile
+    const { data: currentProfile } = await supabase
+      .from('user_profiles')
+      .select('role, studio_id')
+      .eq('id', user.id)
+      .single()
+
+    if (!currentProfile || currentProfile.role !== 'admin') {
+      return { success: false, error: 'Insufficient permissions' }
+    }
+
+    // Prevent self-deletion
+    if (userId === user.id) {
+      return { success: false, error: 'Cannot delete your own account' }
+    }
+
+    // Get user to be deleted
+    const { data: userToDelete } = await supabase
+      .from('user_profiles')
+      .select('role')
+      .eq('id', userId)
+      .single()
+
+    if (!userToDelete) {
+      return { success: false, error: 'User not found' }
+    }
+
+    // Check if user has related data that would prevent deletion
+    const { data: relatedData } = await supabase
+      .from('reservations')
+      .select('id')
+      .eq('user_id', userId)
+      .limit(1)
+
+    if (relatedData && relatedData.length > 0) {
+      return { 
+        success: false, 
+        error: 'Cannot delete user with existing reservations. Deactivate instead.' 
+      }
+    }
+
+    // Start transaction-like operations
+    // 1. Delete user profile first
+    const { error: profileError } = await supabase
+      .from('user_profiles')
+      .delete()
+      .eq('id', userId)
+
+    if (profileError) {
+      return { success: false, error: profileError.message }
+    }
+
+    // 2. Delete from auth.users (this will cascade delete the profile via trigger)
+    const { error: authError2 } = await supabase.auth.admin.deleteUser(userId)
+
+    if (authError2) {
+      console.error('Warning: Profile deleted but auth user deletion failed:', authError2)
+      // Don't return error here as profile is already deleted
+    }
+
+    revalidatePath('/admin/users')
+    return { success: true }
+  } catch (error: unknown) {
+    console.error('Error in deleteUserPermanentlyAction:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Failed to delete user permanently'
+    return { success: false, error: errorMessage }
   }
 }

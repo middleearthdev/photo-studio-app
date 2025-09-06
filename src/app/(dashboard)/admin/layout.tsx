@@ -77,7 +77,7 @@ const menuItems = [
   {
     title: "Facilities",
     icon: Camera,
-    href: "/admin/studio/facilities",
+    href: "/admin/facilities",
   },
   {
     title: "Time Slots",
