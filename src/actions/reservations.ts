@@ -2,10 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import { PaginationParams, PaginatedResult, calculatePagination } from '@/lib/constants/pagination'
-
-export type ReservationStatus = 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled'
-export type PaymentStatus = 'pending' | 'partial' | 'completed' | 'failed' | 'refunded'
+import { format } from 'date-fns'
 
 export interface Reservation {
   id: string
@@ -15,22 +12,14 @@ export interface Reservation {
   customer_id: string
   user_id: string | null
   package_id: string | null
-  
-  // Guest booking support
   is_guest_booking: boolean
   guest_email: string | null
   guest_phone: string | null
-  
-  // Booking details
   reservation_date: string
   start_time: string
   end_time: string
   total_duration: number
-  
-  // Selected facilities
   selected_facilities: any
-  
-  // Pricing breakdown
   package_price: number
   facility_addon_total: number
   other_addon_total: number
@@ -40,24 +29,21 @@ export interface Reservation {
   total_amount: number
   dp_amount: number
   remaining_amount: number
-  
-  // Status
-  status: ReservationStatus
-  payment_status: PaymentStatus
-  
-  // Additional info
+  status: 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled'
+  payment_status: 'pending' | 'partial' | 'completed' | 'failed' | 'refunded'
   special_requests: string | null
   notes: string | null
   internal_notes: string | null
-  
-  // Timestamps
   confirmed_at: string | null
   completed_at: string | null
   cancelled_at: string | null
   created_at: string
   updated_at: string
-  
   // Relations
+  studio?: {
+    id: string
+    name: string
+  }
   customer?: {
     id: string
     full_name: string
@@ -68,326 +54,395 @@ export interface Reservation {
     id: string
     name: string
     duration_minutes: number
-    price: number
   }
-  studio?: {
+  reservation_addons?: ReservationAddon[]
+}
+
+export interface ReservationAddon {
+  id: string
+  reservation_id: string
+  addon_id: string
+  quantity: number
+  unit_price: number
+  total_price: number
+  created_at: string
+  addon?: {
     id: string
     name: string
+    description: string
   }
+}
+
+export interface Customer {
+  id: string
+  user_id: string | null
+  full_name: string
+  email: string
+  phone: string
+  address: string | null
+  birth_date: string | null
+  notes: string | null
+  is_guest: boolean
+  guest_token: string | null
+  created_at: string
+  updated_at: string
 }
 
 export interface CreateReservationData {
+  // Studio and Package
   studio_id: string
-  customer_id: string
-  user_id?: string
-  package_id?: string
+  package_id: string
+  
+  // Customer data
+  customer_name: string
+  customer_email?: string
+  customer_phone: string
+  customer_notes?: string
+  is_guest_booking?: boolean
+  
+  // Schedule
   reservation_date: string
   start_time: string
-  end_time: string
-  total_duration: number
-  selected_facilities: any
+  duration_minutes: number
+  
+  // Add-ons
+  selected_addons?: {
+    addon_id: string
+    quantity: number
+    unit_price: number
+  }[]
+  
+  // Pricing
   package_price: number
-  facility_addon_total?: number
-  other_addon_total?: number
-  subtotal: number
-  tax_amount?: number
-  discount_amount?: number
-  total_amount: number
-  dp_amount: number
-  remaining_amount: number
+  dp_percentage: number
+  total_addons_price?: number
+  
+  // Additional info
   special_requests?: string
-  notes?: string
-  internal_notes?: string
+  payment_method?: string
 }
 
-export interface UpdateReservationData {
-  reservation_date?: string
-  start_time?: string
-  end_time?: string
-  status?: ReservationStatus
-  payment_status?: PaymentStatus
-  special_requests?: string
-  notes?: string
-  internal_notes?: string
-  confirmed_at?: string
-  completed_at?: string
-  cancelled_at?: string
+export interface ActionResult<T = any> {
+  success: boolean
+  data?: T
+  error?: string
 }
 
-// Get paginated reservations
-export async function getPaginatedReservations(
-  studioId: string,
-  params: PaginationParams & {
-    status?: ReservationStatus | 'all'
-    payment_status?: PaymentStatus | 'all'
-    date_from?: string
-    date_to?: string
-    booking_type?: 'guest' | 'user' | 'all'
-  } = {}
-): Promise<PaginatedResult<Reservation>> {
-  const supabase = await createClient()
-  
-  const { 
-    page = 1, 
-    pageSize = 10, 
-    search = '', 
-    status = 'all',
-    payment_status = 'all',
-    date_from,
-    date_to,
-    booking_type = 'all'
-  } = params
-  
-  const { offset, pageSize: validPageSize } = calculatePagination(page, pageSize, 0)
-
-  // Build the query
-  let query = supabase
-    .from('reservations')
-    .select(`
-      *,
-      customer:customers(id, full_name, email, phone),
-      package:packages(id, name, duration_minutes, price),
-      studio:studios(id, name)
-    `, { count: 'exact' })
-    .eq('studio_id', studioId)
-
-  // Apply filters
-  if (status !== 'all') {
-    query = query.eq('status', status)
-  }
-
-  if (payment_status !== 'all') {
-    query = query.eq('payment_status', payment_status)
-  }
-
-  if (booking_type !== 'all') {
-    query = query.eq('is_guest_booking', booking_type === 'guest')
-  }
-
-  if (date_from && date_to) {
-    query = query.gte('reservation_date', date_from).lte('reservation_date', date_to)
-  } else if (date_from) {
-    query = query.gte('reservation_date', date_from)
-  } else if (date_to) {
-    query = query.lte('reservation_date', date_to)
-  }
-
-  // Apply search
-  if (search.trim()) {
-    query = query.or(`booking_code.ilike.%${search}%,invoice_number.ilike.%${search}%,guest_email.ilike.%${search}%,guest_phone.ilike.%${search}%`)
-  }
-
-  // Apply pagination and ordering
-  const { data, error, count } = await query
-    .order('reservation_date', { ascending: false })
-    .order('start_time', { ascending: false })
-    .range(offset, offset + validPageSize - 1)
-
-  if (error) {
-    console.error('Error fetching paginated reservations:', error)
-    throw new Error(`Failed to fetch reservations: ${error.message}`)
-  }
-
-  const total = count || 0
-  const pagination = calculatePagination(page, validPageSize, total)
-
-  return {
-    data: data || [],
-    pagination
-  }
+// Helper function to generate booking code
+function generateBookingCode(): string {
+  const timestamp = Date.now().toString()
+  const random = Math.random().toString(36).substring(2, 8).toUpperCase()
+  return `BK-${timestamp.slice(-6)}${random}`
 }
 
-// Get reservation by ID
-export async function getReservationById(id: string): Promise<Reservation | null> {
-  const supabase = await createClient()
+// Helper function to calculate end time
+function calculateEndTime(startTime: string, durationMinutes: number): string {
+  const [hours, minutes] = startTime.split(':').map(Number)
+  const startDate = new Date()
+  startDate.setHours(hours, minutes, 0, 0)
   
-  const { data, error } = await supabase
-    .from('reservations')
-    .select(`
-      *,
-      customer:customers(id, full_name, email, phone),
-      package:packages(id, name, duration_minutes, price),
-      studio:studios(id, name)
-    `)
-    .eq('id', id)
-    .single()
-  
-  if (error) {
-    if (error.code === 'PGRST116') {
-      return null
+  const endDate = new Date(startDate.getTime() + durationMinutes * 60000)
+  return format(endDate, 'HH:mm')
+}
+
+// Public action to create a new reservation (for guest booking)
+export async function createReservationAction(data: CreateReservationData): Promise<ActionResult<{ reservation: Reservation; customer: Customer }>> {
+  try {
+    const supabase = await createClient()
+
+    // Generate booking code
+    const bookingCode = generateBookingCode()
+    const endTime = calculateEndTime(data.start_time, data.duration_minutes)
+
+    // Calculate pricing
+    const packagePrice = data.package_price
+    const addonsTotal = data.total_addons_price || 0
+    const subtotal = packagePrice + addonsTotal
+    const taxAmount = 0 // No tax for now
+    const discountAmount = 0 // No discount for now
+    const totalAmount = subtotal + taxAmount - discountAmount
+    const dpAmount = Math.round(totalAmount * data.dp_percentage / 100)
+    const remainingAmount = totalAmount - dpAmount
+
+    // Create customer first
+    const { data: customerData, error: customerError } = await supabase
+      .from('customers')
+      .insert({
+        full_name: data.customer_name,
+        email: data.customer_email || '',
+        phone: data.customer_phone,
+        notes: data.customer_notes || '',
+        is_guest: data.is_guest_booking || true
+      })
+      .select()
+      .single()
+
+    if (customerError) {
+      console.error('Error creating customer:', customerError)
+      return { success: false, error: customerError.message }
     }
-    console.error('Error fetching reservation:', error)
-    throw new Error(`Failed to fetch reservation: ${error.message}`)
+
+    // Create reservation
+    const { data: reservationData, error: reservationError } = await supabase
+      .from('reservations')
+      .insert({
+        booking_code: bookingCode,
+        studio_id: data.studio_id,
+        customer_id: customerData.id,
+        package_id: data.package_id,
+        reservation_date: data.reservation_date,
+        start_time: data.start_time,
+        end_time: endTime,
+        total_duration: data.duration_minutes,
+        package_price: packagePrice,
+        other_addon_total: addonsTotal,
+        subtotal: subtotal,
+        tax_amount: taxAmount,
+        discount_amount: discountAmount,
+        total_amount: totalAmount,
+        dp_amount: dpAmount,
+        remaining_amount: remainingAmount,
+        special_requests: data.special_requests || '',
+        guest_email: data.customer_email || '',
+        guest_phone: data.customer_phone,
+        is_guest_booking: data.is_guest_booking || true
+      })
+      .select()
+      .single()
+
+    if (reservationError) {
+      console.error('Error creating reservation:', reservationError)
+      return { success: false, error: reservationError.message }
+    }
+
+    // Add reservation add-ons if any
+    if (data.selected_addons && data.selected_addons.length > 0) {
+      const addonInserts = data.selected_addons.map(addon => ({
+        reservation_id: reservationData.id,
+        addon_id: addon.addon_id,
+        quantity: addon.quantity,
+        unit_price: addon.unit_price,
+        total_price: addon.unit_price * addon.quantity
+      }))
+
+      const { error: addonsError } = await supabase
+        .from('reservation_addons')
+        .insert(addonInserts)
+
+      if (addonsError) {
+        console.error('Error adding reservation add-ons:', addonsError)
+        // Don't fail the entire operation for add-ons error
+      }
+    }
+
+    // Fetch the created reservation with all relations
+    const { data: createdReservation, error: fetchError } = await supabase
+      .from('reservations')
+      .select(`
+        *,
+        studio:studios(id, name),
+        customer:customers(id, full_name, email, phone),
+        package:packages(id, name, duration_minutes),
+        reservation_addons(
+          *,
+          addon:addons(id, name, description)
+        )
+      `)
+      .eq('id', reservationData.id)
+      .single()
+
+    if (fetchError) {
+      console.error('Error fetching created reservation:', fetchError)
+      return { success: false, error: 'Reservation created but failed to fetch details' }
+    }
+
+    revalidatePath('/admin/reservations')
+    revalidatePath('/booking')
+
+    return {
+      success: true,
+      data: {
+        reservation: createdReservation,
+        customer: customerData
+      }
+    }
+  } catch (error: any) {
+    console.error('Error in createReservationAction:', error)
+    return { success: false, error: error.message || 'Failed to create reservation' }
   }
-  
-  return data
 }
 
-// Create new reservation
-export async function createReservation(data: CreateReservationData): Promise<Reservation> {
-  const supabase = await createClient()
-  
-  const reservationData = {
-    studio_id: data.studio_id,
-    customer_id: data.customer_id,
-    user_id: data.user_id || null,
-    package_id: data.package_id || null,
-    reservation_date: data.reservation_date,
-    start_time: data.start_time,
-    end_time: data.end_time,
-    total_duration: data.total_duration,
-    selected_facilities: data.selected_facilities,
-    package_price: data.package_price,
-    facility_addon_total: data.facility_addon_total || 0,
-    other_addon_total: data.other_addon_total || 0,
-    subtotal: data.subtotal,
-    tax_amount: data.tax_amount || 0,
-    discount_amount: data.discount_amount || 0,
-    total_amount: data.total_amount,
-    dp_amount: data.dp_amount,
-    remaining_amount: data.remaining_amount,
-    special_requests: data.special_requests || null,
-    notes: data.notes || null,
-    internal_notes: data.internal_notes || null,
+// Public action to get reservation by booking code (for guest access)
+export async function getReservationByBookingCodeAction(bookingCode: string): Promise<ActionResult<Reservation>> {
+  try {
+    const supabase = await createClient()
+
+    const { data: reservation, error } = await supabase
+      .from('reservations')
+      .select(`
+        *,
+        studio:studios(id, name),
+        customer:customers(id, full_name, email, phone),
+        package:packages(id, name, duration_minutes),
+        reservation_addons(
+          *,
+          addon:addons(id, name, description)
+        )
+      `)
+      .eq('booking_code', bookingCode)
+      .single()
+
+    if (error) {
+      console.error('Error fetching reservation:', error)
+      return { success: false, error: 'Reservation not found' }
+    }
+
+    return { success: true, data: reservation }
+  } catch (error: any) {
+    console.error('Error in getReservationByBookingCodeAction:', error)
+    return { success: false, error: error.message || 'An error occurred' }
   }
-  
-  const { data: reservation, error } = await supabase
-    .from('reservations')
-    .insert(reservationData)
-    .select(`
-      *,
-      customer:customers(id, full_name, email, phone),
-      package:packages(id, name, duration_minutes, price),
-      studio:studios(id, name)
-    `)
-    .single()
-  
-  if (error) {
-    console.error('Error creating reservation:', error)
-    throw new Error(`Failed to create reservation: ${error.message}`)
-  }
-  
-  revalidatePath('/admin/reservations')
-  return reservation
 }
 
-// Update reservation
-export async function updateReservation(id: string, data: UpdateReservationData): Promise<Reservation> {
-  const supabase = await createClient()
-  
-  const updateData = {
-    ...data,
-    updated_at: new Date().toISOString(),
+// Admin/Staff action to get all reservations
+export async function getReservationsAction(
+  studioId?: string,
+  status?: string,
+  date?: string
+): Promise<ActionResult<Reservation[]>> {
+  try {
+    const supabase = await createClient()
+
+    // Get current user to check permissions
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return { success: false, error: 'Unauthorized' }
+    }
+
+    // Get current user profile
+    const { data: currentProfile } = await supabase
+      .from('user_profiles')
+      .select('role, studio_id')
+      .eq('id', user.id)
+      .single()
+
+    if (!currentProfile || !['admin', 'cs'].includes(currentProfile.role)) {
+      return { success: false, error: 'Insufficient permissions' }
+    }
+
+    // Build query
+    let query = supabase
+      .from('reservations')
+      .select(`
+        *,
+        studio:studios(id, name),
+        customer:customers(id, full_name, email, phone),
+        package:packages(id, name, duration_minutes),
+        reservation_addons(
+          *,
+          addon:addons(id, name, description)
+        )
+      `)
+      .order('created_at', { ascending: false })
+
+    // Filter by studio - admin can see all, cs only their studio
+    if (currentProfile.role === 'cs') {
+      query = query.eq('studio_id', currentProfile.studio_id)
+    } else if (studioId) {
+      query = query.eq('studio_id', studioId)
+    }
+
+    // Filter by status if specified
+    if (status) {
+      query = query.eq('status', status)
+    }
+
+    // Filter by date if specified
+    if (date) {
+      query = query.eq('reservation_date', date)
+    }
+
+    const { data: reservations, error } = await query
+
+    if (error) {
+      console.error('Error fetching reservations:', error)
+      return { success: false, error: 'Failed to fetch reservations' }
+    }
+
+    return { success: true, data: reservations || [] }
+  } catch (error: any) {
+    console.error('Error in getReservationsAction:', error)
+    return { success: false, error: error.message || 'An error occurred' }
   }
-  
-  const { data: reservation, error } = await supabase
-    .from('reservations')
-    .update(updateData)
-    .eq('id', id)
-    .select(`
-      *,
-      customer:customers(id, full_name, email, phone),
-      package:packages(id, name, duration_minutes, price),
-      studio:studios(id, name)
-    `)
-    .single()
-  
-  if (error) {
-    console.error('Error updating reservation:', error)
-    throw new Error(`Failed to update reservation: ${error.message}`)
-  }
-  
-  revalidatePath('/admin/reservations')
-  return reservation
 }
 
-// Update reservation status
-export async function updateReservationStatus(id: string, status: ReservationStatus): Promise<Reservation> {
-  const supabase = await createClient()
-  
-  const updateData: any = {
-    status,
-    updated_at: new Date().toISOString(),
-  }
-  
-  // Set appropriate timestamps based on status
-  if (status === 'confirmed') {
-    updateData.confirmed_at = new Date().toISOString()
-  } else if (status === 'completed') {
-    updateData.completed_at = new Date().toISOString()
-  } else if (status === 'cancelled') {
-    updateData.cancelled_at = new Date().toISOString()
-  }
-  
-  const { data: reservation, error } = await supabase
-    .from('reservations')
-    .update(updateData)
-    .eq('id', id)
-    .select(`
-      *,
-      customer:customers(id, full_name, email, phone),
-      package:packages(id, name, duration_minutes, price),
-      studio:studios(id, name)
-    `)
-    .single()
-  
-  if (error) {
-    console.error('Error updating reservation status:', error)
-    throw new Error(`Failed to update reservation status: ${error.message}`)
-  }
-  
-  revalidatePath('/admin/reservations')
-  return reservation
-}
+// Admin/Staff action to update reservation status
+export async function updateReservationStatusAction(
+  reservationId: string,
+  status: 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled',
+  notes?: string
+): Promise<ActionResult> {
+  try {
+    const supabase = await createClient()
 
-// Delete reservation
-export async function deleteReservation(id: string): Promise<void> {
-  const supabase = await createClient()
-  
-  const { error } = await supabase
-    .from('reservations')
-    .delete()
-    .eq('id', id)
-  
-  if (error) {
-    console.error('Error deleting reservation:', error)
-    throw new Error(`Failed to delete reservation: ${error.message}`)
-  }
-  
-  revalidatePath('/admin/reservations')
-}
+    // Get current user to check permissions
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return { success: false, error: 'Unauthorized' }
+    }
 
-// Get reservation statistics
-export async function getReservationStats(studioId: string) {
-  const supabase = await createClient()
-  
-  const { data, error } = await supabase
-    .from('reservations')
-    .select('status, payment_status, total_amount, created_at')
-    .eq('studio_id', studioId)
-  
-  if (error) {
-    console.error('Error fetching reservation stats:', error)
-    throw new Error(`Failed to fetch reservation stats: ${error.message}`)
+    // Get current user profile
+    const { data: currentProfile } = await supabase
+      .from('user_profiles')
+      .select('role, studio_id')
+      .eq('id', user.id)
+      .single()
+
+    if (!currentProfile || !['admin', 'cs'].includes(currentProfile.role)) {
+      return { success: false, error: 'Insufficient permissions' }
+    }
+
+    // Prepare update data
+    const updateData: any = {
+      status,
+      updated_at: new Date().toISOString()
+    }
+
+    if (notes) {
+      updateData.internal_notes = notes
+    }
+
+    // Set timestamp for status changes
+    if (status === 'confirmed') {
+      updateData.confirmed_at = new Date().toISOString()
+    } else if (status === 'completed') {
+      updateData.completed_at = new Date().toISOString()
+    } else if (status === 'cancelled') {
+      updateData.cancelled_at = new Date().toISOString()
+    }
+
+    // Build update query with studio check for CS users
+    let query = supabase
+      .from('reservations')
+      .update(updateData)
+      .eq('id', reservationId)
+
+    // CS users can only update their studio's reservations
+    if (currentProfile.role === 'cs') {
+      query = query.eq('studio_id', currentProfile.studio_id)
+    }
+
+    const { error } = await query
+
+    if (error) {
+      console.error('Error updating reservation status:', error)
+      return { success: false, error: error.message }
+    }
+
+    revalidatePath('/admin/reservations')
+    return { success: true }
+  } catch (error: any) {
+    console.error('Error in updateReservationStatusAction:', error)
+    return { success: false, error: error.message || 'Failed to update reservation status' }
   }
-  
-  const today = new Date()
-  const thisMonth = new Date(today.getFullYear(), today.getMonth(), 1)
-  
-  const stats = {
-    total: data.length,
-    pending: data.filter(r => r.status === 'pending').length,
-    confirmed: data.filter(r => r.status === 'confirmed').length,
-    completed: data.filter(r => r.status === 'completed').length,
-    cancelled: data.filter(r => r.status === 'cancelled').length,
-    thisMonth: data.filter(r => new Date(r.created_at) >= thisMonth).length,
-    totalRevenue: data
-      .filter(r => r.status === 'completed')
-      .reduce((sum, r) => sum + r.total_amount, 0),
-    pendingPayments: data
-      .filter(r => r.payment_status === 'pending')
-      .reduce((sum, r) => sum + r.total_amount, 0),
-  }
-  
-  return stats
 }
