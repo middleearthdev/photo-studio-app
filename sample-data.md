@@ -360,20 +360,20 @@ INSERT INTO time_slots (studio_id, facility_id, slot_date, start_time, end_time,
 
 ```sql
 -- Payment Methods for Studio
-INSERT INTO payment_methods (id, studio_id, name, type, provider, account_details, xendit_config, fee_percentage, is_active) VALUES
-('b1c2d3e4-f5g6-7890-bcde-fg1234567890', '72c463bb-74f5-4e84-bd7c-4f7b5f512322', 'Transfer Bank BCA', 'bank_transfer', 'manual', '{"bank_name": "BCA", "account_number": "1234567890", "account_holder": "Kalarasa Studio"}', '{}', 0, true),
+INSERT INTO payment_methods (id, studio_id, name, type, provider, account_details, xendit_config, fee_type, fee_percentage, fee_amount, is_active) VALUES
+('b1c2d3e4-f5g6-7890-bcde-fg1234567890', '72c463bb-74f5-4e84-bd7c-4f7b5f512322', 'Transfer Bank BCA', 'bank_transfer', 'manual', '{"bank_name": "BCA", "account_number": "1234567890", "account_holder": "Kalarasa Studio"}', '{}', 'percentage', 0, 0, true),
 
-('b1c2d3e4-f5g6-7890-bcde-fg1234567891', '72c463bb-74f5-4e84-bd7c-4f7b5f512322', 'Transfer Bank Mandiri', 'bank_transfer', 'manual', '{"bank_name": "Bank Mandiri", "account_number": "9876543210", "account_holder": "Kalarasa Studio"}', '{}', 0, true),
+('b1c2d3e4-f5g6-7890-bcde-fg1234567891', '72c463bb-74f5-4e84-bd7c-4f7b5f512322', 'Transfer Bank Mandiri', 'bank_transfer', 'manual', '{"bank_name": "Bank Mandiri", "account_number": "9876543210", "account_holder": "Kalarasa Studio"}', '{}', 'percentage', 0, 0, true),
 
-('b1c2d3e4-f5g6-7890-bcde-fg1234567892', '72c463bb-74f5-4e84-bd7c-4f7b5f512322', 'Virtual Account BNI', 'va', 'xendit', '{}', '{"va_prefix": "88810", "is_open_payment": true, "external_id_prefix": "SFC"}', 4000, true),
+('b1c2d3e4-f5g6-7890-bcde-fg1234567892', '72c463bb-74f5-4e84-bd7c-4f7b5f512322', 'Virtual Account BNI', 'va', 'xendit', '{}', '{"va_prefix": "88810", "is_open_payment": true, "external_id_prefix": "SFC"}', 'fixed', 0, 4000, true),
 
-('b1c2d3e4-f5g6-7890-bcde-fg1234567893', '72c463bb-74f5-4e84-bd7c-4f7b5f512322', 'GoPay', 'e_wallet', 'xendit', '{}', '{"callback_url": "/api/payments/xendit/callback", "redirect_url": "/booking/payment-success"}', 2.0, true),
+('b1c2d3e4-f5g6-7890-bcde-fg1234567893', '72c463bb-74f5-4e84-bd7c-4f7b5f512322', 'GoPay', 'e_wallet', 'xendit', '{}', '{"callback_url": "/api/payments/xendit/callback", "redirect_url": "/booking/payment-success"}', 'percentage', 2.0, 0, true),
 
-('b1c2d3e4-f5g6-7890-bcde-fg1234567894', '72c463bb-74f5-4e84-bd7c-4f7b5f512322', 'OVO', 'e_wallet', 'xendit', '{}', '{"callback_url": "/api/payments/xendit/callback", "redirect_url": "/booking/payment-success"}', 2.0, true),
+('b1c2d3e4-f5g6-7890-bcde-fg1234567894', '72c463bb-74f5-4e84-bd7c-4f7b5f512322', 'OVO', 'e_wallet', 'xendit', '{}', '{"callback_url": "/api/payments/xendit/callback", "redirect_url": "/booking/payment-success"}', 'percentage', 2.0, 0, true),
 
-('b1c2d3e4-f5g6-7890-bcde-fg1234567895', '72c463bb-74f5-4e84-bd7c-4f7b5f512322', 'QRIS', 'qris', 'xendit', '{}', '{"qr_code_type": "DYNAMIC", "callback_url": "/api/payments/xendit/callback"}', 0.7, true),
+('b1c2d3e4-f5g6-7890-bcde-fg1234567895', '72c463bb-74f5-4e84-bd7c-4f7b5f512322', 'QRIS', 'qris', 'xendit', '{}', '{"qr_code_type": "DYNAMIC", "callback_url": "/api/payments/xendit/callback"}', 'percentage', 0.7, 0, true),
 
-('b1c2d3e4-f5g6-7890-bcde-fg1234567896', '72c463bb-74f5-4e84-bd7c-4f7b5f512322', 'Cash Payment', 'cash', 'manual', '{"note": "Pembayaran cash di studio saat sesi foto"}', '{}', 0, true);
+('b1c2d3e4-f5g6-7890-bcde-fg1234567896', '72c463bb-74f5-4e84-bd7c-4f7b5f512322', 'Cash Payment', 'cash', 'manual', '{"note": "Pembayaran cash di studio saat sesi foto"}', '{}', 'percentage', 0, 0, true);
 ```
 
 ## 11. Sample User Profiles (Admin & Staff)

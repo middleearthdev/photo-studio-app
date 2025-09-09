@@ -34,154 +34,68 @@ export interface ActionResult<T = any> {
   error?: string
 }
 
-// Helper function to generate time slots based on studio operating hours
-export async function generateTimeSlotsForDate(
+// Helper function to check if specific facilities are available at a given time
+export async function checkFacilityAvailability(
+  supabase: any,
   studioId: string,
   date: string,
-  packageDurationMinutes: number = 90
-): Promise<ActionResult<AvailableSlot[]>> {
+  startTime: Date,
+  endTime: Date,
+  packageId: string
+): Promise<boolean> {
   try {
-    const supabase = await createClient()
-    console.log('studioId', studioId)
-    console.log('date', date)
-    console.log('packageDurationMinutes', packageDurationMinutes)
-    // Get studio operating hours from studio settings
-    const { data: studioData, error: studioError } = await supabase
-      .from('studios')
-      .select('operating_hours, settings')
-      .eq('id', studioId)
-      .single()
+    // Get facilities required by the package
+    const { data: packageFacilities, error: facilityError } = await supabase
+      .from('package_facilities')
+      .select('facility_id')
+      .eq('package_id', packageId)
 
-    if (studioError || !studioData) {
-      return { success: false, error: 'Studio not found' }
+    if (facilityError) {
+      console.error('Error fetching package facilities:', facilityError)
+      return false
     }
 
-    // Get day of week (0 = Sunday, 6 = Saturday)
-    const targetDate = new Date(date)
-    const dayOfWeek = targetDate.getDay()
-
-    // Default operating hours if not set
-    const defaultHours = {
-      monday: { open: '09:00', close: '18:00', isOpen: true },
-      tuesday: { open: '09:00', close: '18:00', isOpen: true },
-      wednesday: { open: '09:00', close: '18:00', isOpen: true },
-      thursday: { open: '09:00', close: '18:00', isOpen: true },
-      friday: { open: '09:00', close: '18:00', isOpen: true },
-      saturday: { open: '09:00', close: '17:00', isOpen: true },
-      sunday: { open: '10:00', close: '16:00', isOpen: false }
+    // If package doesn't require any facilities, it's always available
+    if (!packageFacilities || packageFacilities.length === 0) {
+      return true
     }
 
-    const operatingHours = studioData.operating_hours || defaultHours
-    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
-    const dayName = dayNames[dayOfWeek]
-    const dayHours = operatingHours[dayName]
-
-    console.log('dayHours', dayHours)
-    console.log('dayHours', dayHours)
-
-    // Check if studio is open on this day
-    if (!dayHours || !dayHours.isOpen) {
-      return { success: true, data: [] }
-    }
-
-    // Get existing reservations for this date and studio
-    const { data: existingReservations, error: reservationError } = await supabase
+    // Get existing reservations that overlap with the requested time slot
+    const { data: conflictingReservations, error: reservationError } = await supabase
       .from('reservations')
-      .select('start_time, end_time, total_duration')
+      .select(`
+        id,
+        selected_facilities
+      `)
       .eq('studio_id', studioId)
       .eq('reservation_date', date)
       .in('status', ['confirmed', 'in_progress'])
+      .gte('end_time', startTime.toTimeString().substring(0, 5))
+      .lte('start_time', endTime.toTimeString().substring(0, 5))
 
     if (reservationError) {
-      console.error('Error fetching reservations:', reservationError)
+      console.error('Error fetching conflicting reservations:', reservationError)
+      return false
     }
 
-    // Get blocked time slots
-    const { data: blockedSlots, error: blockedError } = await supabase
-      .from('time_slots')
-      .select('start_time, end_time')
-      .eq('studio_id', studioId)
-      .eq('slot_date', date)
-      .eq('is_blocked', true)
-
-    if (blockedError) {
-      console.error('Error fetching blocked slots:', blockedError)
+    // Check if any required facilities are already booked
+    const requiredFacilityIds = packageFacilities.map(pf => pf.facility_id)
+    
+    for (const reservation of conflictingReservations || []) {
+      if (reservation.selected_facilities) {
+        // Check if any of the required facilities are already booked
+        for (const facility of reservation.selected_facilities) {
+          if (requiredFacilityIds.includes(facility.id)) {
+            return false // Facility is already booked
+          }
+        }
+      }
     }
 
-    // Generate available time slots
-    const slots: AvailableSlot[] = []
-    const startTime = dayHours.open
-    const endTime = dayHours.close
-    const slotInterval = 30 // 30 minutes between slots
-
-    // Parse start and end times
-    const [startHour, startMinute] = startTime.split(':').map(Number)
-    const [endHour, endMinute] = endTime.split(':').map(Number)
-
-    const startDateTime = new Date(targetDate)
-    startDateTime.setHours(startHour, startMinute, 0, 0)
-
-    const endDateTime = new Date(targetDate)
-    endDateTime.setHours(endHour, endMinute, 0, 0)
-
-    let currentTime = new Date(startDateTime)
-    let slotId = 1
-
-    while (currentTime < endDateTime) {
-      const slotEndTime = new Date(currentTime.getTime() + packageDurationMinutes * 60000)
-
-      // Check if slot end time exceeds operating hours
-      if (slotEndTime > endDateTime) break
-
-      const timeString = format(currentTime, 'HH:mm')
-      const slotEndTimeString = format(slotEndTime, 'HH:mm')
-
-      // Check if this slot conflicts with existing reservations
-      const isConflictingWithReservation = existingReservations?.some(reservation => {
-        const reservationStart = new Date(`${date} ${reservation.start_time}`)
-        const reservationEnd = new Date(`${date} ${reservation.end_time}`)
-
-        return (
-          (currentTime >= reservationStart && currentTime < reservationEnd) ||
-          (slotEndTime > reservationStart && slotEndTime <= reservationEnd) ||
-          (currentTime <= reservationStart && slotEndTime >= reservationEnd)
-        )
-      })
-
-      // Check if this slot is blocked
-      const isBlocked = blockedSlots?.some(blocked => {
-        const blockedStart = new Date(`${date} ${blocked.start_time}`)
-        const blockedEnd = new Date(`${date} ${blocked.end_time}`)
-
-        return (
-          (currentTime >= blockedStart && currentTime < blockedEnd) ||
-          (slotEndTime > blockedStart && slotEndTime <= blockedEnd) ||
-          (currentTime <= blockedStart && slotEndTime >= blockedEnd)
-        )
-      })
-
-      // Check if slot is in the past
-      const now = new Date()
-      const isPast = isBefore(currentTime, now)
-
-      const isAvailable = !isConflictingWithReservation && !isBlocked && !isPast
-
-      slots.push({
-        id: slotId.toString(),
-        time: timeString,
-        available: isAvailable
-      })
-
-      // Move to next slot
-      currentTime.setTime(currentTime.getTime() + slotInterval * 60000)
-      slotId++
-    }
-    console.log('slots', slots)
-
-    return { success: true, data: slots }
-  } catch (error: any) {
-    console.error('Error in generateTimeSlotsForDate:', error)
-    return { success: false, error: error.message || 'An error occurred' }
+    return true // All required facilities are available
+  } catch (error) {
+    console.error('Error in checkFacilityAvailability:', error)
+    return false
   }
 }
 
@@ -189,7 +103,8 @@ export async function generateTimeSlotsForDate(
 export async function getAvailableTimeSlotsAction(
   studioId: string,
   date: string,
-  packageDurationMinutes: number = 90
+  packageDurationMinutes: number = 90,
+  packageId?: string
 ): Promise<ActionResult<AvailableSlot[]>> {
   try {
     // Validate date is not in the past
@@ -203,7 +118,7 @@ export async function getAvailableTimeSlotsAction(
 
 
 
-    return await generateTimeSlotsForDate(studioId, date, packageDurationMinutes)
+    return await generateTimeSlotsForDate(studioId, date, packageDurationMinutes, packageId)
   } catch (error: any) {
     console.error('Error in getAvailableTimeSlotsAction:', error)
     return { success: false, error: error.message || 'An error occurred' }

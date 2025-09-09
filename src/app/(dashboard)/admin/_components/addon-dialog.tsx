@@ -106,7 +106,7 @@ export function AddonDialog({
           name: addonData.name,
           description: addonData.description || "",
           price: addonData.price,
-          type: addonData.type,
+          type: (addonData.type as FormData['type']) || "photography",
           max_quantity: addonData.max_quantity,
           facility_id: addonData.facility_id || "general",
           is_conditional: addonData.is_conditional,

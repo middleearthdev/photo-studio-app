@@ -158,56 +158,19 @@ export async function getPublicPackageCategoriesAction(studioId?: string): Promi
   }
 }
 
-// Action to get available time slots for a specific date
+// Public action to get available time slots for a package on a specific date
 export async function getAvailableTimeSlotsAction(packageId: string, date: string): Promise<ActionResult<{id: string, time: string, available: boolean}[]>> {
   try {
-    const supabase = await createClient()
-
-    // Get package to determine studio
-    const { data: packageData, error: packageError } = await supabase
-      .from('packages')
-      .select('studio_id, duration_minutes')
-      .eq('id', packageId)
-      .single()
-
-    if (packageError || !packageData) {
-      return { success: false, error: 'Package not found' }
+    // Get package details to get studioId and duration
+    const packageResult = await getPublicPackageAction(packageId)
+    if (!packageResult.success) {
+      return { success: false, error: packageResult.error || 'Failed to fetch package' }
     }
-
-    // Get studio operating hours and time slots
-    const { data: studioData, error: studioError } = await supabase
-      .from('studios')
-      .select('operating_hours, time_slot_interval')
-      .eq('id', packageData.studio_id)
-      .single()
-
-    if (studioError || !studioData) {
-      return { success: false, error: 'Studio not found' }
-    }
-
-    // Get existing reservations for the date
-    const { data: reservations, error: reservationsError } = await supabase
-      .from('reservations')
-      .select('scheduled_at, duration_minutes')
-      .eq('studio_id', packageData.studio_id)
-      .gte('scheduled_at', `${date} 00:00:00`)
-      .lt('scheduled_at', `${date} 24:00:00`)
-      .eq('status', 'confirmed')
-
-    if (reservationsError) {
-      console.error('Error fetching reservations:', reservationsError)
-    }
-
-    // Generate time slots based on studio configuration
-    const timeSlots = generateTimeSlots(
-      studioData.operating_hours || { start: '09:00', end: '18:00' },
-      studioData.time_slot_interval || 90,
-      packageData.duration_minutes,
-      reservations || [],
-      date
-    )
-
-    return { success: true, data: timeSlots }
+    
+    const studioId = packageResult.data.studio_id
+    const duration = packageResult.data.duration_minutes
+    
+    return await getAvailableTimeSlots(studioId, date, duration, packageId)
   } catch (error: any) {
     console.error('Error in getAvailableTimeSlotsAction:', error)
     return { success: false, error: error.message || 'An error occurred' }

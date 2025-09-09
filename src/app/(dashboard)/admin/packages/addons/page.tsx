@@ -1,11 +1,11 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { 
-  Plus, 
-  Search, 
-  MoreHorizontal, 
-  Edit, 
+import { useEffect, useState } from "react"
+import {
+  Plus,
+  Search,
+  MoreHorizontal,
+  Edit,
   Trash,
   Eye,
   EyeOff,
@@ -15,7 +15,6 @@ import {
   AlertCircle,
   Tag,
   Building2,
-  DollarSign,
   Hash,
   Settings,
   Camera,
@@ -24,7 +23,9 @@ import {
   Package,
   Sparkles,
   Video,
-  Wrench
+  Wrench,
+  PackageIcon,
+  Puzzle
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -72,6 +73,8 @@ import {
 import { AddonDialog } from "@/app/(dashboard)/admin/_components/addon-dialog"
 import { PaginationControls } from "@/components/pagination-controls"
 import { DEFAULT_PAGE_SIZE } from "@/lib/constants/pagination"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { PackageAddonsManagement } from "@/app/(dashboard)/admin/_components/package-addons-management"
 
 const addonTypeIcons = {
   photography: Camera,
@@ -102,6 +105,7 @@ const addonTypeColors = {
 }
 
 export default function AddonsPage() {
+  const [activeTab, setActiveTab] = useState("addons")
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedAddon, setSelectedAddon] = useState<Addon | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -116,13 +120,13 @@ export default function AddonsPage() {
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
 
   const { data: studios = [], isLoading: studiosLoading } = useStudios()
-  
+
   // Use paginated hook instead of regular hook
-  const { 
-    data: paginatedResult, 
-    isLoading: loading, 
-    error, 
-    refetch 
+  const {
+    data: paginatedResult,
+    isLoading: loading,
+    error,
+    refetch
   } = usePaginatedAddons(selectedStudioId, {
     page: currentPage,
     pageSize,
@@ -132,8 +136,8 @@ export default function AddonsPage() {
     facilityId: facilityFilter === 'all' ? undefined : facilityFilter,
   })
 
-  const addons = paginatedResult?.data || []
-  const pagination = paginatedResult?.pagination
+  const addons = paginatedResult?.success ? paginatedResult.data?.data || [] : []
+  const pagination = paginatedResult?.success ? paginatedResult.data?.pagination : undefined
   const { data: facilities = [] } = useFacilities(selectedStudioId)
   const deleteAddonMutation = useDeleteAddon()
   const toggleStatusMutation = useToggleAddonStatus()
@@ -146,9 +150,9 @@ export default function AddonsPage() {
   }, [studios, selectedStudioId])
 
   // Reset pagination when filters change
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [searchTerm, statusFilter, typeFilter, facilityFilter, selectedStudioId])
+  // useEffect(() => {
+  //   setCurrentPage(1)
+  // }, [searchTerm, statusFilter, typeFilter, facilityFilter, selectedStudioId])
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page)
@@ -221,7 +225,7 @@ export default function AddonsPage() {
         <div>
           <h1 className="text-2xl font-bold">Add-ons Management</h1>
           <p className="text-muted-foreground">
-            Kelola add-on dan layanan tambahan untuk paket foto
+            Kelola add-on dan hubungan dengan paket foto
           </p>
         </div>
         <Button onClick={handleAdd} disabled={!selectedStudioId}>
@@ -230,417 +234,436 @@ export default function AddonsPage() {
         </Button>
       </div>
 
-      <div className="space-y-4">
-        {/* Studio Selection & Stats */}
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-              <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Pilih Studio</label>
-                  <Select value={selectedStudioId} onValueChange={setSelectedStudioId} disabled={studiosLoading}>
-                    <SelectTrigger className="w-[250px]">
-                      <SelectValue placeholder="Pilih studio..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {studios.map((studio) => (
-                        <SelectItem key={studio.id} value={studio.id}>
-                          {studio.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="addons" className="flex items-center gap-2">
+            <Puzzle className="h-4 w-4" />
+            Daftar Add-ons
+          </TabsTrigger>
+          <TabsTrigger value="package-addons" className="flex items-center gap-2">
+            <PackageIcon className="h-4 w-4" />
+            Package Add-ons
+          </TabsTrigger>
+        </TabsList>
 
-                {selectedStudioId && (
-                  <div className="flex gap-4 pt-6 md:pt-0">
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-blue-600">
-                        {pagination?.total || addons.length}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {pagination ? 'Total Add-ons' : `Page ${currentPage} Results`}
-                      </div>
+        <TabsContent value="addons" className="space-y-4">
+          <div className="space-y-4">
+            {/* Studio Selection & Stats */}
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+                  <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Pilih Studio</label>
+                      <Select value={selectedStudioId} onValueChange={setSelectedStudioId} disabled={studiosLoading}>
+                        <SelectTrigger className="w-[250px]">
+                          <SelectValue placeholder="Pilih studio..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {studios.map((studio) => (
+                            <SelectItem key={studio.id} value={studio.id}>
+                              {studio.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-green-600">
-                        {addons.filter(a => a.is_active).length}
-                      </div>
-                      <div className="text-sm text-muted-foreground">Aktif</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-purple-600">
-                        {addons.filter(a => a.facility_id).length}
-                      </div>
-                      <div className="text-sm text-muted-foreground">Facility Specific</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-amber-600">
-                        {new Set(addons.map(a => a.type)).size}
-                      </div>
-                      <div className="text-sm text-muted-foreground">Tipe</div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
-        {/* Filters and Controls */}
-        {selectedStudioId && (
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-                <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
-                  <div className="relative flex-1 min-w-[250px]">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                    <Input
-                      placeholder="Cari add-on..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-
-                  <Select value={statusFilter} onValueChange={(value: any) => setStatusFilter(value)}>
-                    <SelectTrigger className="w-[150px]">
-                      <Filter className="h-4 w-4 mr-2" />
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Semua Status</SelectItem>
-                      <SelectItem value="active">Aktif</SelectItem>
-                      <SelectItem value="inactive">Nonaktif</SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  <Select value={typeFilter} onValueChange={setTypeFilter}>
-                    <SelectTrigger className="w-[180px]">
-                      <Tag className="h-4 w-4 mr-2" />
-                      <SelectValue placeholder="Semua Tipe" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Semua Tipe</SelectItem>
-                      {ADDON_TYPES.map((type) => (
-                        <SelectItem key={type.value} value={type.value}>
-                          {type.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  <Select value={facilityFilter} onValueChange={setFacilityFilter}>
-                    <SelectTrigger className="w-[180px]">
-                      <Building2 className="h-4 w-4 mr-2" />
-                      <SelectValue placeholder="Semua Fasilitas" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Semua Fasilitas</SelectItem>
-                      <SelectItem value="general">General/Umum</SelectItem>
-                      {facilities.map((facility) => (
-                        <SelectItem key={facility.id} value={facility.id}>
-                          {facility.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant={viewMode === 'grid' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setViewMode('grid')}
-                  >
-                    <Grid3X3 className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant={viewMode === 'list' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setViewMode('list')}
-                  >
-                    <List className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Add-ons Display */}
-        {!selectedStudioId ? (
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-center text-muted-foreground">
-                <AlertCircle className="h-8 w-8 mx-auto mb-2" />
-                Silakan pilih studio terlebih dahulu untuk melihat add-ons
-              </div>
-            </CardContent>
-          </Card>
-        ) : loading ? (
-          <div className="space-y-2">
-            {[...Array(3)].map((_, i) => (
-              <Skeleton key={i} className="h-40 w-full" />
-            ))}
-          </div>
-        ) : viewMode === 'grid' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {addons.length === 0 ? (
-              <div className="col-span-full">
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="text-center text-muted-foreground">
-                      {searchTerm ? "Tidak ada add-on yang cocok dengan pencarian" : "Belum ada add-on yang terdaftar"}
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            ) : (
-              addons.map((addon) => {
-                const typeInfo = getAddonTypeInfo(addon.type)
-                const TypeIcon = addonTypeIcons[addon.type]
-                const typeColorClass = addonTypeColors[addon.type]
-                
-                return (
-                  <Card key={addon.id} className="group hover:shadow-md transition-shadow">
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between">
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <div className={`p-2 rounded-lg ${typeColorClass}`}>
-                              <TypeIcon className="h-5 w-5" />
-                            </div>
-                            <div>
-                              <CardTitle className="text-lg">{addon.name}</CardTitle>
-                              <div className="flex items-center gap-2 mt-1">
-                                <Badge variant={addon.is_active ? "default" : "secondary"}>
-                                  {addon.is_active ? "Aktif" : "Nonaktif"}
-                                </Badge>
-                                <Badge variant="outline" className={typeColorClass}>
-                                  {typeInfo.label}
-                                </Badge>
-                              </div>
-                            </div>
+                    {selectedStudioId && (
+                      <div className="flex gap-4 pt-6 md:pt-0">
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-blue-600">
+                            {pagination?.total || addons.length}
                           </div>
-                          
-                          {addon.facility && (
-                            <Badge variant="outline" className="w-fit">
-                              <Building2 className="h-3 w-3 mr-1" />
-                              {addon.facility.name}
-                            </Badge>
-                          )}
+                          <div className="text-sm text-muted-foreground">
+                            {pagination ? 'Total Add-ons' : `Page ${currentPage} Results`}
+                          </div>
                         </div>
-                        
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Aksi</DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => handleEdit(addon)}>
-                              <Edit className="mr-2 h-4 w-4" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              onClick={() => setAddonToToggle(addon)}
-                              className="text-orange-600"
-                            >
-                              {addon.is_active ? <EyeOff className="mr-2 h-4 w-4" /> : <Eye className="mr-2 h-4 w-4" />}
-                              {addon.is_active ? "Nonaktifkan" : "Aktifkan"}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              className="text-red-600"
-                              onClick={() => setAddonToDelete(addon)}
-                            >
-                              <Trash className="mr-2 h-4 w-4" />
-                              Hapus
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </CardHeader>
-                    
-                    <CardContent>
-                      {addon.description && (
-                        <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-                          {addon.description}
-                        </p>
-                      )}
-                      
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
+                        <div className="text-center">
                           <div className="text-2xl font-bold text-green-600">
-                            {formatCurrency(addon.price)}
+                            {addons.filter((a: Addon) => a.is_active).length}
                           </div>
-                          <div className="flex items-center space-x-1 text-sm text-muted-foreground">
-                            <Hash className="h-4 w-4" />
-                            <span>Max: {addon.max_quantity}</span>
-                          </div>
+                          <div className="text-sm text-muted-foreground">Aktif</div>
                         </div>
-                        
-                        {addon.is_conditional && (
-                          <Badge variant="outline" className="border-amber-300 text-amber-600">
-                            <AlertCircle className="h-3 w-3 mr-1" />
-                            Conditional
-                          </Badge>
-                        )}
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-purple-600">
+                            {addons.filter((a: Addon) => a.facility_id).length}
+                          </div>
+                          <div className="text-sm text-muted-foreground">Facility Specific</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-amber-600">
+                            {new Set(addons.map((a: Addon) => a.type)).size}
+                          </div>
+                          <div className="text-sm text-muted-foreground">Tipe</div>
+                        </div>
                       </div>
-                    </CardContent>
-                  </Card>
-                )
-              })
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Filters and Controls */}
+            {selectedStudioId && (
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+                    <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+                      <div className="relative flex-1 min-w-[250px]">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                        <Input
+                          placeholder="Cari add-on..."
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="pl-10"
+                        />
+                      </div>
+
+                      <Select value={statusFilter} onValueChange={(value: any) => setStatusFilter(value)}>
+                        <SelectTrigger className="w-[150px]">
+                          <Filter className="h-4 w-4 mr-2" />
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Semua Status</SelectItem>
+                          <SelectItem value="active">Aktif</SelectItem>
+                          <SelectItem value="inactive">Nonaktif</SelectItem>
+                        </SelectContent>
+                      </Select>
+
+                      <Select value={typeFilter} onValueChange={setTypeFilter}>
+                        <SelectTrigger className="w-[180px]">
+                          <Tag className="h-4 w-4 mr-2" />
+                          <SelectValue placeholder="Semua Tipe" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Semua Tipe</SelectItem>
+                          {ADDON_TYPES.map((type) => (
+                            <SelectItem key={type.value} value={type.value}>
+                              {type.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      <Select value={facilityFilter} onValueChange={setFacilityFilter}>
+                        <SelectTrigger className="w-[180px]">
+                          <Building2 className="h-4 w-4 mr-2" />
+                          <SelectValue placeholder="Semua Fasilitas" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Semua Fasilitas</SelectItem>
+                          <SelectItem value="general">General/Umum</SelectItem>
+                          {facilities.map((facility) => (
+                            <SelectItem key={facility.id} value={facility.id}>
+                              {facility.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant={viewMode === 'grid' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setViewMode('grid')}
+                      >
+                        <Grid3X3 className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant={viewMode === 'list' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setViewMode('list')}
+                      >
+                        <List className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             )}
-          </div>
-        ) : (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Package className="h-5 w-5" />
-                Daftar Add-ons
-              </CardTitle>
-              <CardDescription>
-                Kelola add-on dan layanan tambahan yang terdaftar dalam sistem
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Add-on</TableHead>
-                      <TableHead>Tipe</TableHead>
-                      <TableHead>Fasilitas</TableHead>
-                      <TableHead>Harga</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="w-[100px]">Aksi</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {addons.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
+
+            {/* Add-ons Display */}
+            {!selectedStudioId ? (
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="text-center text-muted-foreground">
+                    <AlertCircle className="h-8 w-8 mx-auto mb-2" />
+                    Silakan pilih studio terlebih dahulu untuk melihat add-ons
+                  </div>
+                </CardContent>
+              </Card>
+            ) : loading ? (
+              <div className="space-y-2">
+                {[...Array(3)].map((_, i) => (
+                  <Skeleton key={i} className="h-40 w-full" />
+                ))}
+              </div>
+            ) : viewMode === 'grid' ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {addons.length === 0 ? (
+                  <div className="col-span-full">
+                    <Card>
+                      <CardContent className="pt-6">
+                        <div className="text-center text-muted-foreground">
                           {searchTerm ? "Tidak ada add-on yang cocok dengan pencarian" : "Belum ada add-on yang terdaftar"}
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      addons.map((addon) => {
-                        const typeInfo = getAddonTypeInfo(addon.type)
-                        const TypeIcon = addonTypeIcons[addon.type]
-                        const typeColorClass = addonTypeColors[addon.type]
-                        
-                        return (
-                          <TableRow key={addon.id}>
-                            <TableCell>
-                              <div className="flex items-center space-x-3">
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                ) : (
+                  addons.map((addon: Addon) => {
+                    const typeInfo = getAddonTypeInfo(addon.type)
+                    const TypeIcon = addonTypeIcons[addon.type as keyof typeof addonTypeIcons] || Camera
+                    const typeColorClass = addonTypeColors[addon.type as keyof typeof addonTypeColors] || addonTypeColors.service
+
+                    return (
+                      <Card key={addon.id} className="group hover:shadow-md transition-shadow">
+                        <CardHeader className="pb-3">
+                          <div className="flex items-start justify-between">
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2">
                                 <div className={`p-2 rounded-lg ${typeColorClass}`}>
-                                  <TypeIcon className="h-4 w-4" />
+                                  <TypeIcon className="h-5 w-5" />
                                 </div>
                                 <div>
-                                  <div className="font-medium flex items-center gap-2">
-                                    {addon.name}
-                                    {addon.is_conditional && (
-                                      <Badge variant="outline" className="border-amber-300 text-amber-600 text-xs">
-                                        <AlertCircle className="h-3 w-3 mr-1" />
-                                        Conditional
-                                      </Badge>
-                                    )}
+                                  <CardTitle className="text-lg">{addon.name}</CardTitle>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <Badge variant={addon.is_active ? "default" : "secondary"}>
+                                      {addon.is_active ? "Aktif" : "Nonaktif"}
+                                    </Badge>
+                                    <Badge variant="outline" className={typeColorClass}>
+                                      {typeInfo.label}
+                                    </Badge>
                                   </div>
-                                  {addon.description && (
-                                    <div className="text-sm text-muted-foreground line-clamp-1">
-                                      {addon.description}
-                                    </div>
-                                  )}
                                 </div>
                               </div>
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="outline" className={typeColorClass}>
-                                {typeInfo.label}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              {addon.facility ? (
-                                <Badge variant="outline">
+
+                              {addon.facility && (
+                                <Badge variant="outline" className="w-fit">
                                   <Building2 className="h-3 w-3 mr-1" />
                                   {addon.facility.name}
                                 </Badge>
-                              ) : (
-                                <span className="text-muted-foreground text-sm">General</span>
                               )}
-                            </TableCell>
-                            <TableCell>
-                              <div>
-                                <div className="font-medium">{formatCurrency(addon.price)}</div>
-                                <div className="text-xs text-muted-foreground">
-                                  Max: {addon.max_quantity}
-                                </div>
+                            </div>
+
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>Aksi</DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => handleEdit(addon)}>
+                                  <Edit className="mr-2 h-4 w-4" />
+                                  Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => setAddonToToggle(addon)}
+                                  className="text-orange-600"
+                                >
+                                  {addon.is_active ? <EyeOff className="mr-2 h-4 w-4" /> : <Eye className="mr-2 h-4 w-4" />}
+                                  {addon.is_active ? "Nonaktifkan" : "Aktifkan"}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  className="text-red-600"
+                                  onClick={() => setAddonToDelete(addon)}
+                                >
+                                  <Trash className="mr-2 h-4 w-4" />
+                                  Hapus
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </CardHeader>
+
+                        <CardContent>
+                          {addon.description && (
+                            <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+                              {addon.description}
+                            </p>
+                          )}
+
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <div className="text-2xl font-bold text-green-600">
+                                {formatCurrency(addon.price)}
                               </div>
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant={addon.is_active ? "default" : "secondary"}>
-                                {addon.is_active ? "Aktif" : "Nonaktif"}
+                              <div className="flex items-center space-x-1 text-sm text-muted-foreground">
+                                <Hash className="h-4 w-4" />
+                                <span>Max: {addon.max_quantity}</span>
+                              </div>
+                            </div>
+
+                            {addon.is_conditional && (
+                              <Badge variant="outline" className="border-amber-300 text-amber-600">
+                                <AlertCircle className="h-3 w-3 mr-1" />
+                                Conditional
                               </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" className="h-8 w-8 p-0">
-                                    <MoreHorizontal className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuLabel>Aksi</DropdownMenuLabel>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem onClick={() => handleEdit(addon)}>
-                                    <Edit className="mr-2 h-4 w-4" />
-                                    Edit
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem 
-                                    onClick={() => setAddonToToggle(addon)}
-                                    className="text-orange-600"
-                                  >
-                                    {addon.is_active ? <EyeOff className="mr-2 h-4 w-4" /> : <Eye className="mr-2 h-4 w-4" />}
-                                    {addon.is_active ? "Nonaktifkan" : "Aktifkan"}
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem 
-                                    className="text-red-600"
-                                    onClick={() => setAddonToDelete(addon)}
-                                  >
-                                    <Trash className="mr-2 h-4 w-4" />
-                                    Hapus
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )
+                  })
+                )}
+              </div>
+            ) : (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Package className="h-5 w-5" />
+                    Daftar Add-ons
+                  </CardTitle>
+                  <CardDescription>
+                    Kelola add-on dan layanan tambahan yang terdaftar dalam sistem
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Add-on</TableHead>
+                          <TableHead>Tipe</TableHead>
+                          <TableHead>Fasilitas</TableHead>
+                          <TableHead>Harga</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead className="w-[100px]">Aksi</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {addons.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
+                              {searchTerm ? "Tidak ada add-on yang cocok dengan pencarian" : "Belum ada add-on yang terdaftar"}
                             </TableCell>
                           </TableRow>
-                        )
-                      })
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-      </div>
+                        ) : (
+                          addons.map((addon: Addon) => {
+                            const typeInfo = getAddonTypeInfo(addon.type)
+                            const TypeIcon = addonTypeIcons[addon.type as keyof typeof addonTypeIcons] || Camera
+                            const typeColorClass = addonTypeColors[addon.type as keyof typeof addonTypeColors] || addonTypeColors.service
 
-      {/* Pagination */}
-      {pagination && pagination.totalPages > 1 && (
-        <div className="mt-8">
-          <PaginationControls
-            currentPage={pagination.page}
-            totalPages={pagination.totalPages}
-            pageSize={pagination.pageSize}
-            total={pagination.total}
-            onPageChange={handlePageChange}
-            onPageSizeChange={handlePageSizeChange}
-          />
-        </div>
-      )}
+                            return (
+                              <TableRow key={addon.id}>
+                                <TableCell>
+                                  <div className="flex items-center space-x-3">
+                                    <div className={`p-2 rounded-lg ${typeColorClass}`}>
+                                      <TypeIcon className="h-4 w-4" />
+                                    </div>
+                                    <div>
+                                      <div className="font-medium flex items-center gap-2">
+                                        {addon.name}
+                                        {addon.is_conditional && (
+                                          <Badge variant="outline" className="border-amber-300 text-amber-600 text-xs">
+                                            <AlertCircle className="h-3 w-3 mr-1" />
+                                            Conditional
+                                          </Badge>
+                                        )}
+                                      </div>
+                                      {addon.description && (
+                                        <div className="text-sm text-muted-foreground line-clamp-1">
+                                          {addon.description}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant="outline" className={typeColorClass}>
+                                    {typeInfo.label}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  {addon.facility ? (
+                                    <Badge variant="outline">
+                                      <Building2 className="h-3 w-3 mr-1" />
+                                      {addon.facility.name}
+                                    </Badge>
+                                  ) : (
+                                    <span className="text-muted-foreground text-sm">General</span>
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  <div>
+                                    <div className="font-medium">{formatCurrency(addon.price)}</div>
+                                    <div className="text-xs text-muted-foreground">
+                                      Max: {addon.max_quantity}
+                                    </div>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant={addon.is_active ? "default" : "secondary"}>
+                                    {addon.is_active ? "Aktif" : "Nonaktif"}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button variant="ghost" className="h-8 w-8 p-0">
+                                        <MoreHorizontal className="h-4 w-4" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                      <DropdownMenuLabel>Aksi</DropdownMenuLabel>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem onClick={() => handleEdit(addon)}>
+                                        <Edit className="mr-2 h-4 w-4" />
+                                        Edit
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        onClick={() => setAddonToToggle(addon)}
+                                        className="text-orange-600"
+                                      >
+                                        {addon.is_active ? <EyeOff className="mr-2 h-4 w-4" /> : <Eye className="mr-2 h-4 w-4" />}
+                                        {addon.is_active ? "Nonaktifkan" : "Aktifkan"}
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        className="text-red-600"
+                                        onClick={() => setAddonToDelete(addon)}
+                                      >
+                                        <Trash className="mr-2 h-4 w-4" />
+                                        Hapus
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                </TableCell>
+                              </TableRow>
+                            )
+                          })
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {/* Pagination */}
+          {pagination && pagination.totalPages > 1 && (
+            <div className="mt-8">
+              <PaginationControls
+                currentPage={pagination.page}
+                totalPages={pagination.totalPages}
+                pageSize={pagination.pageSize}
+                total={pagination.total}
+                onPageChange={handlePageChange}
+                onPageSizeChange={handlePageSizeChange}
+              />
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="package-addons" className="space-y-4">
+          <PackageAddonsManagement />
+        </TabsContent>
+      </Tabs>
 
       {/* Dialog */}
       <AddonDialog
@@ -659,7 +682,7 @@ export default function AddonsPage() {
               {addonToToggle?.is_active ? "Nonaktifkan Add-on" : "Aktifkan Add-on"}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {addonToToggle?.is_active 
+              {addonToToggle?.is_active
                 ? `Apakah Anda yakin ingin menonaktifkan add-on "${addonToToggle?.name}"? Add-on tidak akan tersedia untuk customer.`
                 : `Apakah Anda yakin ingin mengaktifkan add-on "${addonToToggle?.name}"? Add-on akan tersedia untuk customer.`
               }
@@ -686,10 +709,10 @@ export default function AddonsPage() {
               <div className="space-y-2">
                 <p className="font-semibold text-red-600">⚠️ PERINGATAN: Aksi ini tidak dapat dibatalkan!</p>
                 <p>
-                  Apakah Anda yakin ingin menghapus add-on "{addonToDelete?.name}" secara permanen? 
+                  Apakah Anda yakin ingin menghapus add-on "{addonToDelete?.name}" secara permanen?
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Add-on dan semua data terkaitnya akan dihapus dari database dan tidak dapat dipulihkan. 
+                  Add-on dan semua data terkaitnya akan dihapus dari database dan tidak dapat dipulihkan.
                   Pastikan tidak ada reservasi yang masih menggunakan add-on ini.
                 </p>
               </div>

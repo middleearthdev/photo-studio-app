@@ -255,9 +255,12 @@ CREATE TABLE payment_methods (
     provider VARCHAR(100),
     account_details JSONB,
     xendit_config JSONB,
+    fee_type VARCHAR(20) DEFAULT 'percentage',
     fee_percentage DECIMAL(5,2) DEFAULT 0,
+    fee_amount DECIMAL(10,2) DEFAULT 0,
     is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    CONSTRAINT valid_fee_type CHECK (fee_type IN ('percentage', 'fixed'))
 );
 
 -- Payments

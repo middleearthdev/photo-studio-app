@@ -38,7 +38,8 @@ export default function PackageDetailPage() {
   const { data: availableTimeSlots = [], isLoading: timeSlotsLoading } = useAvailableTimeSlots(
     packageData?.studio_id,
     selectedDate ? format(selectedDate, 'yyyy-MM-dd') : undefined,
-    packageData?.duration_minutes
+    packageData?.duration_minutes,
+    packageData?.id
   )
 
   if (isLoading) {

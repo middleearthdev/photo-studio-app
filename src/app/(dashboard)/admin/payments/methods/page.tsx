@@ -30,7 +30,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
 import {
   DropdownMenu,
@@ -61,555 +60,644 @@ import {
   Smartphone,
   QrCode,
   Banknote,
-  Eye,
-  EyeOff,
-  Settings,
+  Info,
 } from "lucide-react"
 import { toast } from "sonner"
+import {
+  usePaymentMethods,
+  useCreatePaymentMethod,
+  useUpdatePaymentMethod,
+  useDeletePaymentMethod,
+  useTogglePaymentMethodStatus
+} from "@/hooks/use-payment-methods"
+import { useStudios } from "@/hooks/use-studios"
+import { type PaymentMethod } from "@/actions/payments"
+import { shouldCustomerPayFees, shouldDisplayFeesToCustomers } from "@/lib/config/fee-config"
 
-interface PaymentMethod {
-  id: string
-  studio_id: string
-  name: string
-  type: "bank_transfer" | "e_wallet" | "qr_code" | "cash" | "credit_card"
-  provider?: string
-  account_details: Record<string, any>
-  xendit_config?: Record<string, any>
-  fee_percentage: number
-  is_active: boolean
-  created_at: string
+// Extended PaymentMethod interface to include new fee fields
+interface ExtendedPaymentMethod extends PaymentMethod {
+  fee_type?: string
+  fee_amount?: number
 }
 
-// Mock data - replace with actual data fetching
-const mockPaymentMethods: PaymentMethod[] = [
-  {
-    id: "de305d54-75b4-431b-adb2-eb6b9e546013",
-    studio_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-    name: "Transfer Bank BCA",
-    type: "bank_transfer",
-    provider: "BCA",
-    account_details: {
-      account_number: "1234567890",
-      account_name: "Lumina Photography Studio",
-      bank_code: "BCA"
-    },
-    fee_percentage: 0.00,
-    is_active: true,
-    created_at: "2025-01-15T10:00:00Z"
-  },
-  {
-    id: "de305d54-75b4-431b-adb2-eb6b9e546014",
-    studio_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-    name: "Transfer Bank Mandiri",
-    type: "bank_transfer",
-    provider: "Mandiri",
-    account_details: {
-      account_number: "9876543210",
-      account_name: "Lumina Photography Studio",
-      bank_code: "Mandiri"
-    },
-    fee_percentage: 0.00,
-    is_active: true,
-    created_at: "2025-01-15T10:00:00Z"
-  },
-  {
-    id: "de305d54-75b4-431b-adb2-eb6b9e546015",
-    studio_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-    name: "QRIS",
-    type: "qr_code",
-    provider: "Xendit",
-    account_details: {
-      merchant_id: "lumina_photo_studio",
-      qr_code_id: "qr_lumina_001"
-    },
-    xendit_config: {
-      api_key: "***hidden***",
-      callback_url: "https://api.luminastudio.id/webhook/xendit"
-    },
-    fee_percentage: 0.70,
-    is_active: true,
-    created_at: "2025-01-15T10:00:00Z"
-  },
-  {
-    id: "de305d54-75b4-431b-adb2-eb6b9e546016",
-    studio_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-    name: "GoPay",
-    type: "e_wallet",
-    provider: "Xendit",
-    account_details: {
-      merchant_id: "lumina_photo_studio"
-    },
-    xendit_config: {
-      api_key: "***hidden***",
-      callback_url: "https://api.luminastudio.id/webhook/xendit"
-    },
-    fee_percentage: 2.00,
-    is_active: true,
-    created_at: "2025-01-15T10:00:00Z"
-  },
-  {
-    id: "de305d54-75b4-431b-adb2-eb6b9e546017",
-    studio_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-    name: "OVO",
-    type: "e_wallet",
-    provider: "Xendit",
-    account_details: {
-      merchant_id: "lumina_photo_studio"
-    },
-    xendit_config: {
-      api_key: "***hidden***",
-      callback_url: "https://api.luminastudio.id/webhook/xendit"
-    },
-    fee_percentage: 2.00,
-    is_active: true,
-    created_at: "2025-01-15T10:00:00Z"
-  },
-  {
-    id: "de305d54-75b4-431b-adb2-eb6b9e546018",
-    studio_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-    name: "Cash",
-    type: "cash",
-    account_details: {
-      accepted_at: "studio_location"
-    },
-    fee_percentage: 0.00,
-    is_active: true,
-    created_at: "2025-01-15T10:00:00Z"
-  }
-]
-
-const paymentTypeOptions = [
-  { value: "bank_transfer", label: "Bank Transfer", icon: Building2 },
-  { value: "e_wallet", label: "E-Wallet", icon: Smartphone },
-  { value: "qr_code", label: "QR Code", icon: QrCode },
-  { value: "cash", label: "Cash", icon: Banknote },
-  { value: "credit_card", label: "Credit Card", icon: CreditCard },
-]
-
 export default function PaymentMethodsPage() {
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>(mockPaymentMethods)
+  // All hooks must be called first, before any early returns or conditional logic
+  const [selectedStudioId, setSelectedStudioId] = useState<string>('')
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [editingMethod, setEditingMethod] = useState<PaymentMethod | null>(null)
+  const [editingMethod, setEditingMethod] = useState<ExtendedPaymentMethod | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
   const [formData, setFormData] = useState({
     name: "",
-    type: "bank_transfer" as PaymentMethod["type"],
+    type: "bank_transfer",
     provider: "",
     account_details: "{}",
     xendit_config: "{}",
+    fee_type: "percentage", // New field
     fee_percentage: 0,
-    is_active: true
+    fee_amount: 0, // New field
+    is_active: true,
   })
 
-  const handleInputChange = (field: string, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
-  }
+  const { data: studios = [], isLoading: studiosLoading } = useStudios()
+  const { data: paymentMethods = [], isLoading: paymentsLoading } = usePaymentMethods(selectedStudioId || '')
 
-  const handleSubmit = () => {
-    if (!formData.name.trim()) {
-      toast.error("Payment method name is required")
-      return
+  // Mutations
+  const createMutation = useCreatePaymentMethod()
+  const updateMutation = useUpdatePaymentMethod()
+  const deleteMutation = useDeletePaymentMethod()
+  const toggleStatusMutation = useTogglePaymentMethodStatus()
+
+  // Set default studio
+  React.useEffect(() => {
+    if (studios.length > 0 && !selectedStudioId) {
+      setSelectedStudioId(studios[0].id)
     }
+  }, [studios, selectedStudioId])
 
-    try {
-      const accountDetails = JSON.parse(formData.account_details || "{}")
-      const xenditConfig = formData.xendit_config ? JSON.parse(formData.xendit_config) : undefined
-
-      if (editingMethod) {
-        // Update existing method
-        setPaymentMethods(methods => methods.map(method => 
-          method.id === editingMethod.id 
-            ? { 
-                ...method, 
-                ...formData,
-                account_details: accountDetails,
-                xendit_config: xenditConfig
-              }
-            : method
-        ))
-        toast.success("Payment method updated successfully!")
-      } else {
-        // Create new method
-        const newMethod: PaymentMethod = {
-          id: `pm-${Date.now()}`,
-          studio_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-          ...formData,
-          account_details: accountDetails,
-          xendit_config: xenditConfig,
-          created_at: new Date().toISOString()
-        }
-        setPaymentMethods(methods => [...methods, newMethod])
-        toast.success("Payment method created successfully!")
-      }
-
-      // Reset form
-      setFormData({
-        name: "",
-        type: "bank_transfer",
-        provider: "",
-        account_details: "{}",
-        xendit_config: "{}",
-        fee_percentage: 0,
-        is_active: true
-      })
-      setEditingMethod(null)
-      setIsDialogOpen(false)
-    } catch (error) {
-      toast.error("Invalid JSON in account details or config")
+  // All utility functions after hooks
+  const getPaymentTypeIcon = (type: string) => {
+    const icons = {
+      bank_transfer: Building2,
+      virtual_account: CreditCard,
+      e_wallet: Smartphone,
+      qr_code: QrCode,
+      cash: Banknote,
+      credit_card: CreditCard,
     }
+    const Icon = icons[type as keyof typeof icons] || CreditCard
+    return <Icon className="h-4 w-4" />
   }
 
-  const handleEdit = (method: PaymentMethod) => {
-    setEditingMethod(method)
-    setFormData({
-      name: method.name,
-      type: method.type,
-      provider: method.provider || "",
-      account_details: JSON.stringify(method.account_details, null, 2),
-      xendit_config: method.xendit_config ? JSON.stringify(method.xendit_config, null, 2) : "{}",
-      fee_percentage: method.fee_percentage,
-      is_active: method.is_active
-    })
-    setIsDialogOpen(true)
+  const getPaymentTypeColor = (type: string) => {
+    const colors = {
+      bank_transfer: "bg-blue-100 text-blue-800",
+      virtual_account: "bg-indigo-100 text-indigo-800",
+      e_wallet: "bg-green-100 text-green-800",
+      qr_code: "bg-purple-100 text-purple-800",
+      cash: "bg-gray-100 text-gray-800",
+      credit_card: "bg-orange-100 text-orange-800",
+    }
+    return colors[type as keyof typeof colors] || "bg-gray-100 text-gray-800"
   }
 
-  const handleDelete = (methodId: string) => {
-    setPaymentMethods(methods => methods.filter(method => method.id !== methodId))
-    toast.success("Payment method deleted successfully!")
-  }
-
-  const handleToggleActive = (methodId: string) => {
-    setPaymentMethods(methods => methods.map(method => 
-      method.id === methodId 
-        ? { ...method, is_active: !method.is_active }
-        : method
-    ))
-  }
-
-  const openCreateDialog = () => {
+  const handleAddNew = () => {
     setEditingMethod(null)
+    setIsSaving(false)
     setFormData({
       name: "",
       type: "bank_transfer",
       provider: "",
       account_details: "{}",
       xendit_config: "{}",
+      fee_type: "percentage",
       fee_percentage: 0,
-      is_active: true
+      fee_amount: 0,
+      is_active: true,
     })
     setIsDialogOpen(true)
   }
 
-  const getTypeIcon = (type: PaymentMethod["type"]) => {
-    const typeOption = paymentTypeOptions.find(option => option.value === type)
-    return typeOption?.icon || CreditCard
+  const handleEdit = (method: ExtendedPaymentMethod) => {
+    setEditingMethod(method)
+    setIsSaving(false)
+    setFormData({
+      name: method.name,
+      type: method.type,
+      provider: method.provider,
+      account_details: JSON.stringify(method.account_details, null, 2),
+      xendit_config: JSON.stringify(method.xendit_config || {}, null, 2),
+      fee_type: method.fee_type || "percentage",
+      fee_percentage: method.fee_percentage,
+      fee_amount: method.fee_amount || 0,
+      is_active: method.is_active,
+    })
+    setIsDialogOpen(true)
   }
 
-  const getTypeLabel = (type: PaymentMethod["type"]) => {
-    const typeOption = paymentTypeOptions.find(option => option.value === type)
-    return typeOption?.label || type
+  const handleSave = async () => {
+    if (isSaving) return
+    setIsSaving(true)
+
+    try {
+      // Validate form data
+      if (!formData.name.trim()) {
+        toast.error("Payment method name is required")
+        setIsSaving(false)
+        return
+      }
+
+      if (!selectedStudioId) {
+        toast.error("Please select a studio")
+        setIsSaving(false)
+        return
+      }
+
+      // Validate fee inputs
+      if (formData.fee_type === "percentage" && (formData.fee_percentage < 0 || formData.fee_percentage > 100)) {
+        toast.error("Fee percentage must be between 0 and 100")
+        setIsSaving(false)
+        return
+      }
+
+      if (formData.fee_type === "fixed" && formData.fee_amount < 0) {
+        toast.error("Fee amount must be greater than or equal to 0")
+        setIsSaving(false)
+        return
+      }
+
+      // Validate Xendit config if provider is Xendit
+      if (formData.provider === 'Xendit') {
+        try {
+          JSON.parse(formData.xendit_config)
+        } catch (e) {
+          toast.error("Invalid Xendit configuration JSON")
+          setIsSaving(false)
+          return
+        }
+      }
+
+      // Validate account details JSON
+      try {
+        JSON.parse(formData.account_details)
+      } catch (e) {
+        toast.error("Invalid account details JSON")
+        setIsSaving(false)
+        return
+      }
+
+      const paymentMethodData = {
+        studio_id: selectedStudioId,
+        name: formData.name.trim(),
+        type: formData.type,
+        provider: formData.provider,
+        account_details: JSON.parse(formData.account_details),
+        xendit_config: formData.provider === 'Xendit' ? JSON.parse(formData.xendit_config) : {},
+        fee_type: formData.fee_type,
+        fee_percentage: formData.fee_type === "percentage" ? formData.fee_percentage : 0,
+        fee_amount: formData.fee_type === "fixed" ? formData.fee_amount : 0,
+        is_active: formData.is_active,
+      }
+
+      if (editingMethod) {
+        // Update existing payment method
+        const { studio_id, ...updateData } = paymentMethodData
+        await updateMutation.mutateAsync({
+          id: editingMethod.id,
+          data: updateData
+        })
+      } else {
+        // Create new payment method
+        await createMutation.mutateAsync(paymentMethodData)
+      }
+
+      // Add small delay to allow toast to show before closing dialog
+      setTimeout(() => {
+        setIsDialogOpen(false)
+      }, 100)
+    } catch (error) {
+      console.error('Error saving payment method:', error)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleToggleActive = async (methodId: string) => {
+    try {
+      const method = paymentMethods.find(m => m.id === methodId)
+      if (!method) return
+
+      await toggleStatusMutation.mutateAsync({
+        id: methodId,
+        isActive: !method.is_active
+      })
+    } catch (error) {
+      console.error('Error toggling payment method status:', error)
+    }
+  }
+
+  const handleDelete = async (methodId: string) => {
+    try {
+      await deleteMutation.mutateAsync(methodId)
+    } catch (error) {
+      console.error('Error deleting payment method:', error)
+    }
+  }
+
+  // Format fee display based on fee type
+  const formatFeeDisplay = (method: ExtendedPaymentMethod) => {
+    if (method.fee_type === "fixed") {
+      return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        minimumFractionDigits: 0
+      }).format(method.fee_amount || 0)
+    }
+    return `${method.fee_percentage}%`
+  }
+
+  if (studiosLoading) {
+    return (
+      <div className="p-6">
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-200 rounded mb-4"></div>
+          <div className="h-64 bg-gray-200 rounded"></div>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="p-6">
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Payment Methods</h1>
+          <h1 className="text-2xl font-bold">Payment Methods</h1>
           <p className="text-muted-foreground">
-            Manage payment methods available for customer transactions
+            Manage payment methods for your studio
           </p>
         </div>
-        <Button onClick={openCreateDialog}>
-          <Plus className="mr-2 h-4 w-4" />
+        <Button onClick={handleAddNew} disabled={!selectedStudioId}>
+          <Plus className="h-4 w-4 mr-2" />
           Add Payment Method
         </Button>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Methods</CardTitle>
-            <CreditCard className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{paymentMethods.length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Methods</CardTitle>
-            <Eye className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {paymentMethods.filter(method => method.is_active).length}
+      {/* Studio Selection */}
+      <Card className="mb-6">
+        <CardContent className="pt-6">
+          <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+            <div className="space-y-2">
+              <Label>Select Studio</Label>
+              <Select value={selectedStudioId} onValueChange={setSelectedStudioId}>
+                <SelectTrigger className="w-[250px]">
+                  <SelectValue placeholder="Select studio..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {studios.map((studio) => (
+                    <SelectItem key={studio.id} value={studio.id}>
+                      {studio.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg Fee</CardTitle>
-            <CreditCard className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {(paymentMethods.reduce((acc, method) => acc + method.fee_percentage, 0) / paymentMethods.length).toFixed(2)}%
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Inactive Methods</CardTitle>
-            <EyeOff className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {paymentMethods.filter(method => !method.is_active).length}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
 
-      {/* Payment Methods Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Payment Methods</CardTitle>
-          <CardDescription>
-            Configure available payment options for your customers
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Method</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Provider</TableHead>
-                <TableHead>Fee</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {paymentMethods.map((method) => {
-                const TypeIcon = getTypeIcon(method.type)
-                return (
-                  <TableRow key={method.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <TypeIcon className="h-4 w-4 text-muted-foreground" />
-                        <div className="font-medium">{method.name}</div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">
-                        {getTypeLabel(method.type)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-sm text-muted-foreground">
-                        {method.provider || "-"}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="font-medium">
-                        {method.fee_percentage}%
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Badge variant={method.is_active ? "default" : "secondary"}>
-                          {method.is_active ? "Active" : "Inactive"}
-                        </Badge>
-                        <Switch
-                          checked={method.is_active}
-                          onCheckedChange={() => handleToggleActive(method.id)}
-                          size="sm"
-                        />
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-sm text-muted-foreground">
-                        {new Date(method.created_at).toLocaleDateString()}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => handleEdit(method)}>
-                            <Edit className="mr-2 h-4 w-4" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <Settings className="mr-2 h-4 w-4" />
-                            Configure
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Delete
-                              </DropdownMenuItem>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Delete Payment Method</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Are you sure you want to delete "{method.name}"? 
-                                  This action cannot be undone and may affect existing transactions.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => handleDelete(method.id)}
-                                  className="bg-red-600 hover:bg-red-700"
-                                >
-                                  Delete
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
+            {selectedStudioId && (
+              <div className="flex gap-4 pt-6 md:pt-0">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-blue-600">
+                    {paymentMethods.length}
+                  </div>
+                  <div className="text-sm text-muted-foreground">Total Methods</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-600">
+                    {paymentMethods.filter(m => m.is_active).length}
+                  </div>
+                  <div className="text-sm text-muted-foreground">Active</div>
+                </div>
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
 
+      {/* Fee Configuration Notice */}
+      <Card className="mb-6 bg-blue-50 border-blue-200">
+        <CardContent className="pt-4">
+          <div className="flex items-start gap-3">
+            <Info className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+            <div>
+              <h3 className="font-medium text-blue-900 mb-1">Payment Fee Configuration</h3>
+              <p className="text-sm text-blue-800">
+                {shouldCustomerPayFees() 
+                  ? "Customers are currently paying payment processing fees." 
+                  : "Studio is currently absorbing payment processing fees."}
+                {" "}
+                {shouldDisplayFeesToCustomers() 
+                  ? "Fees are displayed to customers during booking." 
+                  : "Fees are hidden from customers."}
+              </p>
+              <p className="text-xs text-blue-700 mt-1">
+                Configure these settings in your environment variables (.env.local)
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Payment Methods Table */}
+      {!selectedStudioId ? (
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center text-muted-foreground">
+              Please select a studio to view payment methods
+            </div>
+          </CardContent>
+        </Card>
+      ) : paymentsLoading ? (
+        <Card>
+          <CardContent className="pt-6">
+            <div className="animate-pulse space-y-2">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="h-12 bg-gray-200 rounded"></div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CreditCard className="h-5 w-5" />
+              Payment Methods
+            </CardTitle>
+            <CardDescription>
+              Configure payment methods for your studio
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Method</TableHead>
+                    <TableHead>Provider</TableHead>
+                    <TableHead>Fee</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead className="w-[100px]">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paymentMethods.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
+                        No payment methods found
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    paymentMethods.map((method) => (
+                      <TableRow key={method.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-lg ${getPaymentTypeColor(method.type)}`}>
+                              {getPaymentTypeIcon(method.type)}
+                            </div>
+                            <div>
+                              <div className="font-medium">{method.name}</div>
+                              <div className="text-sm text-muted-foreground capitalize">
+                                {method.type.replace('_', ' ')}
+                              </div>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {method.provider || '-'}
+                        </TableCell>
+                        <TableCell>
+                          {formatFeeDisplay(method as ExtendedPaymentMethod)}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Badge variant={method.is_active ? "default" : "secondary"}>
+                              {method.is_active ? "Active" : "Inactive"}
+                            </Badge>
+                            <Switch
+                              checked={method.is_active}
+                              onCheckedChange={() => handleToggleActive(method.id)}
+                            />
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm text-muted-foreground">
+                            {new Date(method.created_at).toLocaleDateString()}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" className="h-8 w-8 p-0">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => handleEdit(method as ExtendedPaymentMethod)}>
+                                <Edit className="mr-2 h-4 w-4" />
+                                Edit
+                              </DropdownMenuItem>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <DropdownMenuItem
+                                    className="text-red-600"
+                                    onSelect={(e) => e.preventDefault()}
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Delete
+                                  </DropdownMenuItem>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Delete Payment Method</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Are you sure you want to delete "{method.name}"? This action cannot be undone.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => handleDelete(method.id)}
+                                      className="bg-red-600 hover:bg-red-700"
+                                    >
+                                      Delete
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Add/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>
-              {editingMethod ? "Edit Payment Method" : "Add New Payment Method"}
+              {editingMethod ? "Edit Payment Method" : "Add Payment Method"}
             </DialogTitle>
             <DialogDescription>
-              {editingMethod 
-                ? "Update the payment method configuration below." 
-                : "Configure a new payment method for customer transactions."
-              }
+              Configure payment method settings for your studio
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Method Name *</Label>
                 <Input
                   id="name"
                   value={formData.name}
-                  onChange={(e) => handleInputChange("name", e.target.value)}
-                  placeholder="e.g., Transfer Bank BCA, GoPay"
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="e.g., Bank BCA Transfer"
                 />
               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="type">Payment Type *</Label>
-                <Select 
+                <Select
                   value={formData.type}
-                  onValueChange={(value) => handleInputChange("type", value)}
+                  onValueChange={(value) => setFormData({ ...formData, type: value })}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select payment type" />
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {paymentTypeOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        <div className="flex items-center gap-2">
-                          <option.icon className="h-4 w-4" />
-                          {option.label}
-                        </div>
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="bank_transfer">Bank Transfer (Manual)</SelectItem>
+                    <SelectItem value="virtual_account">Virtual Account (Xendit)</SelectItem>
+                    <SelectItem value="e_wallet">E-Wallet</SelectItem>
+                    <SelectItem value="qr_code">QR Code</SelectItem>
+                    <SelectItem value="cash">Cash</SelectItem>
+                    <SelectItem value="credit_card">Credit Card</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="provider">Provider</Label>
-                <Input
-                  id="provider"
+                <Select
                   value={formData.provider}
-                  onChange={(e) => handleInputChange("provider", e.target.value)}
-                  placeholder="e.g., BCA, Xendit, Midtrans"
-                />
+                  onValueChange={(value) => setFormData({ ...formData, provider: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select provider" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Cash">Cash</SelectItem>
+                    <SelectItem value="Midtrans">Midtrans</SelectItem>
+                    <SelectItem value="Xendit">Xendit</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
+
               <div className="space-y-2">
-                <Label htmlFor="fee_percentage">Fee Percentage (%)</Label>
-                <Input
-                  id="fee_percentage"
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.01"
-                  value={formData.fee_percentage}
-                  onChange={(e) => handleInputChange("fee_percentage", parseFloat(e.target.value) || 0)}
-                />
+                <Label htmlFor="fee_type">Fee Type</Label>
+                <Select
+                  value={formData.fee_type}
+                  onValueChange={(value) => setFormData({ ...formData, fee_type: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="percentage">Percentage</SelectItem>
+                    <SelectItem value="fixed">Fixed Amount</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
+
+            {/* Fee Input based on fee type */}
+            <div className="grid grid-cols-2 gap-4">
+              {formData.fee_type === "percentage" ? (
+                <div className="space-y-2">
+                  <Label htmlFor="fee_percentage">Fee Percentage (%)</Label>
+                  <Input
+                    id="fee_percentage"
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    value={formData.fee_percentage}
+                    onChange={(e) => setFormData({ ...formData, fee_percentage: parseFloat(e.target.value) || 0 })}
+                  />
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Label htmlFor="fee_amount">Fee Amount (IDR)</Label>
+                  <Input
+                    id="fee_amount"
+                    type="number"
+                    min="0"
+                    step="100"
+                    value={formData.fee_amount}
+                    onChange={(e) => setFormData({ ...formData, fee_amount: parseFloat(e.target.value) || 0 })}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Xendit Configuration */}
+            {formData.provider === 'Xendit' && (
+              <div className="space-y-2">
+                <Label htmlFor="xendit-config">Xendit Configuration (JSON)</Label>
+                <Textarea
+                  id="xendit-config"
+                  value={formData.xendit_config}
+                  onChange={(e) => setFormData({ ...formData, xendit_config: e.target.value })}
+                  placeholder='{"api_key": "your_api_key", "callback_url": "https://yourdomain.com/api/webhooks/xendit"}'
+                  className="font-mono text-sm"
+                  rows={4}
+                />
+                <p className="text-sm text-muted-foreground">
+                  Enter Xendit-specific configuration as JSON
+                </p>
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="account_details">Account Details (JSON)</Label>
               <Textarea
                 id="account_details"
                 value={formData.account_details}
-                onChange={(e) => handleInputChange("account_details", e.target.value)}
+                onChange={(e) => setFormData({ ...formData, account_details: e.target.value })}
                 placeholder='{"account_number": "1234567890", "account_name": "Studio Name"}'
-                rows={4}
-                className="font-mono text-sm"
+                className="min-h-[100px] font-mono text-sm"
               />
-              <p className="text-xs text-muted-foreground">
-                Enter account details in JSON format
-              </p>
             </div>
-
-            {(formData.type === "e_wallet" || formData.type === "qr_code") && (
-              <div className="space-y-2">
-                <Label htmlFor="xendit_config">Xendit Configuration (JSON)</Label>
-                <Textarea
-                  id="xendit_config"
-                  value={formData.xendit_config}
-                  onChange={(e) => handleInputChange("xendit_config", e.target.value)}
-                  placeholder='{"api_key": "your-api-key", "callback_url": "https://your-domain.com/webhook"}'
-                  rows={3}
-                  className="font-mono text-sm"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Enter Xendit API configuration for e-wallets and QR codes
-                </p>
-              </div>
-            )}
 
             <div className="flex items-center space-x-2">
               <Switch
                 id="is_active"
                 checked={formData.is_active}
-                onCheckedChange={(checked) => handleInputChange("is_active", checked)}
+                onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
               />
-              <Label htmlFor="is_active">Active (available for customers)</Label>
+              <Label htmlFor="is_active">Active</Label>
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setIsDialogOpen(false)}
+              disabled={isSaving}
+            >
               Cancel
             </Button>
-            <Button onClick={handleSubmit}>
-              {editingMethod ? "Update" : "Create"} Method
+            <Button
+              onClick={handleSave}
+              disabled={isSaving}
+            >
+              {isSaving ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  {editingMethod ? "Updating..." : "Creating..."}
+                </>
+              ) : (
+                editingMethod ? "Update" : "Create"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

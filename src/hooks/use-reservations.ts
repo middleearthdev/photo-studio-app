@@ -3,18 +3,24 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { 
-  getPaginatedReservations,
-  getReservationById,
-  createReservation, 
-  updateReservation, 
-  updateReservationStatus,
-  deleteReservation,
-  getReservationStats,
+  createReservationAction,
+  getReservationByBookingCodeAction,
+  getReservationsAction,
+  updateReservationStatusAction,
+  updateReservationAction,
+  deleteReservationAction,
   type CreateReservationData,
-  type UpdateReservationData,
-  type ReservationStatus
+  type Reservation
 } from '@/actions/reservations'
 import { PaginationParams } from '@/lib/constants/pagination'
+
+// Local types
+export type ReservationStatus = 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled'
+
+export interface UpdateReservationData {
+  // Add fields as needed - TODO: Define proper update interface
+  [key: string]: any
+}
 
 // Query keys
 export const reservationKeys = {
@@ -25,6 +31,40 @@ export const reservationKeys = {
   details: () => [...reservationKeys.all, 'detail'] as const,
   detail: (id: string) => [...reservationKeys.details(), id] as const,
   stats: (studioId: string) => [...reservationKeys.all, 'stats', studioId] as const,
+}
+
+// Helper functions to wrap server actions
+const getPaginatedReservations = async (
+  studioId: string, 
+  params: PaginationParams & {
+    status?: string
+    payment_status?: string
+    date_from?: string
+    date_to?: string
+    booking_type?: 'guest' | 'user' | 'all'
+  }
+) => {
+  const result = await getReservationsAction()
+  if (!result.success) {
+    throw new Error(result.error || 'Failed to fetch reservations')
+  }
+  
+  // Return mock pagination structure for now
+  // TODO: Implement proper server-side pagination
+  const reservations = result.data || []
+  const filteredReservations = reservations.filter((r: Reservation) => 
+    r.studio_id === studioId
+  )
+  
+  return {
+    data: filteredReservations,
+    pagination: {
+      page: params.page || 1,
+      pageSize: params.pageSize || 10,
+      total: filteredReservations.length,
+      totalPages: Math.ceil(filteredReservations.length / (params.pageSize || 10))
+    }
+  }
 }
 
 // ===== RESERVATION HOOKS =====
@@ -42,18 +82,49 @@ export function usePaginatedReservations(
 ) {
   return useQuery({
     queryKey: reservationKeys.paginatedList(studioId, params),
-    queryFn: () => getPaginatedReservations(studioId, params as any),
+    queryFn: () => getPaginatedReservations(studioId, params),
     enabled: !!studioId,
     staleTime: 30 * 1000, // 30 seconds
   })
 }
 
-// Get reservation by ID
-export function useReservation(id?: string) {
+// Helper function for getting reservation by booking code (since we don't have getById)
+const getReservationByBookingCode = async (bookingCode: string) => {
+  const result = await getReservationByBookingCodeAction(bookingCode)
+  if (!result.success) {
+    throw new Error(result.error || 'Failed to fetch reservation')
+  }
+  return result.data
+}
+
+// Mock stats function - TODO: Implement proper stats calculation
+const getReservationStats = async (studioId: string) => {
+  const result = await getReservationsAction()
+  if (!result.success) {
+    throw new Error(result.error || 'Failed to fetch reservation stats')
+  }
+  
+  const reservations = result.data || []
+  const studioReservations = reservations.filter((r: Reservation) => r.studio_id === studioId)
+  
+  return {
+    total: studioReservations.length,
+    pending: studioReservations.filter((r: Reservation) => r.status === 'pending').length,
+    completed: studioReservations.filter((r: Reservation) => r.status === 'completed').length,
+    thisMonth: studioReservations.length, // TODO: Implement proper monthly calculation
+    totalRevenue: studioReservations.reduce((sum: number, r: Reservation) => sum + r.total_amount, 0),
+    pendingPayments: studioReservations
+      .filter((r: Reservation) => r.payment_status !== 'completed')
+      .reduce((sum: number, r: Reservation) => sum + r.remaining_amount, 0)
+  }
+}
+
+// Get reservation by booking code (since we don't have by ID)
+export function useReservation(bookingCode?: string) {
   return useQuery({
-    queryKey: reservationKeys.detail(id!),
-    queryFn: () => getReservationById(id!),
-    enabled: !!id,
+    queryKey: reservationKeys.detail(bookingCode!),
+    queryFn: () => getReservationByBookingCode(bookingCode!),
+    enabled: !!bookingCode,
   })
 }
 
@@ -72,13 +143,19 @@ export function useCreateReservation() {
   const queryClient = useQueryClient()
   
   return useMutation({
-    mutationFn: createReservation,
+    mutationFn: async (data: CreateReservationData) => {
+      const result = await createReservationAction(data)
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to create reservation')
+      }
+      return result.data
+    },
     onSuccess: (data) => {
       toast.success('Reservasi berhasil dibuat')
       // Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: reservationKeys.lists() })
       queryClient.invalidateQueries({ queryKey: reservationKeys.paginatedLists() })
-      queryClient.invalidateQueries({ queryKey: reservationKeys.stats(data.studio_id) })
+      queryClient.invalidateQueries({ queryKey: reservationKeys.stats(data?.reservation?.studio_id || '') })
     },
     onError: (error: Error) => {
       toast.error(`Gagal membuat reservasi: ${error.message}`)
@@ -91,9 +168,17 @@ export function useUpdateReservation() {
   const queryClient = useQueryClient()
   
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: UpdateReservationData }) => 
-      updateReservation(id, data),
-    onSuccess: (data) => {
+    mutationFn: async ({ id, data }: { id: string; data: UpdateReservationData }) => {
+      const result = await updateReservationAction(id, data)
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to update reservation')
+      }
+      if (!result.data) {
+        throw new Error('No data returned from update operation')
+      }
+      return result.data
+    },
+    onSuccess: (data: Reservation) => {
       toast.success('Reservasi berhasil diperbarui')
       // Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: reservationKeys.lists() })
@@ -112,10 +197,18 @@ export function useUpdateReservationStatus() {
   const queryClient = useQueryClient()
   
   return useMutation({
-    mutationFn: ({ id, status }: { id: string; status: ReservationStatus }) => 
-      updateReservationStatus(id, status),
-    onSuccess: (data) => {
-      const statusMessages = {
+    mutationFn: async ({ id, status }: { id: string; status: ReservationStatus }) => {
+      const result = await updateReservationStatusAction(id, status)
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to update reservation status')
+      }
+      if (!result.data) {
+        throw new Error('No data returned from status update operation')
+      }
+      return result.data
+    },
+    onSuccess: (data: Reservation) => {
+      const statusMessages: Record<ReservationStatus, string> = {
         pending: 'Reservasi dikembalikan ke status pending',
         confirmed: 'Reservasi dikonfirmasi',
         in_progress: 'Reservasi dimulai',
@@ -141,7 +234,13 @@ export function useDeleteReservation() {
   const queryClient = useQueryClient()
   
   return useMutation({
-    mutationFn: deleteReservation,
+    mutationFn: async (id: string) => {
+      const result = await deleteReservationAction(id)
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to delete reservation')
+      }
+      return result
+    },
     onSuccess: () => {
       toast.success('Reservasi berhasil dihapus')
       // Invalidate all reservation queries

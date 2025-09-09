@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { PaginationParams, PaginatedResult, calculatePagination } from '@/lib/constants/pagination'
+import { updateReservationPaymentStatus } from '@/actions/reservations'
 
 export type PaymentStatus = 'pending' | 'completed' | 'failed' | 'partial' | 'refunded'
 
@@ -61,7 +62,9 @@ export interface PaymentMethod {
   provider: string
   account_details: any
   xendit_config: any
+  fee_type?: string
   fee_percentage: number
+  fee_amount?: number
   is_active: boolean
   created_at: string
 }
@@ -75,6 +78,7 @@ export interface CreatePaymentData {
   external_status?: string
   payment_url?: string
   gateway_fee?: number
+  net_amount?: number
   expires_at?: string
 }
 
@@ -201,9 +205,63 @@ export async function getPaymentById(id: string): Promise<Payment | null> {
   return data
 }
 
-// Create new payment
+// Get payment by external ID
+export async function getPaymentByExternalId(externalId: string): Promise<Payment | null> {
+  const supabase = await createClient()
+  
+  const { data, error } = await supabase
+    .from('payments')
+    .select(`
+      *,
+      reservation:reservations(
+        id, booking_code, customer_id, total_amount, reservation_date,
+        customer:customers(full_name, email, phone)
+      ),
+      payment_method:payment_methods(id, name, type, provider)
+    `)
+    .eq('external_payment_id', externalId)
+    .single()
+  
+  if (error) {
+    if (error.code === 'PGRST116') {
+      return null
+    }
+    console.error('Error fetching payment by external ID:', error)
+    throw new Error(`Failed to fetch payment: ${error.message}`)
+  }
+  
+  return data
+}
+
+// Get all payments for a reservation
+export async function getPaymentsByReservationId(reservationId: string): Promise<Payment[]> {
+  const supabase = await createClient()
+  
+  const { data, error } = await supabase
+    .from('payments')
+    .select(`
+      *,
+      payment_method:payment_methods(id, name, type, provider)
+    `)
+    .eq('reservation_id', reservationId)
+    .order('created_at', { ascending: true })
+  
+  if (error) {
+    console.error('Error fetching payments:', error)
+    throw new Error(`Failed to fetch payments: ${error.message}`)
+  }
+  
+  return data || []
+}
+
+// Create new payment with Xendit support
 export async function createPayment(data: CreatePaymentData): Promise<Payment> {
   const supabase = await createClient()
+  
+  // Use provided net_amount or calculate it
+  const netAmount = data.net_amount !== undefined 
+    ? data.net_amount 
+    : data.amount - (data.gateway_fee || 0);
   
   const paymentData = {
     reservation_id: data.reservation_id,
@@ -214,7 +272,7 @@ export async function createPayment(data: CreatePaymentData): Promise<Payment> {
     external_status: data.external_status || null,
     payment_url: data.payment_url || null,
     gateway_fee: data.gateway_fee || 0,
-    net_amount: data.amount - (data.gateway_fee || 0),
+    net_amount: netAmount,
     expires_at: data.expires_at || null,
   }
   
@@ -352,6 +410,127 @@ export async function getPaymentMethods(studioId: string): Promise<PaymentMethod
   return data || []
 }
 
+// Get all payment methods (including inactive)
+export async function getAllPaymentMethods(studioId: string): Promise<PaymentMethod[]> {
+  const supabase = await createClient()
+  
+  const { data, error } = await supabase
+    .from('payment_methods')
+    .select('*')
+    .eq('studio_id', studioId)
+    .order('name', { ascending: true })
+  
+  if (error) {
+    console.error('Error fetching all payment methods:', error)
+    throw new Error(`Failed to fetch payment methods: ${error.message}`)
+  }
+  
+  return data || []
+}
+
+// Create payment method interface
+export interface CreatePaymentMethodData {
+  studio_id: string
+  name: string
+  type: string
+  provider: string
+  account_details: any
+  xendit_config?: any
+  fee_type?: string
+  fee_percentage: number
+  fee_amount?: number
+  is_active: boolean
+}
+
+// Update payment method interface
+export interface UpdatePaymentMethodData {
+  name?: string
+  type?: string
+  provider?: string
+  account_details?: any
+  xendit_config?: any
+  fee_type?: string
+  fee_percentage?: number
+  fee_amount?: number
+  is_active?: boolean
+}
+
+// Create payment method
+export async function createPaymentMethod(data: CreatePaymentMethodData): Promise<PaymentMethod> {
+  const supabase = await createClient()
+  
+  const { data: paymentMethod, error } = await supabase
+    .from('payment_methods')
+    .insert(data)
+    .select()
+    .single()
+  
+  if (error) {
+    console.error('Error creating payment method:', error)
+    throw new Error(`Failed to create payment method: ${error.message}`)
+  }
+  
+  revalidatePath('/admin/payments/methods')
+  return paymentMethod
+}
+
+// Update payment method
+export async function updatePaymentMethod(id: string, data: UpdatePaymentMethodData): Promise<PaymentMethod> {
+  const supabase = await createClient()
+  
+  const { data: paymentMethod, error } = await supabase
+    .from('payment_methods')
+    .update(data)
+    .eq('id', id)
+    .select()
+    .single()
+  
+  if (error) {
+    console.error('Error updating payment method:', error)
+    throw new Error(`Failed to update payment method: ${error.message}`)
+  }
+  
+  revalidatePath('/admin/payments/methods')
+  return paymentMethod
+}
+
+// Delete payment method
+export async function deletePaymentMethod(id: string): Promise<void> {
+  const supabase = await createClient()
+  
+  const { error } = await supabase
+    .from('payment_methods')
+    .delete()
+    .eq('id', id)
+  
+  if (error) {
+    console.error('Error deleting payment method:', error)
+    throw new Error(`Failed to delete payment method: ${error.message}`)
+  }
+  
+  revalidatePath('/admin/payments/methods')
+}
+
+// Toggle payment method active status
+export async function togglePaymentMethodStatus(id: string, isActive: boolean): Promise<PaymentMethod> {
+  const supabase = await createClient()
+  
+  const { data: paymentMethod, error } = await supabase
+    .from('payment_methods')
+    .update({ is_active: isActive })
+    .eq('id', id)
+    .select()
+    .single()
+  
+  if (error) {
+    console.error('Error toggling payment method status:', error)
+    throw new Error(`Failed to toggle payment method status: ${error.message}`)
+  }
+  
+  revalidatePath('/admin/payments/methods')
+  return paymentMethod
+}
+
 // Update payment status (for manual updates)
 export async function updatePaymentStatus(id: string, status: PaymentStatus): Promise<Payment> {
   const supabase = await createClient()
@@ -383,6 +562,36 @@ export async function updatePaymentStatus(id: string, status: PaymentStatus): Pr
   if (error) {
     console.error('Error updating payment status:', error)
     throw new Error(`Failed to update payment status: ${error.message}`)
+  }
+  
+  // Update the corresponding reservation's payment status
+  if (payment.reservation_id) {
+    let reservationPaymentStatus: 'pending' | 'partial' | 'completed' | 'failed' | 'refunded' = status
+    
+    // For completed payments, determine the correct reservation payment status
+    if (status === 'completed') {
+      if (payment.payment_type === 'dp') {
+        // DP payment completed - reservation is partially paid
+        reservationPaymentStatus = 'partial'
+      } else if (payment.payment_type === 'full') {
+        // Full payment completed - reservation is fully paid
+        reservationPaymentStatus = 'completed'
+      } else if (payment.payment_type === 'remaining') {
+        // Remaining payment completed - check if all payments are now completed
+        const allPayments = await getPaymentsByReservationId(payment.reservation_id)
+        const allCompleted = allPayments.every(p => 
+          p.id === payment.id || p.status === 'completed'
+        )
+        
+        if (allCompleted) {
+          reservationPaymentStatus = 'completed'
+        } else {
+          reservationPaymentStatus = 'partial'
+        }
+      }
+    }
+    
+    await updateReservationPaymentStatus(payment.reservation_id, reservationPaymentStatus)
   }
   
   revalidatePath('/admin/payments')

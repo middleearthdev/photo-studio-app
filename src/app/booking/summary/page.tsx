@@ -19,7 +19,6 @@ import {
   CheckCircle,
   MapPin,
   Calendar,
-  DollarSign,
   Gift,
   AlertCircle
 } from 'lucide-react'
@@ -32,10 +31,12 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Textarea } from '@/components/ui/textarea'
 import { usePublicPackage } from '@/hooks/use-customer-packages'
 import { usePublicAddonsGrouped } from '@/hooks/use-addons'
+import { useActivePaymentMethods, formatPaymentMethod } from '@/hooks/use-payment-methods'
 import { createReservationAction } from '@/actions/reservations'
 import type { CreateReservationData } from '@/actions/reservations'
 import { toast } from 'sonner'
 import Link from 'next/link'
+import { shouldDisplayFeesToCustomers, formatFeeDisplay } from '@/lib/config/fee-config'
 
 const customerSchema = z.object({
   name: z.string().min(2, 'Nama minimal 2 karakter').max(100, 'Nama maksimal 100 karakter'),
@@ -45,9 +46,7 @@ const customerSchema = z.object({
     .regex(/^[\d+\-\s()]+$/, 'Format nomor WhatsApp tidak valid'),
   email: z.string().email('Format email tidak valid').optional().or(z.literal('')),
   notes: z.string().optional(),
-  paymentMethod: z.enum(['midtrans', 'bank_transfer', 'gopay', 'ovo', 'dana']).refine((val) => val !== undefined, {
-    message: 'Pilih metode pembayaran'
-  })
+  paymentMethod: z.string().min(1, 'Pilih metode pembayaran')
 })
 
 type CustomerFormData = z.infer<typeof customerSchema>
@@ -60,43 +59,7 @@ interface BookingData {
   addonsTotal?: number
 }
 
-const paymentMethods = [
-  {
-    id: 'midtrans',
-    name: 'Kartu Kredit/Debit',
-    description: 'Visa, Mastercard, JCB',
-    icon: CreditCard,
-    popular: true
-  },
-  {
-    id: 'gopay',
-    name: 'GoPay',
-    description: 'Pembayaran digital GoPay',
-    icon: DollarSign,
-    popular: true
-  },
-  {
-    id: 'ovo',
-    name: 'OVO',
-    description: 'Pembayaran digital OVO',
-    icon: DollarSign,
-    popular: false
-  },
-  {
-    id: 'dana',
-    name: 'DANA',
-    description: 'Pembayaran digital DANA',
-    icon: DollarSign,
-    popular: false
-  },
-  {
-    id: 'bank_transfer',
-    name: 'Transfer Bank',
-    description: 'BCA, Mandiri, BRI, BNI',
-    icon: CreditCard,
-    popular: false
-  }
-]
+// Payment methods will be loaded from database
 
 export default function BookingSummaryPage() {
   const router = useRouter()
@@ -105,6 +68,7 @@ export default function BookingSummaryPage() {
   
   const { data: packageData } = usePublicPackage(bookingData?.packageId || '')
   const { data: addonsGrouped = {} } = usePublicAddonsGrouped(packageData?.studio_id)
+  const { data: paymentMethods = [], isLoading: isLoadingPaymentMethods } = useActivePaymentMethods(packageData?.studio_id || '')
 
   const {
     register,
@@ -128,7 +92,7 @@ export default function BookingSummaryPage() {
     }
   }, [router])
 
-  if (!bookingData || !packageData) {
+  if (!bookingData || !packageData || isLoadingPaymentMethods) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
         <div className="text-center">
@@ -184,6 +148,29 @@ export default function BookingSummaryPage() {
     return getTotalPrice() * packageData.dp_percentage / 100
   }
 
+  // Calculate fee for selected payment method
+  const calculateSelectedMethodFee = () => {
+    if (!selectedPaymentMethod || !paymentMethods.length) return 0;
+    
+    const selectedMethod = paymentMethods.find(method => method.id === selectedPaymentMethod);
+    if (!selectedMethod) return 0;
+    
+    const dpAmount = getDpAmount();
+    
+    if (selectedMethod.fee_type === 'fixed') {
+      return selectedMethod.fee_amount || 0;
+    } else {
+      // Percentage fee
+      return Math.round(dpAmount * (selectedMethod.fee_percentage || 0) / 100);
+    }
+  };
+
+  const getDisplayTotal = () => {
+    const dpAmount = getDpAmount();
+    const fee = calculateSelectedMethodFee();
+    return process.env.NEXT_PUBLIC_CUSTOMER_PAYS_FEES === 'true' ? dpAmount + fee : dpAmount;
+  };
+
   const onSubmit = async (data: CustomerFormData) => {
     setIsSubmitting(true)
     
@@ -236,10 +223,14 @@ export default function BookingSummaryPage() {
         return
       }
 
+      // Find selected payment method details
+      const selectedMethod = paymentMethods.find(method => method.id === data.paymentMethod);
+      
       const finalBookingData = {
         reservation: result.data?.reservation,
         customer: result.data?.customer,
         paymentMethod: data.paymentMethod,
+        paymentMethodDetails: selectedMethod,
         totalPrice: getTotalPrice(),
         dpAmount: getDpAmount()
       }
@@ -249,8 +240,10 @@ export default function BookingSummaryPage() {
       
       toast.success('Reservasi berhasil dibuat!')
       
+      const methodType = selectedMethod?.type || 'bank_transfer'
+      
       // Redirect to payment gateway
-      router.push(`/booking/payment?method=${data.paymentMethod}&booking=${result.data?.reservation.booking_code}`)
+      router.push(`/booking/payment?method=${methodType}&booking=${result.data?.reservation.booking_code}&payment_method_id=${data.paymentMethod}`)
       
     } catch (error) {
       console.error('Error creating reservation:', error)
@@ -450,37 +443,52 @@ export default function BookingSummaryPage() {
                   </CardHeader>
                   
                   <CardContent>
-                    <RadioGroup 
-                      value={selectedPaymentMethod} 
-                      onValueChange={(value) => setValue('paymentMethod', value as any)}
-                      className="space-y-3"
-                    >
-                      {paymentMethods.map((method) => {
-                        const Icon = method.icon
-                        return (
-                          <div key={method.id} className="flex items-center space-x-3">
-                            <RadioGroupItem value={method.id} id={method.id} />
-                            <Label 
-                              htmlFor={method.id} 
-                              className="flex-1 flex items-center gap-3 p-3 rounded-lg border hover:bg-slate-50 cursor-pointer"
-                            >
-                              <Icon className="h-5 w-5 text-slate-600" />
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-medium">{method.name}</span>
-                                  {method.popular && (
-                                    <Badge variant="secondary" className="text-xs">
-                                      Populer
-                                    </Badge>
-                                  )}
+                    {paymentMethods.length > 0 ? (
+                      <RadioGroup 
+                        value={selectedPaymentMethod} 
+                        onValueChange={(value) => setValue('paymentMethod', value)}
+                        className="space-y-3"
+                      >
+                        {paymentMethods.map((method) => {
+                          const formattedMethod = formatPaymentMethod(method)
+                          return (
+                            <div key={method.id} className="flex items-center space-x-3">
+                              <RadioGroupItem value={method.id} id={method.id} />
+                              <Label 
+                                htmlFor={method.id} 
+                                className="flex-1 flex items-center gap-3 p-3 rounded-lg border hover:bg-slate-50 cursor-pointer"
+                              >
+                                <div className="text-2xl">{formattedMethod.icon}</div>
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-medium">{method.name}</span>
+                                    {shouldDisplayFeesToCustomers() && method.fee_percentage > 0 && (
+                                      <Badge variant="outline" className="text-xs">
+                                        Fee {formatFeeDisplay(
+                                          method.fee_type || 'percentage',
+                                          method.fee_percentage,
+                                          method.fee_amount || 0
+                                        )}
+                                      </Badge>
+                                    )}
+                                    {method.type === 'e_wallet' && (
+                                      <Badge variant="secondary" className="text-xs">
+                                        Populer
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <p className="text-sm text-slate-600">{formattedMethod.description}</p>
                                 </div>
-                                <p className="text-sm text-slate-600">{method.description}</p>
-                              </div>
-                            </Label>
-                          </div>
-                        )
-                      })}
-                    </RadioGroup>
+                              </Label>
+                            </div>
+                          )
+                        })}
+                      </RadioGroup>
+                    ) : (
+                      <div className="text-center py-4 text-slate-500">
+                        <p>Metode pembayaran belum tersedia untuk studio ini</p>
+                      </div>
+                    )}
                     
                     {errors.paymentMethod && (
                       <p className="text-sm text-red-500 flex items-center gap-1 mt-3">
@@ -608,9 +616,20 @@ export default function BookingSummaryPage() {
                       <span className="font-medium">{formatPrice(getTotalPrice())}</span>
                     </div>
                     
+                    {selectedPaymentMethod && shouldDisplayFeesToCustomers() && calculateSelectedMethodFee() > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Biaya Payment</span>
+                        <span className="font-medium text-red-600">+{formatPrice(calculateSelectedMethodFee())}</span>
+                      </div>
+                    )}
+                    
                     <div className="flex justify-between text-lg font-bold">
                       <span>DP ({packageData.dp_percentage}%)</span>
-                      <span className="text-blue-600">{formatPrice(getDpAmount())}</span>
+                      {shouldDisplayFeesToCustomers() && calculateSelectedMethodFee() > 0 ? (
+                        <span className="text-blue-600">{formatPrice(getDisplayTotal())}</span>
+                      ) : (
+                        <span className="text-blue-600">{formatPrice(getDpAmount())}</span>
+                      )}
                     </div>
                     
                     <div className="text-xs text-slate-500 bg-slate-50 p-3 rounded-lg">

@@ -112,6 +112,9 @@ export interface CreateReservationData {
     unit_price: number
   }[]
   
+  // Facilities
+  selected_facilities?: any
+  
   // Pricing
   package_price: number
   dp_percentage: number
@@ -146,13 +149,28 @@ function calculateEndTime(startTime: string, durationMinutes: number): string {
 }
 
 // Public action to create a new reservation (for guest booking)
-export async function createReservationAction(data: CreateReservationData): Promise<ActionResult<{ reservation: Reservation; customer: Customer }>> {
+export async function createReservationAction(data: CreateReservationData): Promise<ActionResult<{ reservation: Reservation; customer: Customer; payment?: any }>> {
   try {
     const supabase = await createClient()
 
     // Generate booking code
     const bookingCode = generateBookingCode()
     const endTime = calculateEndTime(data.start_time, data.duration_minutes)
+
+    // Get package facilities
+    const { data: packageFacilities, error: facilityError } = await supabase
+      .from('package_facilities')
+      .select(`
+        facility:facilities(id, name, description)
+      `)
+      .eq('package_id', data.package_id)
+
+    if (facilityError) {
+      console.error('Error fetching package facilities:', facilityError)
+    }
+
+    // Format selected facilities for storage
+    const selectedFacilities = packageFacilities?.map(pf => pf.facility) || []
 
     // Calculate pricing
     const packagePrice = data.package_price
@@ -194,6 +212,7 @@ export async function createReservationAction(data: CreateReservationData): Prom
         start_time: data.start_time,
         end_time: endTime,
         total_duration: data.duration_minutes,
+        selected_facilities: selectedFacilities,
         package_price: packagePrice,
         other_addon_total: addonsTotal,
         subtotal: subtotal,
@@ -259,6 +278,7 @@ export async function createReservationAction(data: CreateReservationData): Prom
     revalidatePath('/admin/reservations')
     revalidatePath('/booking')
 
+    // Return the reservation and customer data
     return {
       success: true,
       data: {
@@ -381,7 +401,7 @@ export async function updateReservationStatusAction(
   reservationId: string,
   status: 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled',
   notes?: string
-): Promise<ActionResult> {
+): Promise<ActionResult<Reservation>> {
   try {
     const supabase = await createClient()
 
@@ -432,7 +452,22 @@ export async function updateReservationStatusAction(
       query = query.eq('studio_id', currentProfile.studio_id)
     }
 
-    const { error } = await query
+    const { data: updatedReservation, error } = await query
+      .select(`
+        *,
+        studio:studios(id, name),
+        customer:customers(id, full_name, email, phone),
+        package:packages(id, name, duration_minutes),
+        reservation_addons(
+          id,
+          addon_id,
+          quantity,
+          unit_price,
+          total_price,
+          addon:addons(id, name, description)
+        )
+      `)
+      .single()
 
     if (error) {
       console.error('Error updating reservation status:', error)
@@ -440,9 +475,292 @@ export async function updateReservationStatusAction(
     }
 
     revalidatePath('/admin/reservations')
-    return { success: true }
+    return { success: true, data: updatedReservation }
   } catch (error: any) {
     console.error('Error in updateReservationStatusAction:', error)
     return { success: false, error: error.message || 'Failed to update reservation status' }
+  }
+}
+// Admin/Staff action to update reservation status based on payment completion
+export async function updateReservationStatusOnPayment(
+  reservationId: string,
+  paymentStatus: 'pending' | 'partial' | 'completed' | 'failed' | 'refunded'
+): Promise<ActionResult> {
+  try {
+    // If payment is completed, we might want to update the reservation status as well
+    if (paymentStatus === 'completed') {
+      // Get reservation details to check current status
+      const supabase = await createClient()
+      const { data: reservation, error: fetchError } = await supabase
+        .from('reservations')
+        .select('status')
+        .eq('id', reservationId)
+        .single()
+      
+      if (fetchError) {
+        console.error('Error fetching reservation:', fetchError)
+        return { success: false, error: 'Failed to fetch reservation' }
+      }
+      
+      // If reservation is still pending, we might want to confirm it
+      if (reservation && reservation.status === 'pending') {
+        // Note: This is business logic that might vary based on requirements
+        // For now, we'll just update the payment status and leave reservation status as is
+        // In a real implementation, you might want to confirm the reservation here
+        console.log(`Payment completed for reservation ${reservationId}. Consider updating reservation status.`)
+      }
+    }
+    
+    // Update just the payment status
+    return await updateReservationPaymentStatus(reservationId, paymentStatus)
+  } catch (error: any) {
+    console.error('Error in updateReservationStatusOnPayment:', error)
+    return { success: false, error: error.message || 'Failed to update reservation status' }
+  }
+}
+// Admin/Staff action to update reservation payment status
+export async function updateReservationPaymentStatus(
+  reservationId: string,
+  paymentStatus: 'pending' | 'partial' | 'completed' | 'failed' | 'refunded'
+): Promise<ActionResult> {
+  try {
+    const supabase = await createClient()
+
+    // Get current user to check permissions
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return { success: false, error: 'Unauthorized' }
+    }
+
+    // Get current user profile
+    const { data: currentProfile } = await supabase
+      .from('user_profiles')
+      .select('role, studio_id')
+      .eq('id', user.id)
+      .single()
+
+    if (!currentProfile || !['admin', 'cs'].includes(currentProfile.role)) {
+      return { success: false, error: 'Insufficient permissions' }
+    }
+
+    // Prepare update data
+    const updateData: any = {
+      payment_status: paymentStatus,
+      updated_at: new Date().toISOString()
+    }
+
+    // Build update query with studio check for CS users
+    let query = supabase
+      .from('reservations')
+      .update(updateData)
+      .eq('id', reservationId)
+
+    // CS users can only update their studio's reservations
+    if (currentProfile.role === 'cs') {
+      query = query.eq('studio_id', currentProfile.studio_id)
+    }
+
+    const { error } = await query
+
+    if (error) {
+      console.error('Error updating reservation payment status:', error)
+      return { success: false, error: error.message }
+    }
+
+    revalidatePath('/admin/reservations')
+    revalidatePath('/admin/payments')
+    return { success: true }
+  } catch (error: any) {
+    console.error('Error in updateReservationPaymentStatus:', error)
+    return { success: false, error: error.message || 'Failed to update reservation payment status' }
+  }
+}
+
+// Admin/Staff action to update reservation details
+export async function updateReservationAction(
+  reservationId: string,
+  updateData: {
+    guest_email?: string
+    guest_phone?: string
+    special_requests?: string
+    internal_notes?: string
+    reservation_date?: string
+    start_time?: string
+    end_time?: string
+    total_duration?: number
+  }
+): Promise<ActionResult<Reservation>> {
+  try {
+    const supabase = await createClient()
+
+    // Get current user to check permissions
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return { success: false, error: 'Unauthorized' }
+    }
+
+    // Get current user profile
+    const { data: currentProfile } = await supabase
+      .from('user_profiles')
+      .select('role, studio_id')
+      .eq('id', user.id)
+      .single()
+
+    if (!currentProfile || !['admin', 'cs'].includes(currentProfile.role)) {
+      return { success: false, error: 'Insufficient permissions' }
+    }
+
+    // Prepare update data
+    const updatePayload: any = {
+      ...updateData,
+      updated_at: new Date().toISOString()
+    }
+
+    // Build update query with studio check for CS users
+    let query = supabase
+      .from('reservations')
+      .update(updatePayload)
+      .eq('id', reservationId)
+
+    // CS users can only update their studio's reservations
+    if (currentProfile.role === 'cs') {
+      query = query.eq('studio_id', currentProfile.studio_id)
+    }
+
+    const { data: updatedReservation, error } = await query
+      .select(`
+        *,
+        studio:studios(id, name),
+        customer:customers(id, full_name, email, phone),
+        package:packages(id, name, duration_minutes),
+        reservation_addons(
+          id,
+          addon_id,
+          quantity,
+          unit_price,
+          total_price,
+          addon:addons(id, name, description)
+        )
+      `)
+      .single()
+
+    if (error) {
+      console.error('Error updating reservation:', error)
+      return { success: false, error: error.message }
+    }
+
+    revalidatePath('/admin/reservations')
+    return { success: true, data: updatedReservation }
+  } catch (error: any) {
+    console.error('Error in updateReservationAction:', error)
+    return { success: false, error: error.message || 'Failed to update reservation' }
+  }
+}
+
+// Admin/Staff action to delete reservation
+export async function deleteReservationAction(reservationId: string): Promise<ActionResult> {
+  try {
+    const supabase = await createClient()
+
+    // Get current user to check permissions
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return { success: false, error: 'Unauthorized' }
+    }
+
+    // Get current user profile
+    const { data: currentProfile } = await supabase
+      .from('user_profiles')
+      .select('role, studio_id')
+      .eq('id', user.id)
+      .single()
+
+    if (!currentProfile || !['admin', 'cs'].includes(currentProfile.role)) {
+      return { success: false, error: 'Insufficient permissions' }
+    }
+
+    // Get reservation details to check permissions and status
+    const { data: reservation, error: fetchError } = await supabase
+      .from('reservations')
+      .select('studio_id, status, payment_status')
+      .eq('id', reservationId)
+      .single()
+
+    if (fetchError || !reservation) {
+      return { success: false, error: 'Reservation not found' }
+    }
+
+    // CS users can only delete their studio's reservations
+    if (currentProfile.role === 'cs' && reservation.studio_id !== currentProfile.studio_id) {
+      return { success: false, error: 'Insufficient permissions for this studio' }
+    }
+
+    // Prevent deletion of reservations that are in progress or completed
+    if (['in_progress', 'completed'].includes(reservation.status)) {
+      return { 
+        success: false, 
+        error: 'Cannot delete reservation that is in progress or completed' 
+      }
+    }
+
+    // Check if reservation has payments
+    const { data: payments, error: paymentsError } = await supabase
+      .from('payments')
+      .select('id, status')
+      .eq('reservation_id', reservationId)
+
+    if (paymentsError) {
+      console.error('Error checking payments:', paymentsError)
+      return { success: false, error: 'Error checking related payments' }
+    }
+
+    // If there are completed payments, don't allow deletion
+    const hasCompletedPayments = payments?.some(p => p.status === 'completed')
+    if (hasCompletedPayments) {
+      return { 
+        success: false, 
+        error: 'Cannot delete reservation with completed payments. Cancel instead.' 
+      }
+    }
+
+    // Delete related data in correct order
+    // 1. Delete reservation addons
+    const { error: addonsError } = await supabase
+      .from('reservation_addons')
+      .delete()
+      .eq('reservation_id', reservationId)
+
+    if (addonsError) {
+      console.error('Error deleting reservation addons:', addonsError)
+      return { success: false, error: 'Failed to delete reservation addons' }
+    }
+
+    // 2. Delete payments
+    const { error: paymentsDeleteError } = await supabase
+      .from('payments')
+      .delete()
+      .eq('reservation_id', reservationId)
+
+    if (paymentsDeleteError) {
+      console.error('Error deleting payments:', paymentsDeleteError)
+      return { success: false, error: 'Failed to delete related payments' }
+    }
+
+    // 3. Delete the reservation
+    const { error: deleteError } = await supabase
+      .from('reservations')
+      .delete()
+      .eq('id', reservationId)
+
+    if (deleteError) {
+      console.error('Error deleting reservation:', deleteError)
+      return { success: false, error: deleteError.message }
+    }
+
+    revalidatePath('/admin/reservations')
+    return { success: true }
+  } catch (error: any) {
+    console.error('Error in deleteReservationAction:', error)
+    return { success: false, error: error.message || 'Failed to delete reservation' }
   }
 }

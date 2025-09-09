@@ -94,10 +94,15 @@ export default function TimeSlotsPage() {
   const { data: studios = [], isLoading: studiosLoading } = useStudios()
   const { data: facilities = [] } = useFacilities(selectedStudioId)
   
-  // Format date for API calls
+  // Format date for API calls - using Jakarta timezone
   const formatDateForApi = (date: Date | undefined): string | undefined => {
-    if (!date) return undefined
-    return date.toISOString().split('T')[0]
+    if (!date) return undefined;
+    
+    // Format date as YYYY-MM-DD in local timezone
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   const startDate = formatDateForApi(selectedDate)
@@ -109,7 +114,8 @@ export default function TimeSlotsPage() {
     isLoading: loading, 
     error, 
     refetch 
-  } = usePaginatedTimeSlots(selectedStudioId, {
+  } = usePaginatedTimeSlots({
+    studioId: selectedStudioId,
     page: currentPage,
     pageSize,
     search: searchTerm,

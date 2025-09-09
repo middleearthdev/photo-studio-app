@@ -3,18 +3,18 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { 
+import {
   CreditCard,
   Shield,
   Clock,
   ExternalLink,
   Loader2,
-  CheckCircle,
   AlertCircle
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { toast } from 'sonner'
+import { shouldDisplayFeesToCustomers } from '@/lib/config/fee-config'
 
 interface FinalBookingData {
   reservation: {
@@ -34,6 +34,14 @@ interface FinalBookingData {
     email: string
   }
   paymentMethod: string
+  paymentMethodDetails?: {
+    id: string
+    name: string
+    type: string
+    fee_type?: string
+    fee_percentage: number
+    fee_amount?: number
+  }
   totalPrice: number
   dpAmount: number
 }
@@ -45,29 +53,29 @@ const paymentMethodInfo = {
     icon: CreditCard,
     redirectText: 'Anda akan diarahkan ke halaman pembayaran Midtrans'
   },
-  gopay: {
-    name: 'GoPay',
-    description: 'Pembayaran digital GoPay',
-    icon: CreditCard,
-    redirectText: 'Anda akan diarahkan ke aplikasi GoPay atau scan QR code'
-  },
-  ovo: {
-    name: 'OVO',
-    description: 'Pembayaran digital OVO',
-    icon: CreditCard,
-    redirectText: 'Anda akan diarahkan ke aplikasi OVO atau scan QR code'
-  },
-  dana: {
-    name: 'DANA',
-    description: 'Pembayaran digital DANA',
-    icon: CreditCard,
-    redirectText: 'Anda akan diarahkan ke aplikasi DANA atau scan QR code'
-  },
   bank_transfer: {
     name: 'Transfer Bank',
     description: 'Transfer manual ke rekening studio',
     icon: CreditCard,
     redirectText: 'Anda akan melihat detail rekening untuk transfer'
+  },
+  virtual_account: {
+    name: 'Transfer VA',
+    description: 'Transfer Virtual Account',
+    icon: CreditCard,
+    redirectText: 'Anda akan di arahkan ke halaman pembayaran VA'
+  },
+  e_wallet: {
+    name: 'E-Wallet',
+    description: 'Pembayaran digital E-Wallet',
+    icon: CreditCard,
+    redirectText: 'Anda akan di arahkan ke halaman pembayaran E-Wallet'
+  },
+  qr_code: {
+    name: 'QR Code',
+    description: 'Pembayaran QR Code',
+    icon: CreditCard,
+    redirectText: 'Anda akan di arahkan ke halaman pembayaran QR Code'
   }
 }
 
@@ -76,10 +84,37 @@ export default function PaymentPage() {
   const searchParams = useSearchParams()
   const paymentMethod = searchParams.get('method') || 'midtrans'
   const bookingCode = searchParams.get('booking')
-  
+  const paymentMethodId = searchParams.get('payment_method_id')
+
+
   const [bookingData, setBookingData] = useState<FinalBookingData | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
   const [countdown, setCountdown] = useState(10)
+  const [hasError, setHasError] = useState(false)
+  const [retryCount, setRetryCount] = useState(0)
+  const [errorMessage, setErrorMessage] = useState('')
+
+  // Calculate fee based on payment method (if available)
+  const calculatePaymentFee = () => {
+    if (!bookingData || !bookingData.paymentMethodDetails) return 0;
+    
+    const paymentMethod = bookingData.paymentMethodDetails;
+    const dpAmount = bookingData.reservation?.dp_amount || bookingData.dpAmount || 0;
+    
+    if (paymentMethod.fee_type === 'fixed') {
+      return paymentMethod.fee_amount || 0;
+    } else {
+      // Percentage fee
+      return Math.round(dpAmount * (paymentMethod.fee_percentage || 0) / 100);
+    }
+  };
+
+  const getDisplayTotal = () => {
+    if (!bookingData) return 0;
+    const baseAmount = bookingData.reservation?.dp_amount || bookingData.dpAmount || 0;
+    const fee = calculatePaymentFee();
+    return process.env.NEXT_PUBLIC_CUSTOMER_PAYS_FEES === 'true' ? baseAmount + fee : baseAmount;
+  };
 
   useEffect(() => {
     const storedData = localStorage.getItem('finalBookingData')
@@ -91,13 +126,18 @@ export default function PaymentPage() {
   }, [router])
 
   useEffect(() => {
+    // Don't auto-process if there's been an error or we've exceeded retry limit
+    if (hasError || retryCount >= 3) {
+      return
+    }
+
     if (countdown > 0 && !isProcessing) {
       const timer = setTimeout(() => setCountdown(countdown - 1), 1000)
       return () => clearTimeout(timer)
     } else if (countdown === 0 && !isProcessing) {
       handlePayment()
     }
-  }, [countdown, isProcessing])
+  }, [countdown, isProcessing, hasError, retryCount])
 
   if (!bookingData) {
     return (
@@ -120,61 +160,77 @@ export default function PaymentPage() {
 
   const handlePayment = async () => {
     setIsProcessing(true)
-    
+    setHasError(false)
+    setErrorMessage('')
+
     try {
-      // Simulate payment gateway integration
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      
-      // Simulate payment gateway response
-      const paymentResponse = {
-        success: true,
-        paymentUrl: generateMockPaymentUrl(paymentMethod, bookingData.reservation?.booking_code || 'UNKNOWN', bookingData.reservation?.dp_amount || bookingData.dpAmount),
-        transactionId: `TXN-${Date.now()}`
+      // Create payment through our API (which will use Xendit for Xendit payments)
+      const response = await fetch('/api/payments/xendit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          reservationId: bookingData.reservation?.booking_code || bookingCode,
+          paymentType: 'dp', // We're always doing DP payments on this page
+          paymentMethod: paymentMethod === 'midtrans' ? 'BANK_TRANSFER' : paymentMethod.toUpperCase(),
+          paymentMethodId: paymentMethodId,
+        }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Gagal membuat pembayaran')
       }
-      
-      if (paymentResponse.success && paymentResponse.paymentUrl) {
-        // Store transaction data
-        const transactionData = {
-          ...bookingData,
-          transactionId: paymentResponse.transactionId,
-          paymentUrl: paymentResponse.paymentUrl,
-          status: 'pending_payment',
-          createdAt: new Date().toISOString()
-        }
-        
-        localStorage.setItem('transactionData', JSON.stringify(transactionData))
-        
-        // Redirect to payment gateway (in real app, this would be the actual gateway)
-        // For demo purposes, we'll redirect to our success page after a delay
-        if (paymentMethod === 'bank_transfer') {
-          router.push('/booking/bank-transfer')
-        } else {
-          // Simulate external payment gateway redirect
-          setTimeout(() => {
-            router.push('/booking/success?payment=completed')
-          }, 3000)
-        }
+
+      // Store transaction data
+      const transactionData = {
+        ...bookingData,
+        transactionId: result.data.payment.id,
+        paymentUrl: result.data.invoice_url,
+        status: 'pending_payment',
+        createdAt: new Date().toISOString()
+      }
+
+      localStorage.setItem('transactionData', JSON.stringify(transactionData))
+
+      // Redirect based on payment method
+      if (paymentMethod === 'bank_transfer') {
+        router.push('/booking/bank-transfer')
+      } else if (result.data.invoice_url) {
+        // Redirect to Xendit payment page
+        window.location.href = result.data.invoice_url
       } else {
-        throw new Error('Payment initialization failed')
+        // For manual payments, redirect to success page immediately
+        router.push(`/booking/success?payment=completed&booking=${bookingData.reservation?.booking_code || bookingCode}`)
       }
-      
     } catch (error) {
+      const newRetryCount = retryCount + 1
+      setRetryCount(newRetryCount)
       setIsProcessing(false)
-      // In real app, show error message
+      setHasError(true)
+
+      const errorMsg = error instanceof Error ? error.message : 'Error tidak diketahui'
+      setErrorMessage(errorMsg)
+
+      if (newRetryCount >= 3) {
+        toast.error(`Pembayaran gagal setelah 3 kali percobaan: ${errorMsg}`)
+      } else {
+        toast.error(`Pembayaran gagal (Percobaan ${newRetryCount}/3): ${errorMsg}`)
+      }
+
       console.error('Payment error:', error)
     }
   }
 
-  const generateMockPaymentUrl = (method: string, bookingId: string, amount: number) => {
-    const baseUrls = {
-      midtrans: `https://app.sandbox.midtrans.com/snap/v2/vtweb/${bookingId}`,
-      gopay: `https://simulator.sandbox.midtrans.com/gopay/partner/app/payment-pin?id=${bookingId}`,
-      ovo: `https://api.ovo.id/payment/${bookingId}`,
-      dana: `https://m.dana.id/m/portal/payment?id=${bookingId}`,
-      bank_transfer: `/booking/bank-transfer?id=${bookingId}`
-    }
-    return baseUrls[method as keyof typeof baseUrls] || baseUrls.midtrans
+  const handleRetry = () => {
+    setHasError(false)
+    setErrorMessage('')
+    setCountdown(5) // Shorter countdown for retry
+    setIsProcessing(false)
   }
+
 
   const methodInfo = paymentMethodInfo[paymentMethod as keyof typeof paymentMethodInfo] || paymentMethodInfo.midtrans
   const Icon = methodInfo.icon
@@ -209,9 +265,13 @@ export default function PaymentPage() {
                   <CardDescription>{methodInfo.description}</CardDescription>
                 </div>
               </div>
-              
+
               <div className="text-3xl font-bold text-blue-600 mb-2">
-                {formatPrice(bookingData.reservation?.dp_amount || bookingData.dpAmount)}
+                {shouldDisplayFeesToCustomers() && calculatePaymentFee() > 0 ? (
+                  <>{formatPrice(getDisplayTotal())} <span className="text-lg font-normal text-red-600">(+{formatPrice(calculatePaymentFee())} fee)</span></>
+                ) : (
+                  formatPrice(bookingData.reservation?.dp_amount || bookingData.dpAmount)
+                )}
               </div>
               <p className="text-sm text-slate-600">
                 DP untuk booking {bookingData.reservation?.customer?.full_name || bookingData.customer?.full_name}
@@ -225,7 +285,94 @@ export default function PaymentPage() {
             <span>Pembayaran diamankan dengan enkripsi SSL 256-bit</span>
           </div>
 
-          {!isProcessing ? (
+          {hasError && retryCount >= 3 ? (
+            /* Maximum Retries Reached */
+            <Card className="bg-red-50 border-red-200">
+              <CardContent className="pt-6 text-center">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-center">
+                    <AlertCircle className="h-12 w-12 text-red-600" />
+                  </div>
+
+                  <div>
+                    <h3 className="text-lg font-semibold text-red-900 mb-2">
+                      Pembayaran Gagal
+                    </h3>
+                    <p className="text-red-700 mb-4">
+                      Maaf, pembayaran tidak dapat diproses setelah 3 kali percobaan.
+                    </p>
+                    {errorMessage && (
+                      <div className="bg-red-100 border border-red-300 rounded-lg p-3 mb-4">
+                        <p className="text-sm text-red-800">
+                          <strong>Error:</strong> {errorMessage}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-3">
+                    <Button
+                      onClick={() => router.push('/packages')}
+                      variant="destructive"
+                      className="w-full"
+                      size="lg"
+                    >
+                      Kembali ke Paket
+                    </Button>
+
+                    <p className="text-xs text-red-600">
+                      Silakan hubungi customer service untuk bantuan lebih lanjut
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : hasError ? (
+            /* Error with Retry Option */
+            <Card className="bg-amber-50 border-amber-200">
+              <CardContent className="pt-6 text-center">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-center">
+                    <AlertCircle className="h-12 w-12 text-amber-600" />
+                  </div>
+
+                  <div>
+                    <h3 className="text-lg font-semibold text-amber-900 mb-2">
+                      Terjadi Kesalahan
+                    </h3>
+                    <p className="text-amber-700 mb-4">
+                      Pembayaran gagal diproses. Percobaan {retryCount}/3
+                    </p>
+                    {errorMessage && (
+                      <div className="bg-amber-100 border border-amber-300 rounded-lg p-3 mb-4">
+                        <p className="text-sm text-amber-800">
+                          <strong>Error:</strong> {errorMessage}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-3">
+                    <Button
+                      onClick={handleRetry}
+                      className="w-full bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800"
+                      size="lg"
+                    >
+                      Coba Lagi ({3 - retryCount} percobaan tersisa)
+                    </Button>
+
+                    <Button
+                      variant="ghost"
+                      onClick={() => router.push('/packages')}
+                      className="w-full"
+                    >
+                      Batalkan
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : !isProcessing ? (
             /* Countdown and Manual Trigger */
             <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-lg">
               <CardContent className="pt-6 text-center">
@@ -234,21 +381,29 @@ export default function PaymentPage() {
                     <Clock className="h-5 w-5" />
                     <span>Otomatis mengarahkan dalam {countdown} detik</span>
                   </div>
-                  
+
                   <div className="space-y-3">
                     <Button
                       onClick={handlePayment}
-                      className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
+                      className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 py-6 text-lg"
                       size="lg"
                     >
-                      Bayar Sekarang
+                      {shouldDisplayFeesToCustomers() && calculatePaymentFee() > 0 
+                        ? `Bayar ${formatPrice(getDisplayTotal())} (Termasuk Fee)` 
+                        : 'Bayar Sekarang'}
                       <ExternalLink className="h-5 w-5 ml-2" />
                     </Button>
-                    
+
                     <p className="text-xs text-slate-500">
                       {methodInfo.redirectText}
                     </p>
                   </div>
+
+                  {retryCount > 0 && (
+                    <div className="text-xs text-amber-600">
+                      Percobaan ke-{retryCount + 1}
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -260,7 +415,7 @@ export default function PaymentPage() {
                   <div className="flex items-center justify-center">
                     <Loader2 className="h-12 w-12 text-blue-600 animate-spin" />
                   </div>
-                  
+
                   <div>
                     <h3 className="text-lg font-semibold text-slate-900 mb-2">
                       Memproses Pembayaran...
@@ -269,7 +424,7 @@ export default function PaymentPage() {
                       Mohon tunggu, Anda akan segera diarahkan ke halaman pembayaran
                     </p>
                   </div>
-                  
+
                   <div className="bg-blue-50 p-4 rounded-lg">
                     <p className="text-sm text-blue-700">
                       <strong>Jangan tutup atau refresh halaman ini</strong> selama proses berlangsung

@@ -197,13 +197,13 @@ INSERT INTO addons (id, studio_id, facility_id, name, description, price, type, 
 ('9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb76', 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', null, 'Album Premium Upgrade', 'Upgrade ke album premium dengan cover kulit', 400000.00, 'product_upgrade', 1, false, null, true);
 
 -- 9. CREATE PAYMENT METHODS
-INSERT INTO payment_methods (id, studio_id, name, type, provider, account_details, fee_percentage, is_active) VALUES
-('de305d54-75b4-431b-adb2-eb6b9e546013', 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'Transfer Bank BCA', 'bank_transfer', 'BCA', '{"account_number": "1234567890", "account_name": "Lumina Photography Studio", "bank_code": "BCA"}', 0.00, true),
-('de305d54-75b4-431b-adb2-eb6b9e546014', 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'Transfer Bank Mandiri', 'bank_transfer', 'Mandiri', '{"account_number": "9876543210", "account_name": "Lumina Photography Studio", "bank_code": "Mandiri"}', 0.00, true),
-('de305d54-75b4-431b-adb2-eb6b9e546015', 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'QRIS', 'qr_code', 'Xendit', '{"merchant_id": "lumina_photo_studio", "qr_code_id": "qr_lumina_001"}', 0.70, true),
-('de305d54-75b4-431b-adb2-eb6b9e546016', 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'GoPay', 'e_wallet', 'Xendit', '{"merchant_id": "lumina_photo_studio"}', 2.00, true),
-('de305d54-75b4-431b-adb2-eb6b9e546017', 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'OVO', 'e_wallet', 'Xendit', '{"merchant_id": "lumina_photo_studio"}', 2.00, true),
-('de305d54-75b4-431b-adb2-eb6b9e546018', 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'Cash', 'cash', null, '{"accepted_at": "studio_location"}', 0.00, true);
+INSERT INTO payment_methods (id, studio_id, name, type, provider, account_details, fee_type, fee_percentage, fee_amount, is_active) VALUES
+('de305d54-75b4-431b-adb2-eb6b9e546013', 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'Transfer Bank BCA', 'bank_transfer', 'BCA', '{"account_number": "1234567890", "account_name": "Lumina Photography Studio", "bank_code": "BCA"}', 'percentage', 0.00, 0, true),
+('de305d54-75b4-431b-adb2-eb6b9e546014', 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'Transfer Bank Mandiri', 'bank_transfer', 'Mandiri', '{"account_number": "9876543210", "account_name": "Lumina Photography Studio", "bank_code": "Mandiri"}', 'percentage', 0.00, 0, true),
+('de305d54-75b4-431b-adb2-eb6b9e546015', 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'QRIS', 'qr_code', 'Xendit', '{"merchant_id": "lumina_photo_studio", "qr_code_id": "qr_lumina_001"}', 'percentage', 0.70, 0, true),
+('de305d54-75b4-431b-adb2-eb6b9e546016', 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'GoPay', 'e_wallet', 'Xendit', '{"merchant_id": "lumina_photo_studio"}', 'percentage', 2.00, 0, true),
+('de305d54-75b4-431b-adb2-eb6b9e546017', 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'OVO', 'e_wallet', 'Xendit', '{"merchant_id": "lumina_photo_studio"}', 'percentage', 2.00, 0, true),
+('de305d54-75b4-431b-adb2-eb6b9e546018', 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'Cash', 'cash', null, '{"accepted_at": "studio_location"}', 'percentage', 0.00, 0, true);
 
 -- End of sample data
 -- Selanjutnya akan dibuat time slots untuk 1 minggu ke depan

@@ -16,23 +16,23 @@ import { PaginationParams } from '@/lib/constants/pagination'
 
 export const timeSlotKeys = {
   all: ['timeSlots'] as const,
-  availableSlots: (studioId?: string, date?: string, duration?: number) =>
-    [...timeSlotKeys.all, 'available', { studioId, date, duration }] as const,
+  availableSlots: (studioId?: string, date?: string, duration?: number, packageId?: string) =>
+    [...timeSlotKeys.all, 'available', { studioId, date, duration, packageId }] as const,
   paginatedLists: () => [...timeSlotKeys.all, 'paginated'] as const,
   paginatedList: (params: any) => [...timeSlotKeys.paginatedLists(), params] as const,
   details: () => [...timeSlotKeys.all, 'detail'] as const,
   detail: (id: string) => [...timeSlotKeys.details(), id] as const,
 }
 
-export function useAvailableTimeSlots(studioId?: string, date?: string, packageDurationMinutes?: number) {
+export function useAvailableTimeSlots(studioId?: string, date?: string, packageDurationMinutes?: number, packageId?: string) {
   return useQuery({
-    queryKey: timeSlotKeys.availableSlots(studioId, date, packageDurationMinutes),
+    queryKey: timeSlotKeys.availableSlots(studioId, date, packageDurationMinutes, packageId),
     queryFn: async () => {
       if (!studioId || !date) {
         return []
       }
 
-      const result = await getAvailableTimeSlotsAction(studioId, date, packageDurationMinutes)
+      const result = await getAvailableTimeSlotsAction(studioId, date, packageDurationMinutes, packageId)
       if (!result.success) {
         throw new Error(result.error || 'Failed to fetch time slots')
       }

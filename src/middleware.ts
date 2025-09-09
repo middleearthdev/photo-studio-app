@@ -24,7 +24,8 @@ const publicRoutes = [
   '/portfolio',
   '/booking',
   '/guest',
-  '/auth/callback'
+  '/auth/callback',
+  '/api'
 ]
 
 export async function middleware(req: NextRequest) {

@@ -69,7 +69,16 @@ export function useAvailableTimeSlots(packageId: string, date: string) {
   return useQuery({
     queryKey: customerPackageKeys.timeSlots(packageId, date),
     queryFn: async () => {
-      const result = await getAvailableTimeSlotsAction(packageId, date)
+      // We need to get the package to get studioId and duration
+      const packageResult = await getPublicPackageAction(packageId)
+      if (!packageResult.success) {
+        throw new Error(packageResult.error || 'Failed to fetch package')
+      }
+      
+      const studioId = packageResult.data.studio_id
+      const duration = packageResult.data.duration_minutes
+      
+      const result = await getAvailableTimeSlotsAction(studioId, date, duration, packageId)
       if (!result.success) {
         throw new Error(result.error || 'Failed to fetch time slots')
       }

@@ -1,7 +1,8 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
-import { CreditCard, DollarSign, TrendingUp, TrendingDown, Search, MoreHorizontal, Eye, CheckCircle, XCircle, RefreshCw, Download, Filter, AlertCircle } from "lucide-react"
+import Link from "next/link"
+import { CreditCard, DollarSign, TrendingDown, Search, MoreHorizontal, Eye, CheckCircle, XCircle, RefreshCw, Download, Filter, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -29,6 +30,13 @@ import {
 } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { usePaginatedPayments, usePaymentStats, usePaymentMethods, useUpdatePaymentStatus, useDeletePayment } from "@/hooks/use-payments"
 import { type Payment, type PaymentStatus } from "@/actions/payments"
 import { PaginationControls } from "@/components/pagination-controls"
@@ -67,10 +75,12 @@ export default function PaymentsPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [selectedStudioId, setSelectedStudioId] = useState<string>('')
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null)
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
 
   // Studio selection for multi-studio admin
   const { data: studios = [], isLoading: studiosLoading } = useStudios()
-  
+
   // Auto-select first studio
   useEffect(() => {
     if (studios.length > 0 && !selectedStudioId) {
@@ -79,9 +89,9 @@ export default function PaymentsPage() {
   }, [studios, selectedStudioId])
 
   // TanStack Query hooks with pagination
-  const { 
-    data: paginatedResult, 
-    isLoading: loading, 
+  const {
+    data: paginatedResult,
+    isLoading: loading,
     error,
     refetch
   } = usePaginatedPayments(selectedStudioId, {
@@ -103,20 +113,10 @@ export default function PaymentsPage() {
   const updateStatusMutation = useUpdatePaymentStatus()
   const deletePaymentMutation = useDeletePayment()
 
-  // Show loading if studios not loaded yet
-  if (studiosLoading || (studios.length > 0 && !selectedStudioId)) {
-    return (
-      <div className="flex-1 space-y-4 p-4">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-muted-foreground" />
-            <p className="text-lg font-medium text-gray-900">Loading...</p>
-            <p className="text-sm text-gray-500 mt-1">Fetching studio data</p>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  // Reset pagination when filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, statusFilter, paymentTypeFilter, paymentMethodFilter, dateFromFilter, dateToFilter, selectedStudioId])
 
   // Reset pagination when filters change
   useEffect(() => {
@@ -148,6 +148,11 @@ export default function PaymentsPage() {
     deletePaymentMutation.mutate(payment.id)
   }
 
+  const handleViewDetails = (payment: Payment) => {
+    setSelectedPayment(payment)
+    setIsDetailModalOpen(true)
+  }
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
@@ -174,6 +179,21 @@ export default function PaymentsPage() {
       hour: '2-digit',
       minute: '2-digit'
     })
+  }
+
+  // Show loading if studios not loaded yet
+  if (studiosLoading || (studios.length > 0 && !selectedStudioId)) {
+    return (
+      <div className="flex-1 space-y-4 p-4">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-muted-foreground" />
+            <p className="text-lg font-medium text-gray-900">Loading...</p>
+            <p className="text-sm text-gray-500 mt-1">Fetching studio data</p>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   if (error) {
@@ -207,6 +227,12 @@ export default function PaymentsPage() {
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
+          <Button asChild>
+            <Link href="/admin/payments/methods">
+              <CreditCard className="h-4 w-4 mr-2" />
+              Payment Methods
+            </Link>
+          </Button>
         </div>
       </div>
 
@@ -224,7 +250,7 @@ export default function PaymentsPage() {
             </p>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Completed Payments</CardTitle>
@@ -237,7 +263,7 @@ export default function PaymentsPage() {
             </p>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pending Payments</CardTitle>
@@ -250,7 +276,7 @@ export default function PaymentsPage() {
             </p>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Gateway Fees</CardTitle>
@@ -274,7 +300,7 @@ export default function PaymentsPage() {
                 Daftar semua transaksi pembayaran
               </CardDescription>
             </div>
-            
+
             {/* Studio Selector */}
             <div className="flex items-center space-x-4">
               <div className="flex-1 max-w-sm">
@@ -312,7 +338,7 @@ export default function PaymentsPage() {
                 <Filter className="h-4 w-4" />
               </Button>
             </div>
-            
+
             <div className="flex flex-wrap items-center gap-4">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-[140px]">
@@ -327,7 +353,7 @@ export default function PaymentsPage() {
                   ))}
                 </SelectContent>
               </Select>
-              
+
               <Select value={paymentTypeFilter} onValueChange={setPaymentTypeFilter}>
                 <SelectTrigger className="w-[140px]">
                   <SelectValue placeholder="Type" />
@@ -341,7 +367,7 @@ export default function PaymentsPage() {
                   ))}
                 </SelectContent>
               </Select>
-              
+
               <Select value={paymentMethodFilter} onValueChange={setPaymentMethodFilter}>
                 <SelectTrigger className="w-[140px]">
                   <SelectValue placeholder="Method" />
@@ -355,7 +381,7 @@ export default function PaymentsPage() {
                   ))}
                 </SelectContent>
               </Select>
-              
+
               <div className="flex gap-2">
                 <Input
                   type="date"
@@ -433,7 +459,7 @@ export default function PaymentsPage() {
                             {payment.reservation?.booking_code || 'N/A'}
                           </div>
                           <div className="text-sm text-muted-foreground">
-                            {payment.reservation?.reservation_date ? 
+                            {payment.reservation?.reservation_date ?
                               formatDate(payment.reservation.reservation_date) : 'N/A'
                             }
                           </div>
@@ -502,22 +528,22 @@ export default function PaymentsPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleViewDetails(payment)}>
                               <Eye className="mr-2 h-4 w-4" />
                               View Details
                             </DropdownMenuItem>
-                            
+
                             {payment.payment_url && (
-                              <DropdownMenuItem 
+                              <DropdownMenuItem
                                 onClick={() => window.open(payment.payment_url!, '_blank')}
                               >
                                 <CreditCard className="mr-2 h-4 w-4" />
                                 Open Payment Link
                               </DropdownMenuItem>
                             )}
-                            
+
                             <DropdownMenuSeparator />
-                            
+
                             {payment.status === 'pending' && (
                               <>
                                 <DropdownMenuItem
@@ -535,7 +561,7 @@ export default function PaymentsPage() {
                                 </DropdownMenuItem>
                               </>
                             )}
-                            
+
                             {payment.status === 'completed' && (
                               <DropdownMenuItem
                                 onClick={() => handleStatusUpdate(payment, 'refunded')}
@@ -545,7 +571,7 @@ export default function PaymentsPage() {
                                 Refund
                               </DropdownMenuItem>
                             )}
-                            
+
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               onClick={() => handleDelete(payment)}
@@ -579,6 +605,299 @@ export default function PaymentsPage() {
           />
         </div>
       )}
+
+      {/* Payment Detail Modal */}
+      <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
+        <DialogContent className="w-[50vw] max-w-none sm:max-w-7xl max-h-[95vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle>Payment Details</DialogTitle>
+            <DialogDescription>
+              Detailed information about the payment transaction
+            </DialogDescription>
+          </DialogHeader>
+
+
+          {selectedPayment && (
+            <div className="space-y-6">
+              {/* Payment Overview */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <CreditCard className="h-5 w-5" />
+                    Payment Information
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-sm font-medium text-gray-500">Payment ID</label>
+                        <p className="font-mono text-sm">
+                          {selectedPayment.external_payment_id || selectedPayment.id}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-500">Amount</label>
+                        <p className="text-lg font-semibold">{formatCurrency(selectedPayment.amount)}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-500">Status</label>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={statusColors[selectedPayment.status]}>
+                            {statusLabels[selectedPayment.status]}
+                          </Badge>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-500">Payment Type</label>
+                        <Badge variant="outline">
+                          {paymentTypeLabels[selectedPayment.payment_type as keyof typeof paymentTypeLabels] || selectedPayment.payment_type}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-sm font-medium text-gray-500">Gateway Fee</label>
+                        <p className="text-sm">{formatCurrency(selectedPayment.gateway_fee)}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-500">Net Amount</label>
+                        <p className="text-sm">
+                          {selectedPayment.net_amount ? formatCurrency(selectedPayment.net_amount) : '-'}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-500">Payment Method</label>
+                        <p className="text-sm">
+                          {selectedPayment.payment_method?.name || 'Manual'}
+                          {selectedPayment.payment_method?.type && (
+                            <span className="text-gray-500 ml-2 capitalize">
+                              ({selectedPayment.payment_method.type.replace('_', ' ')})
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-500">Provider</label>
+                        <p className="text-sm">{selectedPayment.payment_method?.provider || '-'}</p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Booking Information */}
+              {selectedPayment.reservation && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Badge className="h-5 w-5" />
+                      Booking Information
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-3">
+                        <div>
+                          <label className="text-sm font-medium text-gray-500">Booking Code</label>
+                          <p className="font-mono text-sm">{selectedPayment.reservation.booking_code}</p>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-500">Customer Name</label>
+                          <p className="text-sm">{selectedPayment.reservation.customer?.full_name || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-500">Customer Email</label>
+                          <p className="text-sm">{selectedPayment.reservation.customer?.email || 'N/A'}</p>
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        <div>
+                          <label className="text-sm font-medium text-gray-500">Customer Phone</label>
+                          <p className="text-sm">{selectedPayment.reservation.customer?.phone || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-500">Reservation Date</label>
+                          <p className="text-sm">
+                            {selectedPayment.reservation.reservation_date ?
+                              formatDate(selectedPayment.reservation.reservation_date) : 'N/A'
+                            }
+                          </p>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-500">Total Amount</label>
+                          <p className="text-sm font-semibold">
+                            {formatCurrency(selectedPayment.reservation.total_amount)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Timestamps */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <AlertCircle className="h-5 w-5" />
+                    Transaction Timeline
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Created At</label>
+                      <p className="text-sm">{formatDateTime(selectedPayment.created_at)}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Paid At</label>
+                      <p className="text-sm">
+                        {selectedPayment.paid_at ? formatDateTime(selectedPayment.paid_at) : 'Not paid yet'}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Expires At</label>
+                      <p className="text-sm">
+                        {selectedPayment.expires_at ? formatDateTime(selectedPayment.expires_at) : 'No expiry'}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* External Payment Details */}
+              {(selectedPayment.external_payment_id || selectedPayment.payment_url || selectedPayment.callback_data) && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <CreditCard className="h-5 w-5" />
+                      External Payment Details
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {selectedPayment.external_payment_id && (
+                        <div>
+                          <label className="text-sm font-medium text-gray-500">External Payment ID</label>
+                          <p className="font-mono text-sm">{selectedPayment.external_payment_id}</p>
+                        </div>
+                      )}
+                      {selectedPayment.external_status && (
+                        <div>
+                          <label className="text-sm font-medium text-gray-500">External Status</label>
+                          <p className="text-sm">{selectedPayment.external_status}</p>
+                        </div>
+                      )}
+                      {selectedPayment.payment_url && (
+                        <div>
+                          <label className="text-sm font-medium text-gray-500">Payment URL</label>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm truncate max-w-md">{selectedPayment.payment_url}</p>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => window.open(selectedPayment.payment_url!, '_blank')}
+                            >
+                              Open
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                      {selectedPayment.callback_data && (
+                        <div>
+                          <label className="text-sm font-medium text-gray-500">Callback Data</label>
+                          <pre className="text-xs bg-gray-50 p-3 rounded-md overflow-x-auto">
+                            {JSON.stringify(selectedPayment.callback_data, null, 2)}
+                          </pre>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Actions */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Actions</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedPayment.payment_url && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open(selectedPayment.payment_url!, '_blank')}
+                      >
+                        <CreditCard className="mr-2 h-4 w-4" />
+                        Open Payment Link
+                      </Button>
+                    )}
+
+                    {selectedPayment.status === 'pending' && (
+                      <>
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={() => {
+                            handleStatusUpdate(selectedPayment, 'completed')
+                            setIsDetailModalOpen(false)
+                          }}
+                        >
+                          <CheckCircle className="mr-2 h-4 w-4" />
+                          Mark as Paid
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => {
+                            handleStatusUpdate(selectedPayment, 'failed')
+                            setIsDetailModalOpen(false)
+                          }}
+                        >
+                          <XCircle className="mr-2 h-4 w-4" />
+                          Mark as Failed
+                        </Button>
+                      </>
+                    )}
+
+                    {selectedPayment.status === 'completed' && (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => {
+                          handleStatusUpdate(selectedPayment, 'refunded')
+                          setIsDetailModalOpen(false)
+                        }}
+                      >
+                        <TrendingDown className="mr-2 h-4 w-4" />
+                        Refund
+                      </Button>
+                    )}
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-red-600 hover:text-red-700"
+                      onClick={() => {
+                        if (confirm('Are you sure you want to delete this payment?')) {
+                          handleDelete(selectedPayment)
+                          setIsDetailModalOpen(false)
+                        }
+                      }}
+                    >
+                      <XCircle className="mr-2 h-4 w-4" />
+                      Delete Payment
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
