@@ -1,6 +1,7 @@
 "use server"
 
 import { createClient } from '@/lib/supabase/server'
+import { getAvailableTimeSlotsAction as getTimeSlotsAction } from '@/actions/time-slots'
 
 export interface Package {
   id: string
@@ -159,20 +160,20 @@ export async function getPublicPackageCategoriesAction(studioId?: string): Promi
 }
 
 // Public action to get available time slots for a package on a specific date
-export async function getAvailableTimeSlotsAction(packageId: string, date: string): Promise<ActionResult<{id: string, time: string, available: boolean}[]>> {
+export async function getCustomerPackageTimeSlotsAction(packageId: string, date: string): Promise<ActionResult<{ id: string, time: string, available: boolean }[]>> {
   try {
     // Get package details to get studioId and duration
     const packageResult = await getPublicPackageAction(packageId)
     if (!packageResult.success) {
       return { success: false, error: packageResult.error || 'Failed to fetch package' }
     }
-    
-    const studioId = packageResult.data.studio_id
-    const duration = packageResult.data.duration_minutes
-    
-    return await getAvailableTimeSlots(studioId, date, duration, packageId)
+
+    const studioId = packageResult?.data?.studio_id
+    const duration = packageResult?.data?.duration_minutes
+
+    return await getTimeSlotsAction(studioId || '', date, duration, packageId)
   } catch (error: any) {
-    console.error('Error in getAvailableTimeSlotsAction:', error)
+    console.error('Error in getCustomerPackageTimeSlotsAction:', error)
     return { success: false, error: error.message || 'An error occurred' }
   }
 }
@@ -184,44 +185,44 @@ function generateTimeSlots(
   packageDuration: number,
   existingReservations: any[],
   date: string
-): {id: string, time: string, available: boolean}[] {
+): { id: string, time: string, available: boolean }[] {
   const slots = []
   const startTime = new Date(`${date} ${operatingHours.start}:00`)
   const endTime = new Date(`${date} ${operatingHours.end}:00`)
-  
+
   const current = new Date(startTime)
   let slotId = 1
 
   while (current < endTime) {
     const slotEndTime = new Date(current.getTime() + packageDuration * 60000)
-    
+
     // Check if slot end time exceeds operating hours
     if (slotEndTime > endTime) break
-    
+
     const timeString = current.toTimeString().slice(0, 5)
-    
+
     // Check if slot conflicts with existing reservations
     const isAvailable = !existingReservations.some(reservation => {
       const reservationStart = new Date(reservation.scheduled_at)
       const reservationEnd = new Date(reservationStart.getTime() + reservation.duration_minutes * 60000)
-      
+
       return (
         (current >= reservationStart && current < reservationEnd) ||
         (slotEndTime > reservationStart && slotEndTime <= reservationEnd) ||
         (current <= reservationStart && slotEndTime >= reservationEnd)
       )
     })
-    
+
     slots.push({
       id: slotId.toString(),
       time: timeString,
       available: isAvailable
     })
-    
+
     // Move to next slot
     current.setTime(current.getTime() + intervalMinutes * 60000)
     slotId++
   }
-  
+
   return slots
 }

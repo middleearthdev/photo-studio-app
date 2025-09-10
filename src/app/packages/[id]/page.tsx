@@ -5,13 +5,13 @@ import { useParams, useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { format, addDays, startOfDay, isBefore, isSameDay } from 'date-fns'
 import { id as idLocale } from 'date-fns/locale'
-import { 
-  ArrowLeft, 
-  Camera, 
-  Clock, 
-  Users, 
-  Image as ImageIcon, 
-  Sparkles, 
+import {
+  ArrowLeft,
+  Camera,
+  Clock,
+  Users,
+  Image as ImageIcon,
+  Sparkles,
   Calendar,
   ChevronLeft,
   ChevronRight,
@@ -29,11 +29,11 @@ export default function PackageDetailPage() {
   const params = useParams()
   const router = useRouter()
   const packageId = params.id as string
-  
+
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string | null>(null)
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(startOfDay(new Date()))
-  
+
   const { data: packageData, isLoading } = usePublicPackage(packageId)
   const { data: availableTimeSlots = [], isLoading: timeSlotsLoading } = useAvailableTimeSlots(
     packageData?.studio_id,
@@ -118,7 +118,7 @@ export default function PackageDetailPage() {
         date: selectedDate.toISOString(),
         timeSlot: selectedSlot?.time || selectedTimeSlot
       }
-      
+
       // Store booking data and redirect to add-ons
       localStorage.setItem('bookingData', JSON.stringify(bookingData))
       router.push(`/booking/addons?package=${packageId}`)
@@ -135,9 +135,9 @@ export default function PackageDetailPage() {
       <div className="bg-white/80 backdrop-blur-sm border-b border-slate-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center gap-4">
-            <Button 
-              variant="ghost" 
-              size="sm" 
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => router.back()}
               className="flex items-center gap-2"
             >
@@ -185,7 +185,7 @@ export default function PackageDetailPage() {
                     </div>
                   </div>
                 </CardHeader>
-                
+
                 <CardContent className="space-y-6">
                   {packageData.description && (
                     <p className="text-slate-600 text-lg leading-relaxed">
@@ -200,7 +200,7 @@ export default function PackageDetailPage() {
                       <p className="font-semibold text-slate-900">{formatDuration(packageData.duration_minutes)}</p>
                       <p className="text-sm text-slate-600">Durasi Sesi</p>
                     </div>
-                    
+
                     {packageData.max_photos && (
                       <div className="bg-green-50 rounded-lg p-4 text-center">
                         <ImageIcon className="h-6 w-6 text-green-600 mx-auto mb-2" />
@@ -210,7 +210,7 @@ export default function PackageDetailPage() {
                         </p>
                       </div>
                     )}
-                    
+
                     <div className="bg-purple-50 rounded-lg p-4 text-center">
                       <Users className="h-6 w-6 text-purple-600 mx-auto mb-2" />
                       <p className="font-semibold text-slate-900">1-4 orang</p>
@@ -255,23 +255,23 @@ export default function PackageDetailPage() {
                     Pilih tanggal yang tersedia untuk sesi foto Anda
                   </CardDescription>
                 </CardHeader>
-                
+
                 <CardContent>
                   {/* Week Navigation */}
                   <div className="flex items-center justify-between mb-6">
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={handlePrevWeek}
                       disabled={isBefore(addDays(currentWeekStart, -7), startOfDay(today))}
                     >
                       <ChevronLeft className="h-4 w-4" />
                     </Button>
-                    
+
                     <h3 className="font-semibold text-slate-900">
                       {format(currentWeekStart, 'MMMM yyyy', { locale: idLocale })}
                     </h3>
-                    
+
                     <Button variant="outline" size="sm" onClick={handleNextWeek}>
                       <ChevronRight className="h-4 w-4" />
                     </Button>
@@ -283,21 +283,20 @@ export default function PackageDetailPage() {
                       const isToday = isSameDay(day, today)
                       const isPast = isBefore(day, startOfDay(today))
                       const isSelected = selectedDate && isSameDay(day, selectedDate)
-                      
+
                       return (
                         <button
                           key={index}
                           onClick={() => handleDateSelect(day)}
                           disabled={isPast}
-                          className={`p-3 rounded-lg text-center transition-all duration-200 ${
-                            isPast
+                          className={`p-3 rounded-lg text-center transition-all duration-200 ${isPast
                               ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
                               : isSelected
-                              ? 'bg-blue-600 text-white shadow-lg'
-                              : isToday
-                              ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                              : 'bg-slate-50 text-slate-700 hover:bg-slate-100'
-                          }`}
+                                ? 'bg-blue-600 text-white shadow-lg'
+                                : isToday
+                                  ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                                  : 'bg-slate-50 text-slate-700 hover:bg-slate-100'
+                            }`}
                         >
                           <div className="text-xs font-medium mb-1">
                             {format(day, 'EEE', { locale: idLocale }).toUpperCase()}
@@ -330,7 +329,7 @@ export default function PackageDetailPage() {
                       Tersedia untuk {format(selectedDate, 'EEEE, dd MMMM yyyy', { locale: idLocale })}
                     </CardDescription>
                   </CardHeader>
-                  
+
                   <CardContent>
                     {timeSlotsLoading ? (
                       <div className="flex justify-center py-8">
@@ -348,13 +347,12 @@ export default function PackageDetailPage() {
                             key={slot.id}
                             onClick={() => handleTimeSlotSelect(slot.id)}
                             disabled={!slot.available}
-                            className={`p-4 rounded-lg font-medium transition-all duration-200 ${
-                              !slot.available
+                            className={`p-4 rounded-lg font-medium transition-all duration-200 ${!slot.available
                                 ? 'bg-red-50 text-red-400 cursor-not-allowed border border-red-200'
                                 : selectedTimeSlot === slot.id
-                                ? 'bg-blue-600 text-white shadow-lg'
-                                : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200'
-                            }`}
+                                  ? 'bg-blue-600 text-white shadow-lg'
+                                  : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200'
+                              }`}
                           >
                             <div className="text-lg font-bold mb-1">{slot.time}</div>
                             <div className="text-xs">
@@ -382,19 +380,19 @@ export default function PackageDetailPage() {
                 <CardHeader>
                   <CardTitle>Ringkasan Booking</CardTitle>
                 </CardHeader>
-                
+
                 <CardContent className="space-y-4">
                   <div className="space-y-3">
                     <div className="flex justify-between">
                       <span className="text-slate-600">Paket</span>
                       <span className="font-medium">{packageData.name}</span>
                     </div>
-                    
+
                     <div className="flex justify-between">
                       <span className="text-slate-600">Durasi</span>
                       <span className="font-medium">{formatDuration(packageData.duration_minutes)}</span>
                     </div>
-                    
+
                     {selectedDate && (
                       <div className="flex justify-between">
                         <span className="text-slate-600">Tanggal</span>
@@ -403,7 +401,7 @@ export default function PackageDetailPage() {
                         </span>
                       </div>
                     )}
-                    
+
                     {selectedTimeSlotData && (
                       <div className="flex justify-between">
                         <span className="text-slate-600">Jam</span>
@@ -411,7 +409,7 @@ export default function PackageDetailPage() {
                       </div>
                     )}
                   </div>
-                  
+
                   <div className="border-t pt-4 space-y-2">
                     <div className="flex justify-between text-lg font-bold">
                       <span>Total</span>
@@ -422,9 +420,9 @@ export default function PackageDetailPage() {
                     </div>
                   </div>
                 </CardContent>
-                
+
                 <CardFooter>
-                  <Button 
+                  <Button
                     onClick={handleContinueBooking}
                     disabled={!selectedDate || !selectedTimeSlot}
                     className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"

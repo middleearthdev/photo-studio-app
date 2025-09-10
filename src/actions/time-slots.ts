@@ -70,8 +70,8 @@ export async function checkFacilityAvailability(
       .eq('studio_id', studioId)
       .eq('reservation_date', date)
       .in('status', ['confirmed', 'in_progress'])
-      .gte('end_time', startTime.toTimeString().substring(0, 5))
-      .lte('start_time', endTime.toTimeString().substring(0, 5))
+      .lt('start_time', endTime.toTimeString().substring(0, 5))
+      .gt('end_time', startTime.toTimeString().substring(0, 5))
 
     if (reservationError) {
       console.error('Error fetching conflicting reservations:', reservationError)
@@ -79,8 +79,8 @@ export async function checkFacilityAvailability(
     }
 
     // Check if any required facilities are already booked
-    const requiredFacilityIds = packageFacilities.map(pf => pf.facility_id)
-    
+    const requiredFacilityIds = packageFacilities.map((pf: any) => pf.facility_id)
+
     for (const reservation of conflictingReservations || []) {
       if (reservation.selected_facilities) {
         // Check if any of the required facilities are already booked
@@ -96,6 +96,231 @@ export async function checkFacilityAvailability(
   } catch (error) {
     console.error('Error in checkFacilityAvailability:', error)
     return false
+  }
+}
+
+// Helper function to generate time slots based on studio operating hours
+export async function generateTimeSlotsForDate(
+  studioId: string,
+  date: string,
+  packageDurationMinutes: number = 90,
+  packageId?: string
+): Promise<ActionResult<AvailableSlot[]>> {
+  try {
+    const supabase = await createClient()
+    console.log('studioId', studioId)
+    console.log('date', date)
+    console.log('packageDurationMinutes', packageDurationMinutes)
+    // Get studio operating hours from studio settings
+    const { data: studioData, error: studioError } = await supabase
+      .from('studios')
+      .select('operating_hours, settings')
+      .eq('id', studioId)
+      .single()
+
+    if (studioError || !studioData) {
+      return { success: false, error: 'Studio not found' }
+    }
+
+    // Get day of week (0 = Sunday, 6 = Saturday)
+    const targetDate = new Date(date)
+    const dayOfWeek = targetDate.getDay()
+
+    // Default operating hours if not set
+    const defaultHours = {
+      monday: { open: '09:00', close: '18:00', isOpen: true },
+      tuesday: { open: '09:00', close: '18:00', isOpen: true },
+      wednesday: { open: '09:00', close: '18:00', isOpen: true },
+      thursday: { open: '09:00', close: '18:00', isOpen: true },
+      friday: { open: '09:00', close: '18:00', isOpen: true },
+      saturday: { open: '09:00', close: '17:00', isOpen: true },
+      sunday: { open: '10:00', close: '16:00', isOpen: false }
+    }
+
+    const operatingHours = studioData.operating_hours || defaultHours
+    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+    const dayName = dayNames[dayOfWeek]
+    const dayHours = operatingHours[dayName]
+
+    console.log('dayHours', dayHours)
+    console.log('dayHours', dayHours)
+
+    // Check if studio is open on this day
+    if (!dayHours || !dayHours.isOpen) {
+      return { success: true, data: [] }
+    }
+
+    // Pre-fetch all required data in parallel to avoid N+1 queries
+    const [
+      reservationsResult,
+      blockedSlotsResult,
+      packageFacilitiesResult,
+      allReservationsForFacilityCheckResult
+    ] = await Promise.all([
+      // Get existing reservations for this date and studio with their facilities
+      supabase
+        .from('reservations')
+        .select(`
+          start_time, 
+          end_time, 
+          total_duration,
+          selected_facilities
+        `)
+        .eq('studio_id', studioId)
+        .eq('reservation_date', date)
+        .in('status', ['confirmed', 'in_progress']),
+      
+      // Get blocked time slots
+      supabase
+        .from('time_slots')
+        .select('start_time, end_time')
+        .eq('studio_id', studioId)
+        .eq('slot_date', date)
+        .eq('is_blocked', true),
+      
+      // Get package facilities once if packageId provided
+      packageId ? supabase
+        .from('package_facilities')
+        .select('facility_id')
+        .eq('package_id', packageId) : { data: null, error: null },
+      
+      // Get ALL reservations for the date for facility conflict checking
+      packageId ? supabase
+        .from('reservations')
+        .select(`
+          id,
+          start_time,
+          end_time,
+          selected_facilities
+        `)
+        .eq('studio_id', studioId)
+        .eq('reservation_date', date)
+        .in('status', ['confirmed', 'in_progress']) : { data: null, error: null }
+    ])
+
+    // Extract data and handle errors
+    const existingReservations = reservationsResult.data
+    const blockedSlots = blockedSlotsResult.data
+    const packageFacilities = packageFacilitiesResult.data
+    const allReservationsForFacilityCheck = allReservationsForFacilityCheckResult.data
+
+    if (reservationsResult.error) {
+      console.error('Error fetching reservations:', reservationsResult.error)
+    }
+    if (blockedSlotsResult.error) {
+      console.error('Error fetching blocked slots:', blockedSlotsResult.error)
+    }
+    if (packageFacilitiesResult.error) {
+      console.error('Error fetching package facilities:', packageFacilitiesResult.error)
+    }
+    if (allReservationsForFacilityCheckResult.error) {
+      console.error('Error fetching facility check reservations:', allReservationsForFacilityCheckResult.error)
+    }
+
+    // Pre-calculate required facility IDs for faster lookup
+    const requiredFacilityIds = packageFacilities?.map((pf: any) => pf.facility_id) || []
+
+    // Generate available time slots
+    const slots: AvailableSlot[] = []
+    const startTime = dayHours.open
+    const endTime = dayHours.close
+    const slotInterval = 30 // 30 minutes between slots
+
+    // Parse start and end times
+    const [startHour, startMinute] = startTime.split(':').map(Number)
+    const [endHour, endMinute] = endTime.split(':').map(Number)
+
+    const startDateTime = new Date(targetDate)
+    startDateTime.setHours(startHour, startMinute, 0, 0)
+
+    const endDateTime = new Date(targetDate)
+    endDateTime.setHours(endHour, endMinute, 0, 0)
+
+    let currentTime = new Date(startDateTime)
+    let slotId = 1
+
+    while (currentTime < endDateTime) {
+      const slotEndTime = new Date(currentTime.getTime() + packageDurationMinutes * 60000)
+
+      // Check if slot end time exceeds operating hours
+      if (slotEndTime > endDateTime) break
+
+      const timeString = format(currentTime, 'HH:mm')
+      const slotEndTimeString = format(slotEndTime, 'HH:mm')
+
+      // Check if this slot conflicts with existing reservations
+      const isConflictingWithReservation = existingReservations?.some(reservation => {
+        const reservationStart = new Date(`${date} ${reservation.start_time}`)
+        const reservationEnd = new Date(`${date} ${reservation.end_time}`)
+
+        // Check time overlap
+        const timeOverlap = (
+          (currentTime >= reservationStart && currentTime < reservationEnd) ||
+          (slotEndTime > reservationStart && slotEndTime <= reservationEnd) ||
+          (currentTime <= reservationStart && slotEndTime >= reservationEnd)
+        )
+
+        return timeOverlap
+      })
+
+      // Check if this slot is blocked
+      const isBlocked = blockedSlots?.some(blocked => {
+        const blockedStart = new Date(`${date} ${blocked.start_time}`)
+        const blockedEnd = new Date(`${date} ${blocked.end_time}`)
+
+        return (
+          (currentTime >= blockedStart && currentTime < blockedEnd) ||
+          (slotEndTime > blockedStart && slotEndTime <= blockedEnd) ||
+          (currentTime <= blockedStart && slotEndTime >= blockedEnd)
+        )
+      })
+
+      // Check if slot is in the past
+      const now = new Date()
+      const isPast = isBefore(currentTime, now)
+
+      // Check facility availability using pre-fetched data (no database query)
+      let isFacilityAvailable = true
+      if (packageId && requiredFacilityIds.length > 0 && allReservationsForFacilityCheck) {
+        isFacilityAvailable = !allReservationsForFacilityCheck.some(reservation => {
+          // Check if reservation time overlaps with current slot
+          const reservationStart = new Date(`${date} ${reservation.start_time}`)
+          const reservationEnd = new Date(`${date} ${reservation.end_time}`)
+          
+          const timeOverlap = (
+            (currentTime >= reservationStart && currentTime < reservationEnd) ||
+            (slotEndTime > reservationStart && slotEndTime <= reservationEnd) ||
+            (currentTime <= reservationStart && slotEndTime >= reservationEnd)
+          )
+          
+          // If there's time overlap, check facility conflicts
+          if (timeOverlap && reservation.selected_facilities) {
+            return reservation.selected_facilities.some((facility: any) => 
+              requiredFacilityIds.includes(facility.id)
+            )
+          }
+          return false
+        })
+      }
+
+      const isAvailable = !isConflictingWithReservation && !isBlocked && !isPast && isFacilityAvailable
+
+      slots.push({
+        id: slotId.toString(),
+        time: timeString,
+        available: isAvailable
+      })
+
+      // Move to next slot
+      currentTime.setTime(currentTime.getTime() + slotInterval * 60000)
+      slotId++
+    }
+    console.log('slots', slots)
+
+    return { success: true, data: slots }
+  } catch (error: any) {
+    console.error('Error in generateTimeSlotsForDate:', error)
+    return { success: false, error: error.message || 'An error occurred' }
   }
 }
 
@@ -209,16 +434,20 @@ export async function createTimeSlotAction(
       .eq('id', user.id)
       .single()
 
-    if (!currentProfile || !['admin', 'cs'].includes(currentProfile.role)) {
+    if (!currentProfile) {
+      return { success: false, error: 'User profile not found' }
+    }
+
+    // Check permissions - admin can manage all studios, cs can only manage their studio
+    if (currentProfile.role === 'cs' && currentProfile.studio_id !== studioId) {
       return { success: false, error: 'Insufficient permissions' }
     }
 
-    // Check if user has permission for this studio
-    if (currentProfile.role === 'cs' && currentProfile.studio_id !== studioId) {
-      return { success: false, error: 'Insufficient permissions for this studio' }
+    if (!['admin', 'cs'].includes(currentProfile.role)) {
+      return { success: false, error: 'Insufficient permissions' }
     }
 
-    // Create time slot
+    // Create the time slot
     const { error } = await supabase
       .from('time_slots')
       .insert({
@@ -227,27 +456,30 @@ export async function createTimeSlotAction(
         slot_date: date,
         start_time: startTime,
         end_time: endTime,
-        is_available: !isBlocked,
         is_blocked: isBlocked,
-        notes: notes
+        notes: notes || null
       })
 
     if (error) {
       console.error('Error creating time slot:', error)
-      return { success: false, error: error.message }
+      return { success: false, error: `Failed to create time slot: ${error.message}` }
     }
 
     return { success: true }
   } catch (error: any) {
     console.error('Error in createTimeSlotAction:', error)
-    return { success: false, error: error.message || 'Failed to create time slot' }
+    return { success: false, error: error.message || 'An error occurred' }
   }
 }
 
-// Admin action to update time slot availability
+// Admin action to update a time slot
 export async function updateTimeSlotAction(
-  slotId: string,
-  updates: {
+  id: string,
+  data: {
+    facility_id?: string
+    slot_date?: string
+    start_time?: string
+    end_time?: string
     is_available?: boolean
     is_blocked?: boolean
     notes?: string
@@ -269,40 +501,50 @@ export async function updateTimeSlotAction(
       .eq('id', user.id)
       .single()
 
-    if (!currentProfile || !['admin', 'cs'].includes(currentProfile.role)) {
+    if (!currentProfile) {
+      return { success: false, error: 'User profile not found' }
+    }
+
+    // Check permissions - admin can manage all studios, cs can only manage their studio
+    // First get the time slot to check studio ownership
+    const { data: timeSlot } = await supabase
+      .from('time_slots')
+      .select('studio_id')
+      .eq('id', id)
+      .single()
+
+    if (!timeSlot) {
+      return { success: false, error: 'Time slot not found' }
+    }
+
+    if (currentProfile.role === 'cs' && currentProfile.studio_id !== timeSlot.studio_id) {
       return { success: false, error: 'Insufficient permissions' }
     }
 
-    // Build update query with studio check for CS users
-    let query = supabase
-      .from('time_slots')
-      .update({
-        ...updates,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', slotId)
-
-    // CS users can only update their studio's slots
-    if (currentProfile.role === 'cs') {
-      query = query.eq('studio_id', currentProfile.studio_id)
+    if (!['admin', 'cs'].includes(currentProfile.role)) {
+      return { success: false, error: 'Insufficient permissions' }
     }
 
-    const { error } = await query
+    // Update the time slot
+    const { error } = await supabase
+      .from('time_slots')
+      .update(data)
+      .eq('id', id)
 
     if (error) {
       console.error('Error updating time slot:', error)
-      return { success: false, error: error.message }
+      return { success: false, error: `Failed to update time slot: ${error.message}` }
     }
 
     return { success: true }
   } catch (error: any) {
     console.error('Error in updateTimeSlotAction:', error)
-    return { success: false, error: error.message || 'Failed to update time slot' }
+    return { success: false, error: error.message || 'An error occurred' }
   }
 }
 
 // Admin action to delete a time slot
-export async function deleteTimeSlotAction(slotId: string): Promise<ActionResult> {
+export async function deleteTimeSlotAction(id: string): Promise<ActionResult> {
   try {
     const supabase = await createClient()
 
@@ -319,43 +561,52 @@ export async function deleteTimeSlotAction(slotId: string): Promise<ActionResult
       .eq('id', user.id)
       .single()
 
-    if (!currentProfile || !['admin', 'cs'].includes(currentProfile.role)) {
+    if (!currentProfile) {
+      return { success: false, error: 'User profile not found' }
+    }
+
+    // Check permissions - admin can manage all studios, cs can only manage their studio
+    // First get the time slot to check studio ownership
+    const { data: timeSlot } = await supabase
+      .from('time_slots')
+      .select('studio_id')
+      .eq('id', id)
+      .single()
+
+    if (!timeSlot) {
+      return { success: false, error: 'Time slot not found' }
+    }
+
+    if (currentProfile.role === 'cs' && currentProfile.studio_id !== timeSlot.studio_id) {
       return { success: false, error: 'Insufficient permissions' }
     }
 
-    // Build delete query with studio check for CS users
-    let query = supabase
-      .from('time_slots')
-      .delete()
-      .eq('id', slotId)
-
-    // CS users can only delete their studio's slots
-    if (currentProfile.role === 'cs') {
-      query = query.eq('studio_id', currentProfile.studio_id)
+    if (!['admin', 'cs'].includes(currentProfile.role)) {
+      return { success: false, error: 'Insufficient permissions' }
     }
 
-    const { error } = await query
+    // Delete the time slot
+    const { error } = await supabase
+      .from('time_slots')
+      .delete()
+      .eq('id', id)
 
     if (error) {
       console.error('Error deleting time slot:', error)
-      return { success: false, error: error.message }
+      return { success: false, error: `Failed to delete time slot: ${error.message}` }
     }
 
     return { success: true }
   } catch (error: any) {
     console.error('Error in deleteTimeSlotAction:', error)
-    return { success: false, error: error.message || 'Failed to delete time slot' }
+    return { success: false, error: error.message || 'An error occurred' }
   }
 }
 
-// Admin action to bulk create time slots
-export async function bulkCreateTimeSlotsAction(
-  studioId: string,
-  facilityId: string,
-  startDate: string,
-  endDate: string,
-  timeRanges: { startTime: string; endTime: string }[],
-  skipWeekends: boolean = false
+// Admin action to toggle time slot availability
+export async function toggleTimeSlotAvailabilityAction(
+  id: string,
+  isAvailable: boolean
 ): Promise<ActionResult> {
   try {
     const supabase = await createClient()
@@ -373,130 +624,45 @@ export async function bulkCreateTimeSlotsAction(
       .eq('id', user.id)
       .single()
 
-    if (!currentProfile || !['admin', 'cs'].includes(currentProfile.role)) {
-      return { success: false, error: 'Insufficient permissions' }
+    if (!currentProfile) {
+      return { success: false, error: 'User profile not found' }
     }
 
-    // Check if user has permission for this studio
-    if (currentProfile.role === 'cs' && currentProfile.studio_id !== studioId) {
-      return { success: false, error: 'Insufficient permissions for this studio' }
-    }
-
-    // Generate dates between start and end date
-    const dates: string[] = []
-    const currentDate = new Date(startDate)
-    const end = new Date(endDate)
-
-    while (currentDate <= end) {
-      // Skip weekends if requested
-      if (skipWeekends) {
-        const day = currentDate.getDay()
-        if (day === 0 || day === 6) { // Sunday = 0, Saturday = 6
-          currentDate.setDate(currentDate.getDate() + 1)
-          continue
-        }
-      }
-
-      dates.push(currentDate.toISOString().split('T')[0])
-      currentDate.setDate(currentDate.getDate() + 1)
-    }
-
-    // Create time slots for each date and time range
-    const slotsToCreate = []
-    for (const date of dates) {
-      for (const range of timeRanges) {
-        slotsToCreate.push({
-          studio_id: studioId,
-          facility_id: facilityId,
-          slot_date: date,
-          start_time: range.startTime,
-          end_time: range.endTime,
-          is_available: true,
-          is_blocked: false,
-          notes: null
-        })
-      }
-    }
-
-    // Insert all time slots
-    const { error } = await supabase
+    // Check permissions - admin can manage all studios, cs can only manage their studio
+    // First get the time slot to check studio ownership
+    const { data: timeSlot } = await supabase
       .from('time_slots')
-      .insert(slotsToCreate)
-
-    if (error) {
-      console.error('Error creating time slots:', error)
-      return { success: false, error: error.message }
-    }
-
-    return { success: true }
-  } catch (error: any) {
-    console.error('Error in bulkCreateTimeSlotsAction:', error)
-    return { success: false, error: error.message || 'Failed to create time slots' }
-  }
-}
-
-// Admin action to toggle time slot availability
-export async function toggleTimeSlotAvailabilityAction(slotId: string): Promise<ActionResult> {
-  try {
-    const supabase = await createClient()
-
-    // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return { success: false, error: 'Unauthorized' }
-    }
-
-    // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role, studio_id')
-      .eq('id', user.id)
+      .select('studio_id')
+      .eq('id', id)
       .single()
 
-    if (!currentProfile || !['admin', 'cs'].includes(currentProfile.role)) {
-      return { success: false, error: 'Insufficient permissions' }
-    }
-
-    // Get the current time slot to determine what to toggle
-    const { data: timeSlot, error: fetchError } = await supabase
-      .from('time_slots')
-      .select('is_available, is_blocked, studio_id')
-      .eq('id', slotId)
-      .single()
-
-    if (fetchError) {
-      console.error('Error fetching time slot:', fetchError)
+    if (!timeSlot) {
       return { success: false, error: 'Time slot not found' }
     }
 
-    // Check if CS user has permission for this studio
-    if (currentProfile.role === 'cs' && timeSlot.studio_id !== currentProfile.studio_id) {
-      return { success: false, error: 'Insufficient permissions for this studio' }
+    if (currentProfile.role === 'cs' && currentProfile.studio_id !== timeSlot.studio_id) {
+      return { success: false, error: 'Insufficient permissions' }
     }
 
-    // Toggle availability: if blocked, unblock; if available, make unavailable; if unavailable, make available
-    const updates = timeSlot.is_blocked
-      ? { is_blocked: false, is_available: true }
-      : { is_available: !timeSlot.is_available }
+    if (!['admin', 'cs'].includes(currentProfile.role)) {
+      return { success: false, error: 'Insufficient permissions' }
+    }
 
-    // Update the time slot
+    // Update the time slot availability
     const { error } = await supabase
       .from('time_slots')
-      .update({
-        ...updates,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', slotId)
+      .update({ is_available: isAvailable })
+      .eq('id', id)
 
     if (error) {
       console.error('Error toggling time slot availability:', error)
-      return { success: false, error: error.message }
+      return { success: false, error: `Failed to update time slot: ${error.message}` }
     }
 
     return { success: true }
   } catch (error: any) {
     console.error('Error in toggleTimeSlotAvailabilityAction:', error)
-    return { success: false, error: error.message || 'Failed to toggle time slot availability' }
+    return { success: false, error: error.message || 'An error occurred' }
   }
 }
 
@@ -608,5 +774,89 @@ export async function getPaginatedTimeSlots(
   } catch (error: any) {
     console.error('Error in getPaginatedTimeSlots:', error)
     throw error
+  }
+}
+
+// Admin action to bulk create time slots
+export async function bulkCreateTimeSlotsAction(
+  studioId: string,
+  facilityId: string,
+  startDate: string,
+  endDate: string,
+  timeRanges: { startTime: string; endTime: string }[],
+  skipWeekends: boolean = false
+): Promise<ActionResult> {
+  try {
+    const supabase = await createClient()
+
+    // Get current user to check permissions
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return { success: false, error: 'Unauthorized' }
+    }
+
+    // Get current user profile
+    const { data: currentProfile } = await supabase
+      .from('user_profiles')
+      .select('role, studio_id')
+      .eq('id', user.id)
+      .single()
+
+    if (!currentProfile) {
+      return { success: false, error: 'User profile not found' }
+    }
+
+    // Check permissions - admin can manage all studios, cs can only manage their studio
+    if (currentProfile.role === 'cs' && currentProfile.studio_id !== studioId) {
+      return { success: false, error: 'Insufficient permissions' }
+    }
+
+    if (!['admin', 'cs'].includes(currentProfile.role)) {
+      return { success: false, error: 'Insufficient permissions' }
+    }
+
+    // Generate dates between start and end date
+    const start = new Date(startDate)
+    const end = new Date(endDate)
+    const dates: string[] = []
+
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      // Skip weekends if requested
+      if (skipWeekends && (d.getDay() === 0 || d.getDay() === 6)) {
+        continue
+      }
+      dates.push(d.toISOString().split('T')[0])
+    }
+
+    // Create time slots for each date and time range
+    const timeSlotsToCreate = []
+    for (const date of dates) {
+      for (const range of timeRanges) {
+        timeSlotsToCreate.push({
+          studio_id: studioId,
+          facility_id: facilityId,
+          slot_date: date,
+          start_time: range.startTime,
+          end_time: range.endTime,
+          is_available: true,
+          is_blocked: false
+        })
+      }
+    }
+
+    // Insert all time slots
+    const { error } = await supabase
+      .from('time_slots')
+      .insert(timeSlotsToCreate)
+
+    if (error) {
+      console.error('Error bulk creating time slots:', error)
+      return { success: false, error: `Failed to create time slots: ${error.message}` }
+    }
+
+    return { success: true }
+  } catch (error: any) {
+    console.error('Error in bulkCreateTimeSlotsAction:', error)
+    return { success: false, error: error.message || 'An error occurred' }
   }
 }
