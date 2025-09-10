@@ -5,13 +5,13 @@ import { useParams, useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { format, addDays, startOfDay, isBefore, isSameDay } from 'date-fns'
 import { id as idLocale } from 'date-fns/locale'
-import { 
-  ArrowLeft, 
-  Camera, 
-  Clock, 
-  Users, 
-  Image as ImageIcon, 
-  Sparkles, 
+import {
+  ArrowLeft,
+  Camera,
+  Clock,
+  Users,
+  ImageIcon,
+  Sparkles,
   Calendar,
   ChevronLeft,
   ChevronRight,
@@ -22,7 +22,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { usePublicPackage } from '@/hooks/use-customer-packages'
 import { useAvailableTimeSlots } from '@/hooks/use-time-slots'
-import type { AvailableSlot } from '@/actions/time-slots'
+import { useDebounce } from '@/hooks/use-debounce'
 import Link from 'next/link'
 
 export default function PackageDetailPage() {
@@ -35,19 +35,76 @@ export default function PackageDetailPage() {
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(startOfDay(new Date()))
   
   const { data: packageData, isLoading } = usePublicPackage(packageId)
+  const debouncedSelectedDate = useDebounce(selectedDate, 300)
   const { data: availableTimeSlots = [], isLoading: timeSlotsLoading } = useAvailableTimeSlots(
     packageData?.studio_id,
-    selectedDate ? format(selectedDate, 'yyyy-MM-dd') : undefined,
+    debouncedSelectedDate ? format(debouncedSelectedDate, 'yyyy-MM-dd') : undefined,
     packageData?.duration_minutes,
     packageData?.id
   )
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-slate-600">Memuat detail paket...</p>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+        <div className="bg-white/80 backdrop-blur-sm border-b border-slate-200 sticky top-0 z-50">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div className="flex items-center gap-4">
+              <div className="h-10 w-24 bg-slate-200 rounded animate-pulse"></div>
+              <div className="h-6 w-32 bg-slate-200 rounded animate-pulse"></div>
+            </div>
+          </div>
+        </div>
+
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 space-y-6">
+              <div className="bg-white/80 backdrop-blur-sm border-0 shadow-lg rounded-lg p-6 animate-pulse">
+                <div className="h-8 bg-slate-200 rounded w-1/3 mb-6"></div>
+                <div className="h-10 bg-slate-200 rounded w-2/3 mb-4"></div>
+                <div className="h-6 bg-slate-200 rounded w-1/4 mb-8"></div>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="h-24 bg-slate-200 rounded-lg"></div>
+                  ))}
+                </div>
+                
+                <div className="h-8 bg-slate-200 rounded w-1/3 mb-4"></div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="h-16 bg-slate-200 rounded-lg"></div>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="bg-white/80 backdrop-blur-sm border-0 shadow-lg rounded-lg p-6 animate-pulse">
+                <div className="h-8 bg-slate-200 rounded w-1/3 mb-6"></div>
+                <div className="flex justify-between mb-6">
+                  <div className="h-10 w-10 bg-slate-200 rounded"></div>
+                  <div className="h-6 bg-slate-200 rounded w-1/4"></div>
+                  <div className="h-10 w-10 bg-slate-200 rounded"></div>
+                </div>
+                <div className="grid grid-cols-7 gap-2">
+                  {[...Array(7)].map((_, i) => (
+                    <div key={i} className="h-16 bg-slate-200 rounded-lg"></div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            
+            <div className="lg:col-span-1">
+              <div className="bg-white/90 backdrop-blur-sm border-0 shadow-xl rounded-lg p-6 animate-pulse sticky top-24">
+                <div className="h-8 bg-slate-200 rounded w-1/3 mb-6"></div>
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="h-6 bg-slate-200 rounded w-full mb-4"></div>
+                ))}
+                <div className="h-px bg-slate-200 my-4"></div>
+                <div className="h-8 bg-slate-200 rounded w-2/3 mb-2"></div>
+                <div className="h-6 bg-slate-200 rounded w-1/2 mb-6"></div>
+                <div className="h-12 bg-slate-200 rounded"></div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     )
@@ -333,8 +390,13 @@ export default function PackageDetailPage() {
                   
                   <CardContent>
                     {timeSlotsLoading ? (
-                      <div className="flex justify-center py-8">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        {[...Array(8)].map((_, i) => (
+                          <div key={i} className="p-4 rounded-lg bg-slate-100 animate-pulse">
+                            <div className="h-6 bg-slate-200 rounded mb-2"></div>
+                            <div className="h-4 bg-slate-200 rounded w-3/4"></div>
+                          </div>
+                        ))}
                       </div>
                     ) : availableTimeSlots.length === 0 ? (
                       <div className="text-center py-8">

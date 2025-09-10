@@ -65,27 +65,27 @@ export function usePublicPackageCategories(studioId?: string) {
   })
 }
 
-export function useAvailableTimeSlots(packageId: string, date: string) {
-  return useQuery({
-    queryKey: customerPackageKeys.timeSlots(packageId, date),
-    queryFn: async () => {
-      // We need to get the package to get studioId and duration
-      const packageResult = await getPublicPackageAction(packageId)
-      if (!packageResult.success) {
-        throw new Error(packageResult.error || 'Failed to fetch package')
-      }
+// export function useAvailableTimeSlots(packageId: string, date: string) {
+//   return useQuery({
+//     queryKey: customerPackageKeys.timeSlots(packageId, date),
+//     queryFn: async () => {
+//       // We need to get the package to get studioId and duration
+//       const packageResult = await getPublicPackageAction(packageId)
+//       if (!packageResult.success) {
+//         throw new Error(packageResult.error || 'Failed to fetch package')
+//       }
       
-      const studioId = packageResult.data.studio_id
-      const duration = packageResult.data.duration_minutes
+//       const studioId = packageResult.data.studio_id
+//       const duration = packageResult.data.duration_minutes
       
-      const result = await getAvailableTimeSlotsAction(studioId, date, duration, packageId)
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to fetch time slots')
-      }
-      return result.data || []
-    },
-    enabled: !!packageId && !!date,
-    // Refetch every 5 minutes to get updated availability
-    refetchInterval: 5 * 60 * 1000,
-  })
-}
+//       const result = await getAvailableTimeSlotsAction(studioId, date, duration, packageId)
+//       if (!result.success) {
+//         throw new Error(result.error || 'Failed to fetch time slots')
+//       }
+//       return result.data || []
+//     },
+//     enabled: !!packageId && !!date,
+//     // Refetch every 5 minutes to get updated availability
+//     refetchInterval: 5 * 60 * 1000,
+//   })
+// }

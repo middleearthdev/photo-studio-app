@@ -39,6 +39,9 @@ export function useAvailableTimeSlots(studioId?: string, date?: string, packageD
       return result.data || []
     },
     enabled: !!studioId && !!date,
+    // Add caching - time slots don't change frequently
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    cacheTime: 10 * 60 * 1000, // 10 minutes
   })
 }
 
