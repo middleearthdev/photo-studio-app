@@ -10,7 +10,7 @@ export interface Facility {
   name: string
   description: string | null
   capacity: number
-  equipment: Record<string, unknown>
+  equipment: Record<string, boolean>
   hourly_rate: number | null
   is_available: boolean
   icon: string | null
@@ -23,8 +23,8 @@ export interface CreateFacilityData {
   name: string
   description?: string
   capacity: number
-  equipment?: Record<string, unknown>
-  hourly_rate?: number
+  equipment?: Record<string, boolean>
+  hourly_rate?: number | null
   icon?: string
 }
 
@@ -94,7 +94,7 @@ export async function getPaginatedFacilities(
   } = {}
 ): Promise<PaginatedResult<Facility>> {
   const supabase = await createClient()
-  
+
   const { page = 1, pageSize = 10, search = '', status = 'all' } = params
   const { offset, pageSize: validPageSize } = calculatePagination(page, pageSize, 0)
 

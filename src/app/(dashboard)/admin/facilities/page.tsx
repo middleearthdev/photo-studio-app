@@ -23,6 +23,7 @@ import {
   Sparkles,
   Camera,
   RefreshCw,
+  Settings,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -491,13 +492,11 @@ export default function FacilitiesPage() {
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() => handleToggleAvailability(facility)}
-                              className="text-orange-600"
                             >
-                              {facility.is_available ? <EyeOff className="mr-2 h-4 w-4" /> : <Eye className="mr-2 h-4 w-4" />}
+                              <Settings className="mr-2 h-4 w-4" />
                               {facility.is_available ? "Nonaktifkan" : "Aktifkan"}
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              className="text-red-600"
                               onClick={() => handleDeleteFacility(facility)}
                             >
                               <Trash className="mr-2 h-4 w-4" />
@@ -683,7 +682,7 @@ export default function FacilitiesPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Hapus Fasilitas</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogDescription asChild>
               <div className="space-y-2">
                 <p className="font-semibold text-red-600">⚠️ PERINGATAN: Aksi ini tidak dapat dibatalkan!</p>
                 <p>

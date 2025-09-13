@@ -396,7 +396,7 @@ export default function UsersPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Hapus Pengguna Secara Permanen</AlertDialogTitle>
-            <AlertDialogDescription className="space-y-2">
+            <AlertDialogDescription className="space-y-2" asChild>
               <div>
                 Apakah Anda yakin ingin menghapus permanen pengguna "{userToDelete?.full_name}"?
               </div>

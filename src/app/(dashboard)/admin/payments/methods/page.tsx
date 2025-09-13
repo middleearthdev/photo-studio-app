@@ -312,7 +312,7 @@ export default function PaymentMethodsPage() {
         <div>
           <h1 className="text-2xl font-bold">Payment Methods</h1>
           <p className="text-muted-foreground">
-            Manage payment methods for your studio
+            Kelola metode pembayaran untuk studio Anda
           </p>
         </div>
         <Button onClick={handleAddNew} disabled={!selectedStudioId}>
@@ -347,7 +347,7 @@ export default function PaymentMethodsPage() {
                   <div className="text-2xl font-bold text-blue-600">
                     {paymentMethods.length}
                   </div>
-                  <div className="text-sm text-muted-foreground">Total Methods</div>
+                  <div className="text-sm text-muted-foreground">Total Metode</div>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-green-600">
@@ -369,16 +369,13 @@ export default function PaymentMethodsPage() {
             <div>
               <h3 className="font-medium text-blue-900 mb-1">Payment Fee Configuration</h3>
               <p className="text-sm text-blue-800">
-                {shouldCustomerPayFees() 
-                  ? "Customers are currently paying payment processing fees." 
-                  : "Studio is currently absorbing payment processing fees."}
+                {shouldCustomerPayFees()
+                  ? "Pelanggan saat ini membayar biaya pemrosesan pembayaran."
+                  : "Studio saat ini menanggung biaya pemrosesan pembayaran."}
                 {" "}
-                {shouldDisplayFeesToCustomers() 
-                  ? "Fees are displayed to customers during booking." 
-                  : "Fees are hidden from customers."}
-              </p>
-              <p className="text-xs text-blue-700 mt-1">
-                Configure these settings in your environment variables (.env.local)
+                {shouldDisplayFeesToCustomers()
+                  ? "Biaya ditampilkan kepada pelanggan saat booking."
+                  : "Biaya disembunyikan dari pelanggan."}
               </p>
             </div>
           </div>
@@ -390,7 +387,7 @@ export default function PaymentMethodsPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="text-center text-muted-foreground">
-              Please select a studio to view payment methods
+              Silakan pilih studio untuk melihat metode pembayaran
             </div>
           </CardContent>
         </Card>
@@ -412,7 +409,7 @@ export default function PaymentMethodsPage() {
               Payment Methods
             </CardTitle>
             <CardDescription>
-              Configure payment methods for your studio
+              Konfigurasi metode pembayaran untuk studio Anda
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -432,7 +429,7 @@ export default function PaymentMethodsPage() {
                   {paymentMethods.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
-                        No payment methods found
+                        Tidak ada metode pembayaran ditemukan
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -501,7 +498,7 @@ export default function PaymentMethodsPage() {
                                   <AlertDialogHeader>
                                     <AlertDialogTitle>Delete Payment Method</AlertDialogTitle>
                                     <AlertDialogDescription>
-                                      Are you sure you want to delete "{method.name}"? This action cannot be undone.
+                                      Apakah Anda yakin ingin menghapus "{method.name}"? Tindakan ini tidak dapat dibatalkan.
                                     </AlertDialogDescription>
                                   </AlertDialogHeader>
                                   <AlertDialogFooter>
@@ -536,7 +533,7 @@ export default function PaymentMethodsPage() {
               {editingMethod ? "Edit Payment Method" : "Add Payment Method"}
             </DialogTitle>
             <DialogDescription>
-              Configure payment method settings for your studio
+              Konfigurasi pengaturan metode pembayaran untuk studio Anda
             </DialogDescription>
           </DialogHeader>
 
@@ -652,7 +649,7 @@ export default function PaymentMethodsPage() {
                   rows={4}
                 />
                 <p className="text-sm text-muted-foreground">
-                  Enter Xendit-specific configuration as JSON
+                  Masukkan konfigurasi khusus Xendit dalam format JSON
                 </p>
               </div>
             )}

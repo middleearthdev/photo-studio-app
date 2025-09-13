@@ -20,18 +20,24 @@ export async function signInAction(
   const supabase = await createClient();
 
   try {
+    console.log('🔐 Server Auth: Attempting login for:', email)
+    
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     })
 
     if (error) {
+      console.error('❌ Server Auth: Login error:', error.message)
       return { success: false, error: error.message }
     }
 
     if (!data.user) {
+      console.error('❌ Server Auth: No user data returned')
       return { success: false, error: 'Login gagal' }
     }
+
+    console.log('✅ Server Auth: User authenticated:', data.user.email)
 
     // Get user profile to check role
     const { data: profile, error: profileError } = await supabase
@@ -70,6 +76,8 @@ export async function signInAction(
       .update({ last_login: new Date().toISOString() })
       .eq('id', data.user.id)
 
+    console.log('✅ Server Auth: Profile verified. Role:', profile.role)
+
     // Determine redirect path based on role
     let redirectTo = '/dashboard' // Default for customers
     if (profile.role === 'admin') {
@@ -77,6 +85,8 @@ export async function signInAction(
     } else if (profile.role === 'cs') {
       redirectTo = '/cs'
     }
+
+    console.log('✅ Server Auth: Login successful, redirecting to:', redirectTo)
 
     revalidatePath('/', 'layout')
     return { success: true, redirectTo }
