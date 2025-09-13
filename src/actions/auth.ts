@@ -41,6 +41,7 @@ export async function signInAction(
       .single()
 
     if (profileError || !profile) {
+      console.error('Profile error:', profileError)
       await supabase.auth.signOut()
       return { success: false, error: 'Profil pengguna tidak ditemukan' }
     }

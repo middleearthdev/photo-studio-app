@@ -27,12 +27,15 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { getReservationByBookingCodeAction } from '@/actions/reservations'
+import { getPaymentsByReservationId } from '@/actions/payments'
 import type { Reservation } from '@/actions/reservations'
+import type { Payment } from '@/actions/payments'
 import { toast } from 'sonner'
 import Link from 'next/link'
 
 interface TransactionData {
   reservation: Reservation
+  payment: Payment
   transactionId: string
   status: string
   createdAt: string
@@ -44,46 +47,135 @@ export default function BookingSuccessPage() {
   const invoiceRef = useRef<HTMLDivElement>(null)
   
   const [transactionData, setTransactionData] = useState<TransactionData | null>(null)
-  const [reservationData, setReservationData] = useState<Reservation | null>(null)
   const [isDownloading, setIsDownloading] = useState(false)
-  const [showInvoice, setShowInvoice] = useState(false)
+  const [isVerifying, setIsVerifying] = useState(true)
+  const [verificationError, setVerificationError] = useState<string | null>(null)
 
   useEffect(() => {
-    const paymentStatus = searchParams.get('payment')
-    const bookingCode = searchParams.get('booking')
-    
-    if (paymentStatus === 'completed' && bookingCode) {
-      // Fetch reservation data from database
-      const fetchReservation = async () => {
-        const result = await getReservationByBookingCodeAction(bookingCode)
-        if (result.success && result.data) {
-          setReservationData(result.data)
-          setTransactionData({
-            reservation: result.data,
-            transactionId: `TXN-${Date.now()}`,
-            status: 'paid',
-            createdAt: new Date().toISOString()
-          })
-          // Clear temporary data
-          localStorage.removeItem('finalBookingData')
-          localStorage.removeItem('transactionData')
-        } else {
-          router.push('/packages')
+    const verifyBookingAndPayment = async () => {
+      try {
+        setIsVerifying(true)
+        setVerificationError(null)
+        
+        // Get parameters from URL - simplified to just payment and booking
+        const paymentStatus = searchParams.get('payment')
+        const bookingCode = searchParams.get('booking')
+        
+        // Validate required parameters
+        if (paymentStatus !== 'completed' || !bookingCode) {
+          setVerificationError('Parameter tidak valid. Akses tidak sah.')
+          return
         }
+        
+        // Fetch reservation data
+        const reservationResult = await getReservationByBookingCodeAction(bookingCode)
+        if (!reservationResult.success || !reservationResult.data) {
+          setVerificationError('Reservasi tidak ditemukan.')
+          return
+        }
+        
+        const reservation = reservationResult.data
+        
+        // Fetch and verify payment data
+        const paymentsResult = await getPaymentsByReservationId(reservation.id)
+        if (!paymentsResult.success || !paymentsResult.data) {
+          setVerificationError('Data pembayaran tidak ditemukan.')
+          return
+        }
+        
+        // Find the most recent completed payment
+        const completedPayments = paymentsResult.data.filter(p => p.status === 'completed')
+        if (completedPayments.length === 0) {
+          setVerificationError('Belum ada pembayaran yang selesai untuk reservasi ini.')
+          return
+        }
+        
+        // Get the most recent completed payment
+        const latestPayment = completedPayments[0] // Already ordered by created_at desc
+        
+        // Verify payment was completed recently (within last 24 hours) to prevent old links
+        const paymentDate = new Date(latestPayment.paid_at || latestPayment.created_at)
+        const now = new Date()
+        const hoursDiff = (now.getTime() - paymentDate.getTime()) / (1000 * 60 * 60)
+        
+        if (hoursDiff > 24) {
+          setVerificationError('Link sudah kadaluarsa. Silakan hubungi customer service.')
+          return
+        }
+        
+        // All verifications passed - set the data
+        setTransactionData({
+          reservation,
+          payment: latestPayment,
+          transactionId: latestPayment.id,
+          status: latestPayment.status,
+          createdAt: latestPayment.created_at
+        })
+        
+        // Clear temporary data
+        localStorage.removeItem('finalBookingData')
+        localStorage.removeItem('transactionData')
+        
+      } catch (error) {
+        console.error('Error verifying booking:', error)
+        setVerificationError('Terjadi kesalahan saat memverifikasi data.')
+      } finally {
+        setIsVerifying(false)
       }
-      fetchReservation()
-    } else {
-      // If no valid payment status, redirect to packages
-      router.push('/packages')
     }
+    
+    verifyBookingAndPayment()
   }, [router, searchParams])
 
-  if (!transactionData) {
+  // Show loading state
+  if (isVerifying) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-slate-600">Memuat konfirmasi booking...</p>
+          <p className="text-slate-600">Memverifikasi pembayaran...</p>
+        </div>
+      </div>
+    )
+  }
+  
+  // Show error state
+  if (verificationError) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-red-50 to-slate-100 flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto p-6">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h1 className="text-2xl font-bold text-slate-900 mb-2">Akses Ditolak</h1>
+          <p className="text-slate-600 mb-6">{verificationError}</p>
+          <div className="space-y-3">
+            <Link href="/packages">
+              <Button className="w-full">
+                <Camera className="h-4 w-4 mr-2" />
+                Buat Booking Baru
+              </Button>
+            </Link>
+            <Link href="/">
+              <Button variant="outline" className="w-full">
+                <Home className="h-4 w-4 mr-2" />
+                Kembali ke Beranda
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
+  }
+  
+  // Show error if no transaction data after verification
+  if (!transactionData) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-slate-600">Data transaksi tidak ditemukan.</p>
         </div>
       </div>
     )

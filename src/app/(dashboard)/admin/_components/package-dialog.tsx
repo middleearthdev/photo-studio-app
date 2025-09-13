@@ -458,8 +458,8 @@ export function PackageDialog({ open, onOpenChange, packageData, onPackageSaved,
                               <Card
                                 key={facility.id}
                                 className={`p-3 transition-all hover:shadow-sm ${isSelected
-                                    ? 'ring-1 ring-primary border-primary bg-primary/5'
-                                    : 'hover:border-primary/30'
+                                  ? 'ring-1 ring-primary border-primary bg-primary/5'
+                                  : 'hover:border-primary/30'
                                   }`}
                               >
                                 <div className="flex items-center space-x-2">

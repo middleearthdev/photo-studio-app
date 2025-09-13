@@ -186,9 +186,9 @@ export function UserDialog({ open, onOpenChange, user, onUserSaved }: UserDialog
                   </FormControl>
                   <FormMessage />
                   {isEdit && (
-                    <p className="text-xs text-muted-foreground">
+                    <div className="text-xs text-muted-foreground">
                       Email tidak dapat diubah setelah akun dibuat
-                    </p>
+                    </div>
                   )}
                 </FormItem>
               )}

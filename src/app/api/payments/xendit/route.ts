@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
       let gatewayFee = 0;
       let totalAmount = amount; // Default to original amount
       let netAmount = amount; // Default to original amount
-      
+
       if (paymentMethodDetails) {
         // Use the new fee calculation utility
         const feeCalculation = calculatePaymentFee(
@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
           paymentMethodDetails.fee_amount || 0,
           process.env.NEXT_PUBLIC_CUSTOMER_PAYS_FEES === 'true'
         );
-        
+
         gatewayFee = feeCalculation.feeAmount;
         totalAmount = feeCalculation.totalAmount;
         netAmount = feeCalculation.netAmount;
@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
     let gatewayFee = 0;
     let totalAmount = amount; // Default to original amount
     let netAmount = amount; // Default to original amount
-    
+
     if (paymentMethodDetails) {
       // Use the new fee calculation utility
       const feeCalculation = calculatePaymentFee(
@@ -136,11 +136,11 @@ export async function POST(req: NextRequest) {
         paymentMethodDetails.fee_amount || 0,
         process.env.NEXT_PUBLIC_CUSTOMER_PAYS_FEES === 'true'
       );
-      
+
       gatewayFee = feeCalculation.feeAmount;
       totalAmount = feeCalculation.totalAmount;
       netAmount = feeCalculation.netAmount;
-      
+
       // Update the amount sent to Xendit based on configuration
       // If customers pay fees, use totalAmount; otherwise use original amount
       if (totalAmount !== amount) {
@@ -173,9 +173,10 @@ export async function POST(req: NextRequest) {
       description: description,
       invoiceDuration: invoiceDuration,
       customer: {
-        given_names: customerData.name,
+        givenNames: customerData.name,
         email: customerData.email,
-        mobile_number: customerData.phone,
+        phoneNumber: customerData.phone,
+        mobileNumber: customerData.phone,
       },
       successRedirectURL: `${process.env.NEXT_PUBLIC_APP_URL}/booking/success?payment=completed&booking=${reservation.booking_code}`,
       failureRedirectURL: `${process.env.NEXT_PUBLIC_APP_URL}/booking/payment-failed`,

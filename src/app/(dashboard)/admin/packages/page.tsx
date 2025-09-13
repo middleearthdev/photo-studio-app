@@ -1,12 +1,12 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { 
-  Plus, 
-  Search, 
-  MoreHorizontal, 
-  Edit, 
-  Trash, 
+import {
+  Plus,
+  Search,
+  MoreHorizontal,
+  Edit,
+  Trash,
   Package as PackageIcon,
   Users,
   Clock,
@@ -45,7 +45,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton"
 import { PackageDialog } from "@/app/(dashboard)/admin/_components/package-dialog"
 import { PackageCategoriesManagement } from "@/app/(dashboard)/admin/_components/package-categories-management"
-import { usePackages, useDeletePackage, useTogglePackageStatus, usePackageCategories } from "@/hooks/use-packages"
+import { usePackages, useDeletePackage, useTogglePackageStatus, usePackageCategories, usePackage } from "@/hooks/use-packages"
 import { useStudios } from "@/hooks/use-studios"
 import { type Package } from "@/actions/packages"
 import {
@@ -91,10 +91,12 @@ export default function PackagesPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [selectedStudioId, setSelectedStudioId] = useState<string>('')
   const [isCategoriesManagementOpen, setIsCategoriesManagementOpen] = useState(false)
+  const [editingPackageId, setEditingPackageId] = useState<string | null>(null)
 
   const { data: studios = [], isLoading: studiosLoading } = useStudios()
   const { data: packages = [], isLoading: loading, error, refetch } = usePackages(selectedStudioId)
   const { data: categories = [] } = usePackageCategories(selectedStudioId)
+  const { data: editingPackage, isLoading: editingPackageLoading } = usePackage(editingPackageId || '')
   const deletePackageMutation = useDeletePackage()
   const toggleStatusMutation = useTogglePackageStatus()
 
@@ -105,28 +107,39 @@ export default function PackagesPage() {
     }
   }, [studios, selectedStudioId])
 
+  // Set selected package when editing package data is loaded
+  useEffect(() => {
+    if (editingPackage) {
+      setSelectedPackage(editingPackage)
+      setIsDialogOpen(true)
+      setEditingPackageId(null) // Reset after setting
+    }
+  }, [editingPackage])
+
   const filteredPackages = packages.filter(pkg => {
     const matchesSearch = pkg.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (pkg.description || '').toLowerCase().includes(searchTerm.toLowerCase())
-    
+      (pkg.description || '').toLowerCase().includes(searchTerm.toLowerCase())
+
     const matchesStatus = statusFilter === 'all' ||
-                         (statusFilter === 'active' && pkg.is_active) ||
-                         (statusFilter === 'inactive' && !pkg.is_active)
-    
-    const matchesCategory = categoryFilter === 'all' || 
-                           categoryFilter === 'uncategorized' && !pkg.category_id ||
-                           pkg.category_id === categoryFilter
-    
+      (statusFilter === 'active' && pkg.is_active) ||
+      (statusFilter === 'inactive' && !pkg.is_active)
+
+    const matchesCategory = categoryFilter === 'all' ||
+      categoryFilter === 'uncategorized' && !pkg.category_id ||
+      pkg.category_id === categoryFilter
+
     return matchesSearch && matchesStatus && matchesCategory
   })
 
   const handleEdit = (pkg: Package) => {
-    setSelectedPackage(pkg)
-    setIsDialogOpen(true)
+    setEditingPackageId(pkg.id)
+    // The complete package data with facility_ids will be loaded by the usePackage hook
+    // and set in the effect above
   }
 
   const handleAdd = () => {
     setSelectedPackage(null)
+    setEditingPackageId(null) // Reset editing package ID
     setIsDialogOpen(true)
   }
 
@@ -379,7 +392,7 @@ export default function PackagesPage() {
                 const TypeIcon = packageTypeIcons[packageType as keyof typeof packageTypeIcons]
                 const typeColorClass = packageTypeColors[packageType as keyof typeof packageTypeColors]
                 const includesBadges = getIncludesBadges(pkg.includes)
-                
+
                 return (
                   <Card key={pkg.id} className="group hover:shadow-md transition-shadow">
                     <CardHeader className="pb-3">
@@ -424,14 +437,14 @@ export default function PackagesPage() {
                               <Edit className="mr-2 h-4 w-4" />
                               Edit
                             </DropdownMenuItem>
-                            <DropdownMenuItem 
+                            <DropdownMenuItem
                               onClick={() => setPackageToToggle(pkg)}
                               className="text-orange-600"
                             >
                               {pkg.is_active ? <EyeOff className="mr-2 h-4 w-4" /> : <Eye className="mr-2 h-4 w-4" />}
                               {pkg.is_active ? "Nonaktifkan" : "Aktifkan"}
                             </DropdownMenuItem>
-                            <DropdownMenuItem 
+                            <DropdownMenuItem
                               className="text-red-600"
                               onClick={() => setPackageToDelete(pkg)}
                             >
@@ -448,7 +461,7 @@ export default function PackagesPage() {
                           {pkg.description}
                         </p>
                       )}
-                      
+
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
                           <div className="text-2xl font-bold text-green-600">
@@ -458,7 +471,7 @@ export default function PackagesPage() {
                             DP {pkg.dp_percentage}% = {formatCurrency((pkg.price * pkg.dp_percentage) / 100)}
                           </div>
                         </div>
-                        
+
                         <div className="grid grid-cols-2 gap-4 text-sm">
                           <div className="flex items-center space-x-1">
                             <Clock className="h-4 w-4 text-muted-foreground" />
@@ -471,7 +484,7 @@ export default function PackagesPage() {
                             </div>
                           )}
                         </div>
-                        
+
                         {includesBadges.length > 0 && (
                           <div className="flex flex-wrap gap-1">
                             {includesBadges.map((include, index) => (
@@ -528,7 +541,7 @@ export default function PackagesPage() {
                       filteredPackages.map((pkg) => {
                         const packageType = getPackageTypeInfo(pkg)
                         const TypeIcon = packageTypeIcons[packageType as keyof typeof packageTypeIcons]
-                        
+
                         return (
                           <TableRow key={pkg.id}>
                             <TableCell>
@@ -597,14 +610,14 @@ export default function PackagesPage() {
                                     <Edit className="mr-2 h-4 w-4" />
                                     Edit
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem 
+                                  <DropdownMenuItem
                                     onClick={() => setPackageToToggle(pkg)}
                                     className="text-orange-600"
                                   >
                                     {pkg.is_active ? <EyeOff className="mr-2 h-4 w-4" /> : <Eye className="mr-2 h-4 w-4" />}
                                     {pkg.is_active ? "Nonaktifkan" : "Aktifkan"}
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem 
+                                  <DropdownMenuItem
                                     className="text-red-600"
                                     onClick={() => setPackageToDelete(pkg)}
                                   >
@@ -627,13 +640,25 @@ export default function PackagesPage() {
       </div>
 
       {/* Dialogs */}
-      <PackageDialog
-        open={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
-        packageData={selectedPackage}
-        onPackageSaved={handlePackageSaved}
-        studioId={selectedStudioId}
-      />
+      {(editingPackageLoading && editingPackageId) ? (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white p-8 rounded-xl shadow-lg flex flex-col items-center gap-4">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+            <div className="text-center">
+              <h3 className="font-medium text-lg">Loading Package Data</h3>
+              <p className="text-muted-foreground text-sm mt-1">Fetching facility information...</p>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <PackageDialog
+          open={isDialogOpen}
+          onOpenChange={setIsDialogOpen}
+          packageData={selectedPackage}
+          onPackageSaved={handlePackageSaved}
+          studioId={selectedStudioId}
+        />
+      )}
 
       {/* Categories Management */}
       <PackageCategoriesManagement
@@ -650,7 +675,7 @@ export default function PackagesPage() {
               {packageToToggle?.is_active ? "Nonaktifkan Paket" : "Aktifkan Paket"}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {packageToToggle?.is_active 
+              {packageToToggle?.is_active
                 ? `Apakah Anda yakin ingin menonaktifkan paket "${packageToToggle?.name}"? Paket tidak akan tersedia untuk customer.`
                 : `Apakah Anda yakin ingin mengaktifkan paket "${packageToToggle?.name}"? Paket akan tersedia untuk customer.`
               }
@@ -677,10 +702,10 @@ export default function PackagesPage() {
               <div className="space-y-2">
                 <p className="font-semibold text-red-600">⚠️ PERINGATAN: Aksi ini tidak dapat dibatalkan!</p>
                 <p>
-                  Apakah Anda yakin ingin menghapus paket "{packageToDelete?.name}" secara permanen? 
+                  Apakah Anda yakin ingin menghapus paket "{packageToDelete?.name}" secara permanen?
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Paket dan semua data terkaitnya akan dihapus dari database dan tidak dapat dipulihkan. 
+                  Paket dan semua data terkaitnya akan dihapus dari database dan tidak dapat dipulihkan.
                   Pastikan tidak ada reservasi yang masih menggunakan paket ini.
                 </p>
               </div>

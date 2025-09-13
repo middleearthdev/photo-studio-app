@@ -108,9 +108,7 @@ export async function generateTimeSlotsForDate(
 ): Promise<ActionResult<AvailableSlot[]>> {
   try {
     const supabase = await createClient()
-    console.log('studioId', studioId)
-    console.log('date', date)
-    console.log('packageDurationMinutes', packageDurationMinutes)
+    console.log('🔍 generateTimeSlotsForDate:', { studioId, date, packageDurationMinutes, packageId })
     // Get studio operating hours from studio settings
     const { data: studioData, error: studioError } = await supabase
       .from('studios')
@@ -169,7 +167,7 @@ export async function generateTimeSlotsForDate(
         .eq('studio_id', studioId)
         .eq('reservation_date', date)
         .in('status', ['confirmed', 'in_progress']),
-      
+
       // Get blocked time slots
       supabase
         .from('time_slots')
@@ -177,13 +175,13 @@ export async function generateTimeSlotsForDate(
         .eq('studio_id', studioId)
         .eq('slot_date', date)
         .eq('is_blocked', true),
-      
+
       // Get package facilities once if packageId provided
       packageId ? supabase
         .from('package_facilities')
         .select('facility_id')
         .eq('package_id', packageId) : { data: null, error: null },
-      
+
       // Get ALL reservations for the date for facility conflict checking
       packageId ? supabase
         .from('reservations')
@@ -219,6 +217,7 @@ export async function generateTimeSlotsForDate(
 
     // Pre-calculate required facility IDs for faster lookup
     const requiredFacilityIds = packageFacilities?.map((pf: any) => pf.facility_id) || []
+    console.log('📦 Package facilities required:', requiredFacilityIds)
 
     // Generate available time slots
     const slots: AvailableSlot[] = []
@@ -249,19 +248,49 @@ export async function generateTimeSlotsForDate(
       const slotEndTimeString = format(slotEndTime, 'HH:mm')
 
       // Check if this slot conflicts with existing reservations
-      const isConflictingWithReservation = existingReservations?.some(reservation => {
-        const reservationStart = new Date(`${date} ${reservation.start_time}`)
-        const reservationEnd = new Date(`${date} ${reservation.end_time}`)
+      // Logic berdasarkan ada/tidaknya facility requirement
+      let isConflictingWithReservation = false
+      let packageHasNoFacilities = false
 
-        // Check time overlap
-        const timeOverlap = (
-          (currentTime >= reservationStart && currentTime < reservationEnd) ||
-          (slotEndTime > reservationStart && slotEndTime <= reservationEnd) ||
-          (currentTime <= reservationStart && slotEndTime >= reservationEnd)
-        )
+      if (packageId && requiredFacilityIds.length > 0) {
+        // Package DENGAN facility requirements - check facility conflict
+        isConflictingWithReservation = existingReservations?.some(reservation => {
+          const reservationStart = new Date(`${date} ${reservation.start_time}`)
+          const reservationEnd = new Date(`${date} ${reservation.end_time}`)
 
-        return timeOverlap
-      })
+          // Check time overlap
+          const timeOverlap = (
+            (currentTime >= reservationStart && currentTime < reservationEnd) ||
+            (slotEndTime > reservationStart && slotEndTime <= reservationEnd) ||
+            (currentTime <= reservationStart && slotEndTime >= reservationEnd)
+          )
+
+          // Only conflict if there's time overlap AND facility conflict
+          if (timeOverlap && reservation.selected_facilities) {
+            const hasConflictingFacility = reservation.selected_facilities.some((facility: any) =>
+              requiredFacilityIds.includes(facility.id)
+            )
+            if (hasConflictingFacility) {
+              console.log('⚠️  Facility conflict detected:', {
+                time: timeString,
+                requiredFacilities: requiredFacilityIds,
+                reservedFacilities: reservation.selected_facilities.map((f: any) => f.id),
+                reservationTime: `${reservation.start_time}-${reservation.end_time}`
+              })
+            }
+            return hasConflictingFacility
+          }
+          return false
+        }) || false
+      } else if (packageId && requiredFacilityIds.length === 0) {
+        // Package TANPA facility - mark as unavailable
+        packageHasNoFacilities = true
+        console.log('❌ Package has no facilities:', {
+          time: timeString,
+          packageId,
+          requiredFacilities: requiredFacilityIds
+        })
+      }
 
       // Check if this slot is blocked
       const isBlocked = blockedSlots?.some(blocked => {
@@ -279,31 +308,27 @@ export async function generateTimeSlotsForDate(
       const now = new Date()
       const isPast = isBefore(currentTime, now)
 
-      // Check facility availability using pre-fetched data (no database query)
-      let isFacilityAvailable = true
-      if (packageId && requiredFacilityIds.length > 0 && allReservationsForFacilityCheck) {
-        isFacilityAvailable = !allReservationsForFacilityCheck.some(reservation => {
-          // Check if reservation time overlaps with current slot
-          const reservationStart = new Date(`${date} ${reservation.start_time}`)
-          const reservationEnd = new Date(`${date} ${reservation.end_time}`)
-          
-          const timeOverlap = (
-            (currentTime >= reservationStart && currentTime < reservationEnd) ||
-            (slotEndTime > reservationStart && slotEndTime <= reservationEnd) ||
-            (currentTime <= reservationStart && slotEndTime >= reservationEnd)
-          )
-          
-          // If there's time overlap, check facility conflicts
-          if (timeOverlap && reservation.selected_facilities) {
-            return reservation.selected_facilities.some((facility: any) => 
-              requiredFacilityIds.includes(facility.id)
-            )
-          }
-          return false
+      const isAvailable = !isConflictingWithReservation && !isBlocked && !isPast && !packageHasNoFacilities
+
+      // Debug logging for available/unavailable slots
+      if (isAvailable && packageId) {
+        console.log('✅ Available slot:', {
+          time: timeString,
+          packageId,
+          requiredFacilities: requiredFacilityIds,
+          hasFacilityRequirements: requiredFacilityIds.length > 0
+        })
+      } else if (packageHasNoFacilities) {
+        console.log('❌ Unavailable slot (package has no facilities):', {
+          time: timeString,
+          packageId,
+          reason: 'Package tidak memiliki facility requirements'
+        })
+      } else if (isAvailable && !packageId) {
+        console.log('✅ Available slot (no package specified):', {
+          time: timeString
         })
       }
-
-      const isAvailable = !isConflictingWithReservation && !isBlocked && !isPast && isFacilityAvailable
 
       slots.push({
         id: slotId.toString(),

@@ -1,8 +1,8 @@
 "use client"
 
 import React from "react"
-import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { ProgressLink } from "@/components/ui/progress-link"
 import {
   Building2,
   Calendar,
@@ -50,6 +50,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
+import { NavigationProgress } from "@/components/ui/navigation-progress"
 import { useAuthStore } from "@/stores/auth-store"
 import { signOutAction } from "@/actions/auth"
 import { toast } from "sonner"
@@ -150,8 +151,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   }
 
   return (
-    <SidebarProvider>
-      <Sidebar variant="inset">
+    <>
+      <NavigationProgress />
+      <SidebarProvider>
+        <Sidebar variant="inset">
         <SidebarHeader>
           <div className="flex items-center gap-2 px-4 py-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
@@ -177,10 +180,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                       asChild
                       isActive={pathname === item.href || pathname.startsWith(`${item.href}/`)}
                     >
-                      <Link href={item.href}>
+                      <ProgressLink href={item.href}>
                         <item.icon className="h-4 w-4" />
                         <span>{item.title}</span>
-                      </Link>
+                      </ProgressLink>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
@@ -198,10 +201,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                       asChild
                       isActive={pathname === item.href || pathname.startsWith(`${item.href}/`)}
                     >
-                      <Link href={item.href}>
+                      <ProgressLink href={item.href}>
                         <item.icon className="h-4 w-4" />
                         <span>{item.title}</span>
-                      </Link>
+                      </ProgressLink>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
@@ -219,10 +222,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                       asChild
                       isActive={pathname === item.href || pathname.startsWith(`${item.href}/`)}
                     >
-                      <Link href={item.href}>
+                      <ProgressLink href={item.href}>
                         <item.icon className="h-4 w-4" />
                         <span>{item.title}</span>
-                      </Link>
+                      </ProgressLink>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
@@ -283,10 +286,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
-                    <Link href="/admin/settings">
+                    <ProgressLink href="/admin/settings">
                       <Settings className="mr-2 h-4 w-4" />
                       Account Settings
-                    </Link>
+                    </ProgressLink>
                   </DropdownMenuItem>
                   <DropdownMenuItem>
                     <Bell className="mr-2 h-4 w-4" />
@@ -352,6 +355,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           </div>
         </div>
       </SidebarInset>
-    </SidebarProvider>
+      </SidebarProvider>
+    </>
   )
 }

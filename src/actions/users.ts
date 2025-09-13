@@ -438,9 +438,9 @@ export async function deleteUserPermanentlyAction(userId: string): Promise<Actio
       .limit(1)
 
     if (relatedData && relatedData.length > 0) {
-      return { 
-        success: false, 
-        error: 'Cannot delete user with existing reservations. Deactivate instead.' 
+      return {
+        success: false,
+        error: 'Cannot delete user with existing reservations. Deactivate instead.'
       }
     }
 

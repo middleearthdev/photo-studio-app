@@ -205,11 +205,42 @@ export async function getPaymentById(id: string): Promise<Payment | null> {
   return data
 }
 
-// Get payment by external ID
+// Get payments by reservation ID
+export async function getPaymentsByReservationId(reservationId: string): Promise<ActionResult<Payment[]>> {
+  try {
+    const supabase = await createClient()
+    
+    const { data, error } = await supabase
+      .from('payments')
+      .select(`
+        *,
+        reservation:reservations(
+          id, booking_code, customer_id, total_amount, reservation_date,
+          customer:customers(full_name, email, phone)
+        ),
+        payment_method:payment_methods(id, name, type, provider)
+      `)
+      .eq('reservation_id', reservationId)
+      .order('created_at', { ascending: false })
+    
+    if (error) {
+      console.error('Error fetching payments by reservation ID:', error)
+      return { success: false, error: 'Failed to fetch payments' }
+    }
+    
+    return { success: true, data: data || [] }
+  } catch (error) {
+    console.error('Error in getPaymentsByReservationId:', error)
+    return { success: false, error: 'Failed to fetch payments' }
+  }
+}
+
+// Get payment by external ID (for webhooks)
 export async function getPaymentByExternalId(externalId: string): Promise<Payment | null> {
   const supabase = await createClient()
   
-  const { data, error } = await supabase
+  // First try to find by external_payment_id
+  let { data, error } = await supabase
     .from('payments')
     .select(`
       *,
@@ -222,6 +253,38 @@ export async function getPaymentByExternalId(externalId: string): Promise<Paymen
     .eq('external_payment_id', externalId)
     .single()
   
+  // If not found and looks like a Xendit invoice ID, try to find in callback_data
+  if (error && error.code === 'PGRST116' && externalId.startsWith('invoice-')) {
+    const { data: paymentsWithCallback, error: callbackError } = await supabase
+      .from('payments')
+      .select(`
+        *,
+        reservation:reservations(
+          id, booking_code, customer_id, total_amount, reservation_date,
+          customer:customers(full_name, email, phone)
+        ),
+        payment_method:payment_methods(id, name, type, provider)
+      `)
+      .not('callback_data', 'is', null)
+    
+    if (!callbackError && paymentsWithCallback) {
+      // Find payment where callback_data contains the external_id
+      data = paymentsWithCallback.find(payment => {
+        if (payment.callback_data && typeof payment.callback_data === 'object') {
+          return payment.callback_data.external_id === externalId ||
+                 payment.callback_data.xendit_invoice_id === externalId
+        }
+        return false
+      }) || null
+      
+      if (!data) {
+        error = { code: 'PGRST116', message: 'No payment found' } as any
+      } else {
+        error = null
+      }
+    }
+  }
+  
   if (error) {
     if (error.code === 'PGRST116') {
       return null
@@ -233,26 +296,6 @@ export async function getPaymentByExternalId(externalId: string): Promise<Paymen
   return data
 }
 
-// Get all payments for a reservation
-export async function getPaymentsByReservationId(reservationId: string): Promise<Payment[]> {
-  const supabase = await createClient()
-  
-  const { data, error } = await supabase
-    .from('payments')
-    .select(`
-      *,
-      payment_method:payment_methods(id, name, type, provider)
-    `)
-    .eq('reservation_id', reservationId)
-    .order('created_at', { ascending: true })
-  
-  if (error) {
-    console.error('Error fetching payments:', error)
-    throw new Error(`Failed to fetch payments: ${error.message}`)
-  }
-  
-  return data || []
-}
 
 // Create new payment with Xendit support
 export async function createPayment(data: CreatePaymentData): Promise<Payment> {

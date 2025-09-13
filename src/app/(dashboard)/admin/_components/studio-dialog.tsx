@@ -26,14 +26,20 @@ import { Switch } from "@/components/ui/switch"
 import { useCreateStudio, useUpdateStudio } from "@/hooks/use-studios"
 import { type Studio } from "@/actions/studios"
 
+const dayHoursSchema = z.object({
+  isOpen: z.boolean().default(true),
+  open: z.string().default("09:00"),
+  close: z.string().default("18:00"),
+})
+
 const operatingHoursSchema = z.object({
-  monday: z.object({ open: z.string(), close: z.string() }).optional(),
-  tuesday: z.object({ open: z.string(), close: z.string() }).optional(),
-  wednesday: z.object({ open: z.string(), close: z.string() }).optional(),
-  thursday: z.object({ open: z.string(), close: z.string() }).optional(),
-  friday: z.object({ open: z.string(), close: z.string() }).optional(),
-  saturday: z.object({ open: z.string(), close: z.string() }).optional(),
-  sunday: z.object({ open: z.string(), close: z.string() }).optional(),
+  monday: dayHoursSchema.optional(),
+  tuesday: dayHoursSchema.optional(),
+  wednesday: dayHoursSchema.optional(),
+  thursday: dayHoursSchema.optional(),
+  friday: dayHoursSchema.optional(),
+  saturday: dayHoursSchema.optional(),
+  sunday: dayHoursSchema.optional(),
 })
 
 const studioSchema = z.object({
@@ -81,13 +87,13 @@ export function StudioDialog({ open, onOpenChange, studio, onStudioSaved }: Stud
       email: "",
       is_active: true,
       operating_hours: {
-        monday: { open: "09:00", close: "18:00" },
-        tuesday: { open: "09:00", close: "18:00" },
-        wednesday: { open: "09:00", close: "18:00" },
-        thursday: { open: "09:00", close: "18:00" },
-        friday: { open: "09:00", close: "18:00" },
-        saturday: { open: "09:00", close: "18:00" },
-        sunday: { open: "09:00", close: "18:00" },
+        monday: { isOpen: true, open: "09:00", close: "18:00" },
+        tuesday: { isOpen: true, open: "09:00", close: "18:00" },
+        wednesday: { isOpen: true, open: "09:00", close: "18:00" },
+        thursday: { isOpen: true, open: "09:00", close: "18:00" },
+        friday: { isOpen: true, open: "09:00", close: "18:00" },
+        saturday: { isOpen: true, open: "09:00", close: "18:00" },
+        sunday: { isOpen: false, open: "09:00", close: "18:00" },
       },
     },
   })
@@ -101,14 +107,50 @@ export function StudioDialog({ open, onOpenChange, studio, onStudioSaved }: Stud
         phone: studio.phone || "",
         email: studio.email || "",
         is_active: studio.is_active,
-        operating_hours: studio.operating_hours || {
-          monday: { open: "09:00", close: "18:00" },
-          tuesday: { open: "09:00", close: "18:00" },
-          wednesday: { open: "09:00", close: "18:00" },
-          thursday: { open: "09:00", close: "18:00" },
-          friday: { open: "09:00", close: "18:00" },
-          saturday: { open: "09:00", close: "18:00" },
-          sunday: { open: "09:00", close: "18:00" },
+        operating_hours: studio.operating_hours ? {
+          monday: { 
+            isOpen: studio.operating_hours.monday?.isOpen ?? true, 
+            open: studio.operating_hours.monday?.open ?? "09:00", 
+            close: studio.operating_hours.monday?.close ?? "18:00" 
+          },
+          tuesday: { 
+            isOpen: studio.operating_hours.tuesday?.isOpen ?? true, 
+            open: studio.operating_hours.tuesday?.open ?? "09:00", 
+            close: studio.operating_hours.tuesday?.close ?? "18:00" 
+          },
+          wednesday: { 
+            isOpen: studio.operating_hours.wednesday?.isOpen ?? true, 
+            open: studio.operating_hours.wednesday?.open ?? "09:00", 
+            close: studio.operating_hours.wednesday?.close ?? "18:00" 
+          },
+          thursday: { 
+            isOpen: studio.operating_hours.thursday?.isOpen ?? true, 
+            open: studio.operating_hours.thursday?.open ?? "09:00", 
+            close: studio.operating_hours.thursday?.close ?? "18:00" 
+          },
+          friday: { 
+            isOpen: studio.operating_hours.friday?.isOpen ?? true, 
+            open: studio.operating_hours.friday?.open ?? "09:00", 
+            close: studio.operating_hours.friday?.close ?? "18:00" 
+          },
+          saturday: { 
+            isOpen: studio.operating_hours.saturday?.isOpen ?? true, 
+            open: studio.operating_hours.saturday?.open ?? "09:00", 
+            close: studio.operating_hours.saturday?.close ?? "18:00" 
+          },
+          sunday: { 
+            isOpen: studio.operating_hours.sunday?.isOpen ?? false, 
+            open: studio.operating_hours.sunday?.open ?? "09:00", 
+            close: studio.operating_hours.sunday?.close ?? "18:00" 
+          },
+        } : {
+          monday: { isOpen: true, open: "09:00", close: "18:00" },
+          tuesday: { isOpen: true, open: "09:00", close: "18:00" },
+          wednesday: { isOpen: true, open: "09:00", close: "18:00" },
+          thursday: { isOpen: true, open: "09:00", close: "18:00" },
+          friday: { isOpen: true, open: "09:00", close: "18:00" },
+          saturday: { isOpen: true, open: "09:00", close: "18:00" },
+          sunday: { isOpen: false, open: "09:00", close: "18:00" },
         },
       })
     } else {
@@ -120,13 +162,13 @@ export function StudioDialog({ open, onOpenChange, studio, onStudioSaved }: Stud
         email: "",
         is_active: true,
         operating_hours: {
-          monday: { open: "09:00", close: "18:00" },
-          tuesday: { open: "09:00", close: "18:00" },
-          wednesday: { open: "09:00", close: "18:00" },
-          thursday: { open: "09:00", close: "18:00" },
-          friday: { open: "09:00", close: "18:00" },
-          saturday: { open: "09:00", close: "18:00" },
-          sunday: { open: "09:00", close: "18:00" },
+          monday: { isOpen: true, open: "09:00", close: "18:00" },
+          tuesday: { isOpen: true, open: "09:00", close: "18:00" },
+          wednesday: { isOpen: true, open: "09:00", close: "18:00" },
+          thursday: { isOpen: true, open: "09:00", close: "18:00" },
+          friday: { isOpen: true, open: "09:00", close: "18:00" },
+          saturday: { isOpen: true, open: "09:00", close: "18:00" },
+          sunday: { isOpen: false, open: "09:00", close: "18:00" },
         },
       })
     }
@@ -304,43 +346,145 @@ export function StudioDialog({ open, onOpenChange, studio, onStudioSaved }: Stud
 
             <div className="space-y-4">
               <h3 className="text-lg font-medium">Jam Operasional</h3>
-              <div className="grid grid-cols-1 gap-3">
+              <div className="text-sm text-muted-foreground mb-4">
+                Atur jam operasional studio untuk setiap hari dalam seminggu
+              </div>
+              <div className="grid grid-cols-1 gap-4">
                 {days.map((day) => (
-                  <div key={day.key} className="flex items-center gap-4 p-3 border rounded-lg">
-                    <div className="w-20 text-sm font-medium">{day.label}</div>
-                    <div className="flex items-center gap-2 flex-1">
-                      <FormField
-                        control={form.control}
-                        name={`operating_hours.${day.key}.open` as any}
-                        render={({ field }) => (
-                          <FormItem className="flex-1">
-                            <FormControl>
-                              <Input 
-                                type="time" 
-                                {...field}
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                      <span className="text-muted-foreground">-</span>
-                      <FormField
-                        control={form.control}
-                        name={`operating_hours.${day.key}.close` as any}
-                        render={({ field }) => (
-                          <FormItem className="flex-1">
-                            <FormControl>
-                              <Input 
-                                type="time" 
-                                {...field}
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
+                  <div key={day.key} className="border rounded-lg p-4 space-y-3">
+                    {/* Day Header with Toggle */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <h4 className="font-medium text-sm">{day.label}</h4>
+                        <FormField
+                          control={form.control}
+                          name={`operating_hours.${day.key}.isOpen` as any}
+                          render={({ field }) => (
+                            <FormItem className="flex items-center space-x-2">
+                              <FormControl>
+                                <Switch
+                                  checked={field.value}
+                                  onCheckedChange={field.onChange}
+                                />
+                              </FormControl>
+                              <span className="text-xs text-muted-foreground">
+                                {field.value ? 'Buka' : 'Tutup'}
+                              </span>
+                            </FormItem>
+                          )}
+                        />
+                      </div>
                     </div>
+                    
+                    {/* Time Fields - Only show when day is open */}
+                    <FormField
+                      control={form.control}
+                      name={`operating_hours.${day.key}.isOpen` as any}
+                      render={({ field: isOpenField }) => (
+                        isOpenField.value && (
+                          <div className="flex items-center gap-3 ml-2">
+                            <FormField
+                              control={form.control}
+                              name={`operating_hours.${day.key}.open` as any}
+                              render={({ field }) => (
+                                <FormItem className="flex-1">
+                                  <FormLabel className="text-xs text-muted-foreground">Buka</FormLabel>
+                                  <FormControl>
+                                    <Input 
+                                      type="time" 
+                                      className="text-sm"
+                                      {...field}
+                                    />
+                                  </FormControl>
+                                </FormItem>
+                              )}
+                            />
+                            <div className="flex items-center pt-6">
+                              <span className="text-muted-foreground text-sm">sampai</span>
+                            </div>
+                            <FormField
+                              control={form.control}
+                              name={`operating_hours.${day.key}.close` as any}
+                              render={({ field }) => (
+                                <FormItem className="flex-1">
+                                  <FormLabel className="text-xs text-muted-foreground">Tutup</FormLabel>
+                                  <FormControl>
+                                    <Input 
+                                      type="time" 
+                                      className="text-sm"
+                                      {...field}
+                                    />
+                                  </FormControl>
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                        )
+                      )}
+                    />
+                    
+                    {/* Closed message when day is closed */}
+                    <FormField
+                      control={form.control}
+                      name={`operating_hours.${day.key}.isOpen` as any}
+                      render={({ field: isOpenField }) => (
+                        !isOpenField.value && (
+                          <div className="ml-2 text-sm text-muted-foreground italic">
+                            Studio tutup pada hari {day.label.toLowerCase()}
+                          </div>
+                        )
+                      )}
+                    />
                   </div>
                 ))}
+              </div>
+              
+              {/* Quick Actions */}
+              <div className="flex gap-2 pt-2 border-t">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => {
+                    days.forEach(day => {
+                      form.setValue(`operating_hours.${day.key}.isOpen`, true)
+                    })
+                  }}
+                >
+                  Buka Semua
+                </Button>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => {
+                    days.forEach(day => {
+                      if (day.key === 'sunday') {
+                        form.setValue(`operating_hours.${day.key}.isOpen`, false)
+                      } else {
+                        form.setValue(`operating_hours.${day.key}.isOpen`, true)
+                      }
+                    })
+                  }}
+                >
+                  Senin-Sabtu
+                </Button>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => {
+                    days.forEach(day => {
+                      if (['saturday', 'sunday'].includes(day.key)) {
+                        form.setValue(`operating_hours.${day.key}.isOpen`, false)
+                      } else {
+                        form.setValue(`operating_hours.${day.key}.isOpen`, true)
+                      }
+                    })
+                  }}
+                >
+                  Hari Kerja
+                </Button>
               </div>
             </div>
 

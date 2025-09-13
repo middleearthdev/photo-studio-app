@@ -92,34 +92,34 @@ export interface CreateReservationData {
   // Studio and Package
   studio_id: string
   package_id: string
-  
+
   // Customer data
   customer_name: string
   customer_email?: string
   customer_phone: string
   customer_notes?: string
   is_guest_booking?: boolean
-  
+
   // Schedule
   reservation_date: string
   start_time: string
   duration_minutes: number
-  
+
   // Add-ons
   selected_addons?: {
     addon_id: string
     quantity: number
     unit_price: number
   }[]
-  
+
   // Facilities
   selected_facilities?: any
-  
+
   // Pricing
   package_price: number
   dp_percentage: number
   total_addons_price?: number
-  
+
   // Additional info
   special_requests?: string
   payment_method?: string
@@ -143,7 +143,7 @@ function calculateEndTime(startTime: string, durationMinutes: number): string {
   const [hours, minutes] = startTime.split(':').map(Number)
   const startDate = new Date()
   startDate.setHours(hours, minutes, 0, 0)
-  
+
   const endDate = new Date(startDate.getTime() + durationMinutes * 60000)
   return format(endDate, 'HH:mm')
 }
@@ -496,28 +496,75 @@ export async function updateReservationStatusOnPayment(
         .select('status')
         .eq('id', reservationId)
         .single()
-      
+
       if (fetchError) {
         console.error('Error fetching reservation:', fetchError)
         return { success: false, error: 'Failed to fetch reservation' }
       }
-      
-      // If reservation is still pending, we might want to confirm it
+
+      // If reservation is still pending, confirm it since payment is completed
       if (reservation && reservation.status === 'pending') {
-        // Note: This is business logic that might vary based on requirements
-        // For now, we'll just update the payment status and leave reservation status as is
-        // In a real implementation, you might want to confirm the reservation here
-        console.log(`Payment completed for reservation ${reservationId}. Consider updating reservation status.`)
+        const { error: updateError } = await supabase
+          .from('reservations')
+          .update({
+            status: 'confirmed',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', reservationId)
+
+        if (updateError) {
+          console.error('Error confirming reservation:', updateError)
+          // Continue with payment status update even if reservation confirmation fails
+        } else {
+          console.log(`Reservation ${reservationId} confirmed automatically due to completed payment`)
+        }
       }
     }
-    
-    // Update just the payment status
-    return await updateReservationPaymentStatus(reservationId, paymentStatus)
+
+    // Update payment status using webhook-specific function
+    return await updateReservationPaymentStatusFromWebhook(reservationId, paymentStatus)
   } catch (error: any) {
     console.error('Error in updateReservationStatusOnPayment:', error)
     return { success: false, error: error.message || 'Failed to update reservation status' }
   }
 }
+
+// Webhook-specific function to update reservation payment status (no auth required)
+export async function updateReservationPaymentStatusFromWebhook(
+  reservationId: string,
+  paymentStatus: 'pending' | 'partial' | 'completed' | 'failed' | 'refunded'
+): Promise<ActionResult> {
+  try {
+    const supabase = await createClient()
+
+    // Prepare update data
+    const updateData: any = {
+      payment_status: paymentStatus,
+      updated_at: new Date().toISOString()
+    }
+
+
+    // Update reservation payment status
+    const { data, error } = await supabase
+      .from('reservations')
+      .update(updateData)
+      .eq('id', reservationId)
+      .select('*')
+      .single()
+
+    if (error) {
+      console.error('Error updating reservation payment status from webhook:', error)
+      return { success: false, error: 'Failed to update reservation payment status' }
+    }
+
+    console.log(`Reservation ${reservationId} payment status updated to ${paymentStatus} via webhook`)
+    return { success: true, data }
+  } catch (error: any) {
+    console.error('Error in updateReservationPaymentStatusFromWebhook:', error)
+    return { success: false, error: error.message || 'Failed to update reservation payment status from webhook' }
+  }
+}
+
 // Admin/Staff action to update reservation payment status
 export async function updateReservationPaymentStatus(
   reservationId: string,
@@ -697,9 +744,9 @@ export async function deleteReservationAction(reservationId: string): Promise<Ac
 
     // Prevent deletion of reservations that are in progress or completed
     if (['in_progress', 'completed'].includes(reservation.status)) {
-      return { 
-        success: false, 
-        error: 'Cannot delete reservation that is in progress or completed' 
+      return {
+        success: false,
+        error: 'Cannot delete reservation that is in progress or completed'
       }
     }
 
@@ -717,9 +764,9 @@ export async function deleteReservationAction(reservationId: string): Promise<Ac
     // If there are completed payments, don't allow deletion
     const hasCompletedPayments = payments?.some(p => p.status === 'completed')
     if (hasCompletedPayments) {
-      return { 
-        success: false, 
-        error: 'Cannot delete reservation with completed payments. Cancel instead.' 
+      return {
+        success: false,
+        error: 'Cannot delete reservation with completed payments. Cancel instead.'
       }
     }
 
