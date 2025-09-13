@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Camera, Clock, Star, Users, Image as ImageIcon, Sparkles } from 'lucide-react'
+import { Camera, Clock, Star, Users, Image as ImageIcon, Sparkles, CheckCircle, Award, Heart } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
@@ -41,7 +41,7 @@ export default function PackagesPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00052e] mx-auto mb-4"></div>
           <p className="text-slate-600">Memuat paket...</p>
         </div>
       </div>
@@ -52,7 +52,7 @@ export default function PackagesPage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-100">
       {/* Hero Section */}
       <section className="relative pt-20 pb-16 px-4 sm:px-6 lg:px-8 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/5 to-purple-600/5 backdrop-blur-sm"></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-[#00052e]/5 to-[#b0834d]/5 backdrop-blur-sm"></div>
         <div className="relative max-w-7xl mx-auto text-center">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -60,13 +60,15 @@ export default function PackagesPage() {
             transition={{ duration: 0.6 }}
           >
             <div className="flex justify-center mb-6">
-              <Camera className="h-16 w-16 text-blue-600" />
+              <div className="w-16 h-16 bg-gradient-to-r from-[#00052e] to-[#b0834d] rounded-full flex items-center justify-center">
+                <Camera className="h-8 w-8 text-white" />
+              </div>
             </div>
-            <h1 className="text-4xl md:text-6xl font-bold text-slate-900 mb-6">
-              Pilih Paket <span className="text-blue-600">Foto Perfect</span>
+            <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold text-[#00052e] mb-6">
+              Pilih Paket <span className="text-[#b0834d]">Foto Terbaik</span>
             </h1>
-            <p className="text-xl text-slate-600 max-w-2xl mx-auto">
-              Berbagai pilihan paket foto profesional dengan fasilitas lengkap dan harga terjangkau
+            <p className="text-lg md:text-xl text-slate-600 max-w-2xl mx-auto">
+              Berbagai pilihan paket foto profesional dengan fasilitas lengkap dan harga terjangkau di Kalarasa Studio
             </p>
           </motion.div>
         </div>
@@ -85,7 +87,7 @@ export default function PackagesPage() {
               <Button
                 variant={selectedCategory === null ? "default" : "outline"}
                 onClick={() => setSelectedCategory(null)}
-                className="rounded-full"
+                className="rounded-full bg-[#00052e] hover:bg-[#00052e]/90 text-white border-[#00052e]"
               >
                 Semua Paket
               </Button>
@@ -94,7 +96,11 @@ export default function PackagesPage() {
                   key={category.id}
                   variant={selectedCategory === category.id ? "default" : "outline"}
                   onClick={() => setSelectedCategory(category.id)}
-                  className="rounded-full"
+                  className={`rounded-full ${
+                    selectedCategory === category.id
+                      ? 'bg-[#00052e] hover:bg-[#00052e]/90 text-white border-[#00052e]'
+                      : 'border-[#00052e]/30 text-[#00052e] hover:bg-[#00052e]/10'
+                  }`}
                 >
                   {category.name}
                 </Button>
@@ -130,13 +136,13 @@ export default function PackagesPage() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.6, delay: index * 0.1 }}
                 >
-                  <Card className={`group relative h-full transition-all duration-300 hover:shadow-2xl border-0 bg-white/80 backdrop-blur-sm ${
-                    pkg.is_popular ? 'ring-2 ring-blue-500 shadow-lg scale-105' : 'hover:shadow-xl'
+                  <Card className={`group relative h-full transition-all duration-300 hover:shadow-2xl border-0 bg-white/80 backdrop-blur-sm rounded-2xl ${
+                    pkg.is_popular ? 'ring-2 ring-[#b0834d] shadow-lg hover:scale-105' : 'hover:shadow-xl'
                   }`}>
                     {pkg.is_popular && (
                       <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 z-10">
-                        <Badge className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-1 rounded-full shadow-lg">
-                          <Star className="h-4 w-4 mr-1" />
+                        <Badge className="bg-gradient-to-r from-[#b0834d] to-[#00052e] text-white px-4 py-1 rounded-full shadow-lg">
+                          <Star className="h-4 w-4 mr-1 fill-current" />
                           TERPOPULER
                         </Badge>
                       </div>
@@ -144,21 +150,21 @@ export default function PackagesPage() {
                     
                     <CardHeader className="text-center pb-4">
                       <div className="mb-4">
-                        <div className="w-16 h-16 mx-auto bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center mb-4">
+                        <div className="w-16 h-16 mx-auto bg-gradient-to-r from-[#00052e] to-[#b0834d] rounded-full flex items-center justify-center mb-4">
                           <Camera className="h-8 w-8 text-white" />
                         </div>
-                        <CardTitle className="text-2xl font-bold text-slate-900 mb-2">
+                        <CardTitle className="text-2xl font-bold text-[#00052e] mb-2">
                           {pkg.name}
                         </CardTitle>
                         {pkg.category && (
-                          <Badge variant="secondary" className="mb-3">
+                          <Badge variant="secondary" className="mb-3 bg-[#00052e]/10 text-[#00052e]">
                             {pkg.category.name}
                           </Badge>
                         )}
                       </div>
                       
                       <div className="text-center">
-                        <div className="text-4xl font-bold text-blue-600 mb-2">
+                        <div className="text-3xl font-bold text-[#b0834d] mb-2">
                           {formatPrice(pkg.price)}
                         </div>
                         <div className="text-sm text-slate-600">
@@ -170,13 +176,13 @@ export default function PackagesPage() {
                     <CardContent className="pt-4">
                       <div className="space-y-4">
                         <div className="flex items-center gap-3 text-slate-600">
-                          <Clock className="h-5 w-5 text-blue-500" />
+                          <Clock className="h-5 w-5 text-[#b0834d]" />
                           <span className="font-medium">{formatDuration(pkg.duration_minutes)}</span>
                         </div>
                         
                         {pkg.max_photos && (
                           <div className="flex items-center gap-3 text-slate-600">
-                            <ImageIcon className="h-5 w-5 text-blue-500" />
+                            <ImageIcon className="h-5 w-5 text-[#b0834d]" />
                             <span>{pkg.max_photos} foto</span>
                             {pkg.max_edited_photos && (
                               <span className="text-sm text-slate-500">
@@ -194,20 +200,20 @@ export default function PackagesPage() {
 
                         {pkg.includes && pkg.includes.length > 0 && (
                           <div className="space-y-2">
-                            <h4 className="font-semibold text-slate-900 flex items-center gap-2">
-                              <Sparkles className="h-4 w-4 text-yellow-500" />
+                            <h4 className="font-semibold text-[#00052e] flex items-center gap-2">
+                              <Sparkles className="h-4 w-4 text-[#b0834d]" />
                               Termasuk:
                             </h4>
                             <ul className="space-y-1">
-                              {pkg.includes.slice(0, 4).map((item, idx) => (
+                              {pkg.includes.slice(0, 5).map((item, idx) => (
                                 <li key={idx} className="text-sm text-slate-600 flex items-start gap-2">
-                                  <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
-                                  {item}
+                                  <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                                  <span>{item}</span>
                                 </li>
                               ))}
-                              {pkg.includes.length > 4 && (
-                                <li className="text-sm text-blue-600 font-medium">
-                                  +{pkg.includes.length - 4} fasilitas lainnya
+                              {pkg.includes.length > 5 && (
+                                <li className="text-sm text-[#b0834d] font-medium">
+                                  +{pkg.includes.length - 5} fasilitas lainnya
                                 </li>
                               )}
                             </ul>
@@ -219,10 +225,10 @@ export default function PackagesPage() {
                     <CardFooter className="pt-6">
                       <Link href={`/packages/${pkg.id}`} className="w-full">
                         <Button 
-                          className={`w-full group-hover:shadow-lg transition-all duration-300 ${
+                          className={`w-full transition-all duration-300 rounded-full py-6 text-base ${
                             pkg.is_popular 
-                              ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800' 
-                              : ''
+                              ? 'bg-gradient-to-r from-[#00052e] to-[#b0834d] hover:from-[#00052e]/90 hover:to-[#b0834d]/90 text-white shadow-lg hover:shadow-xl' 
+                              : 'border-2 border-[#00052e] text-[#00052e] hover:bg-[#00052e] hover:text-white'
                           }`}
                           size="lg"
                         >
@@ -239,22 +245,82 @@ export default function PackagesPage() {
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="bg-gradient-to-r from-blue-600 to-purple-700 py-16 mx-4 sm:mx-6 lg:mx-8 mb-8 rounded-3xl">
-        <div className="max-w-4xl mx-auto text-center px-6">
+      {/* Features Section */}
+      <section className="py-20 bg-gradient-to-br from-[#00052e] to-[#b0834d]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+            whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
+            className="text-center mb-16"
+            viewport={{ once: true }}
           >
-            <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-6">
+              Mengapa Memilih Paket Kami?
+            </h2>
+            <p className="text-xl text-white/90 max-w-2xl mx-auto">
+              Setiap paket dirancang untuk memberikan pengalaman fotografi terbaik
+            </p>
+          </motion.div>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            {[
+              {
+                icon: Award,
+                title: "Kualitas Premium",
+                description: "Setiap foto diedit dengan detail tinggi menggunakan software profesional"
+              },
+              {
+                icon: Clock,
+                title: "Durasi Fleksibel",
+                description: "Sesi foto disesuaikan dengan kebutuhan dan kenyamanan Anda"
+              },
+              {
+                icon: Heart,
+                title: "Hasil Memukau",
+                description: "Garansi kepuasan dengan hasil akhir yang memukau setiap klien"
+              }
+            ].map((feature, index) => {
+              const Icon = feature.icon
+              return (
+                <motion.div
+                  key={feature.title}
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: index * 0.1 }}
+                  viewport={{ once: true }}
+                >
+                  <Card className="text-center p-8 border-0 shadow-lg bg-white/10 backdrop-blur-sm rounded-2xl">
+                    <div className="w-16 h-16 mx-auto mb-6 bg-white/20 rounded-full flex items-center justify-center">
+                      <Icon className="h-8 w-8 text-white" />
+                    </div>
+                    <h3 className="text-xl font-bold text-white mb-4">{feature.title}</h3>
+                    <p className="text-white/80">{feature.description}</p>
+                  </Card>
+                </motion.div>
+              )
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="py-20 bg-white">
+        <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            viewport={{ once: true }}
+          >
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#00052e] mb-6">
               Butuh Bantuan Memilih Paket?
             </h2>
-            <p className="text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
+            <p className="text-lg md:text-xl text-slate-600 mb-8 max-w-2xl mx-auto">
               Tim kami siap membantu Anda menemukan paket foto yang sesuai dengan kebutuhan dan budget
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button size="lg" variant="secondary" className="bg-white text-blue-700 hover:bg-blue-50">
+              <Button size="lg" className="bg-[#00052e] hover:bg-[#00052e]/90 text-white px-8 py-6 rounded-full transition-all duration-300 shadow-lg hover:shadow-xl">
                 <Users className="h-5 w-5 mr-2" />
                 Hubungi Konsultan
               </Button>

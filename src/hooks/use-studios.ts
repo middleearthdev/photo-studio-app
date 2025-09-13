@@ -9,6 +9,7 @@ import {
   updateStudioAction, 
   deleteStudioAction,
   hardDeleteStudioAction,
+  getPublicStudiosAction,
   type CreateStudioData,
   type UpdateStudioData
 } from '@/actions/studios'
@@ -20,6 +21,7 @@ export const studioKeys = {
   list: (filters?: Record<string, any>) => [...studioKeys.lists(), { filters }] as const,
   details: () => [...studioKeys.all, 'detail'] as const,
   detail: (id: string) => [...studioKeys.details(), id] as const,
+  public: () => [...studioKeys.all, 'public'] as const,
 }
 
 // Hooks
@@ -28,6 +30,19 @@ export function useStudios() {
     queryKey: studioKeys.lists(),
     queryFn: async () => {
       const result = await getStudiosAction()
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to fetch studios')
+      }
+      return result.data || []
+    },
+  })
+}
+
+export function usePublicStudios() {
+  return useQuery({
+    queryKey: studioKeys.public(),
+    queryFn: async () => {
+      const result = await getPublicStudiosAction()
       if (!result.success) {
         throw new Error(result.error || 'Failed to fetch studios')
       }

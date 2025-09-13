@@ -89,7 +89,7 @@ export async function getStudioAction(studioId: string): Promise<ActionResult<St
     // Get current user profile
     const { data: currentProfile } = await supabase
       .from('user_profiles')
-      .select('role, studio_id')
+      .select('role')
       .eq('id', user.id)
       .single()
 
@@ -112,6 +112,30 @@ export async function getStudioAction(studioId: string): Promise<ActionResult<St
     return { success: true, data: studio }
   } catch (error: any) {
     console.error('Error in getStudioAction:', error)
+    return { success: false, error: error.message || 'Failed to fetch studio' }
+  }
+}
+
+// Public action to get active studios for customers
+export async function getPublicStudiosAction(): Promise<ActionResult<Studio[]>> {
+  try {
+    const supabase = await createClient()
+
+    // Build query for active studios only
+    const { data: studios, error } = await supabase
+      .from('studios')
+      .select('*')
+      .eq('is_active', true)
+      .order('name', { ascending: true })
+
+    if (error) {
+      console.error('Error fetching public studios:', error)
+      return { success: false, error: 'Failed to fetch studios' }
+    }
+
+    return { success: true, data: studios || [] }
+  } catch (error: any) {
+    console.error('Error in getPublicStudiosAction:', error)
     return { success: false, error: error.message || 'An error occurred' }
   }
 }
