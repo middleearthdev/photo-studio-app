@@ -169,10 +169,10 @@ export async function generateTimeSlotsForDate(
         .eq('reservation_date', date)
         .in('status', ['confirmed', 'in_progress']),
 
-      // Get blocked time slots
+      // Get blocked time slots with facility info
       supabase
         .from('time_slots')
-        .select('start_time, end_time')
+        .select('start_time, end_time, facility_id')
         .eq('studio_id', studioId)
         .eq('slot_date', date)
         .eq('is_blocked', true),
@@ -251,7 +251,6 @@ export async function generateTimeSlotsForDate(
       // Check if this slot conflicts with existing reservations
       // Logic berdasarkan ada/tidaknya facility requirement
       let isConflictingWithReservation = false
-      let packageHasNoFacilities = false
 
       if (packageId && requiredFacilityIds.length > 0) {
         // Package DENGAN facility requirements - check facility conflict
@@ -284,32 +283,84 @@ export async function generateTimeSlotsForDate(
           return false
         }) || false
       } else if (packageId && requiredFacilityIds.length === 0) {
-        // Package TANPA facility - mark as unavailable
-        packageHasNoFacilities = true
-        console.log('❌ Package has no facilities:', {
+        // Package TANPA facility requirements - hanya conflict jika ada reservation yang overlap waktu
+        // Package tanpa facility requirements bisa booking asal tidak bentrok dengan reservation lain
+        isConflictingWithReservation = existingReservations?.some(reservation => {
+          const reservationStart = new Date(`${date} ${reservation.start_time}`)
+          const reservationEnd = new Date(`${date} ${reservation.end_time}`)
+
+          // Check time overlap
+          const timeOverlap = (
+            (currentTime >= reservationStart && currentTime < reservationEnd) ||
+            (slotEndTime > reservationStart && slotEndTime <= reservationEnd) ||
+            (currentTime <= reservationStart && slotEndTime >= reservationEnd)
+          )
+
+          if (timeOverlap) {
+            console.log('⚠️  Time conflict for package without facilities:', {
+              time: timeString,
+              packageId,
+              reservationTime: `${reservation.start_time}-${reservation.end_time}`,
+              reason: 'Time slot overlap with existing reservation'
+            })
+          }
+
+          return timeOverlap
+        }) || false
+
+        console.log('✅ Package has no facilities - checking time conflicts only:', {
           time: timeString,
           packageId,
-          requiredFacilities: requiredFacilityIds
+          hasTimeConflict: isConflictingWithReservation
         })
       }
 
-      // Check if this slot is blocked
-      const isBlocked = blockedSlots?.some(blocked => {
-        const blockedStart = new Date(`${date} ${blocked.start_time}`)
-        const blockedEnd = new Date(`${date} ${blocked.end_time}`)
+      // Check if this slot is blocked - need to check facility-specific blocks
+      let isBlocked = false
+      
+      if (packageId && requiredFacilityIds.length > 0) {
+        // Package DENGAN facility requirements - check if any required facilities are blocked
+        isBlocked = blockedSlots?.some(blocked => {
+          const blockedStart = new Date(`${date} ${blocked.start_time}`)
+          const blockedEnd = new Date(`${date} ${blocked.end_time}`)
 
-        return (
-          (currentTime >= blockedStart && currentTime < blockedEnd) ||
-          (slotEndTime > blockedStart && slotEndTime <= blockedEnd) ||
-          (currentTime <= blockedStart && slotEndTime >= blockedEnd)
-        )
-      })
+          const timeOverlap = (
+            (currentTime >= blockedStart && currentTime < blockedEnd) ||
+            (slotEndTime > blockedStart && slotEndTime <= blockedEnd) ||
+            (currentTime <= blockedStart && slotEndTime >= blockedEnd)
+          )
+
+          // Only blocked if there's time overlap AND the blocked facility is required by this package
+          // Note: blocked.facility_id should be checked against required facilities
+          return timeOverlap && requiredFacilityIds.includes(blocked.facility_id)
+        }) || false
+      } else if (packageId && requiredFacilityIds.length === 0) {
+        // Package TANPA facility requirements - tidak terpengaruh oleh facility blocks
+        // Hanya terblokir jika ada general time block (yang seharusnya jarang)
+        isBlocked = false
+        console.log('✅ Package without facilities - not affected by facility blocks:', {
+          time: timeString,
+          packageId
+        })
+      } else {
+        // No package specified - use general blocking logic
+        isBlocked = blockedSlots?.some(blocked => {
+          const blockedStart = new Date(`${date} ${blocked.start_time}`)
+          const blockedEnd = new Date(`${date} ${blocked.end_time}`)
+
+          return (
+            (currentTime >= blockedStart && currentTime < blockedEnd) ||
+            (slotEndTime > blockedStart && slotEndTime <= blockedEnd) ||
+            (currentTime <= blockedStart && slotEndTime >= blockedEnd)
+          )
+        }) || false
+      }
 
       // Check if slot is in the past
       const now = new Date()
       const isPast = isBefore(currentTime, now)
 
-      const isAvailable = !isConflictingWithReservation && !isBlocked && !isPast && !packageHasNoFacilities
+      const isAvailable = !isConflictingWithReservation && !isBlocked && !isPast
 
       // Debug logging for available/unavailable slots
       if (isAvailable && packageId) {
@@ -319,11 +370,15 @@ export async function generateTimeSlotsForDate(
           requiredFacilities: requiredFacilityIds,
           hasFacilityRequirements: requiredFacilityIds.length > 0
         })
-      } else if (packageHasNoFacilities) {
-        console.log('❌ Unavailable slot (package has no facilities):', {
+      } else if (!isAvailable && packageId) {
+        console.log('❌ Unavailable slot:', {
           time: timeString,
           packageId,
-          reason: 'Package tidak memiliki facility requirements'
+          reasons: {
+            hasReservationConflict: isConflictingWithReservation,
+            isBlocked: isBlocked,
+            isPast: isPast
+          }
         })
       } else if (isAvailable && !packageId) {
         console.log('✅ Available slot (no package specified):', {

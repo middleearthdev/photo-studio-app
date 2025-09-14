@@ -44,7 +44,7 @@ const customerSchema = z.object({
     .min(10, 'Nomor WhatsApp tidak valid')
     .max(15, 'Nomor WhatsApp tidak valid')
     .regex(/^[\d+\-\s()]+$/, 'Format nomor WhatsApp tidak valid'),
-  email: z.string().email('Format email tidak valid').optional().or(z.literal('')),
+  email: z.string().min(1, 'Email wajib diisi').email('Format email tidak valid'),
   notes: z.string().optional(),
   paymentMethod: z.string().min(1, 'Pilih metode pembayaran')
 })
@@ -355,7 +355,7 @@ export default function BookingSummaryPage() {
                       Data Pelanggan
                     </CardTitle>
                     <CardDescription className="text-xs sm:text-sm">
-                      Masukkan data diri untuk keperluan booking dan komunikasi
+                      Masukkan data diri untuk keperluan booking dan komunikasi. Email diperlukan untuk konfirmasi booking.
                     </CardDescription>
                   </CardHeader>
                   
@@ -396,7 +396,7 @@ export default function BookingSummaryPage() {
                     </div>
                     
                     <div className="space-y-1.5 sm:space-y-2">
-                      <Label htmlFor="email" className="text-xs sm:text-sm">Email (Opsional)</Label>
+                      <Label htmlFor="email" className="text-xs sm:text-sm">Email *</Label>
                       <Input
                         id="email"
                         type="email"
