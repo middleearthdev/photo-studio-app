@@ -6,9 +6,8 @@ import {
   getAvailableTimeSlotsAction,
   getPaginatedTimeSlots,
   deleteTimeSlotAction,
-  toggleTimeSlotAvailabilityAction,
+  toggleTimeSlotBlockingAction,
   createTimeSlotAction,
-  updateTimeSlotAction,
   bulkCreateTimeSlotsAction,
   type TimeSlot
 } from '@/actions/time-slots'
@@ -85,23 +84,7 @@ export function useCreateTimeSlot() {
   })
 }
 
-// Update time slot mutation
-export function useUpdateTimeSlot() {
-  const queryClient = useQueryClient()
 
-  return useMutation({
-    mutationFn: ({ slotId, updates }: { slotId: string, updates: { is_available?: boolean, is_blocked?: boolean, notes?: string } }) =>
-      updateTimeSlotAction(slotId, updates),
-    onSuccess: () => {
-      toast.success('Time slot berhasil diperbarui')
-      // Invalidate relevant queries
-      queryClient.invalidateQueries({ queryKey: timeSlotKeys.all })
-    },
-    onError: (error: Error) => {
-      toast.error(`Gagal memperbarui time slot: ${error.message}`)
-    },
-  })
-}
 
 // Bulk create time slots mutation
 export function useBulkCreateTimeSlots() {
@@ -144,12 +127,13 @@ export function useDeleteTimeSlot() {
   })
 }
 
-// Toggle time slot availability mutation
-export function useToggleTimeSlotAvailability() {
+// Toggle time slot blocking mutation
+export function useToggleTimeSlotBlocking() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: toggleTimeSlotAvailabilityAction,
+    mutationFn: ({ id, isBlocked }: { id: string, isBlocked: boolean }) =>
+      toggleTimeSlotBlockingAction(id, isBlocked),
     onSuccess: () => {
       toast.success('Status time slot berhasil diperbarui')
       // Invalidate relevant queries

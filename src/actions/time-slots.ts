@@ -17,6 +17,7 @@ export interface TimeSlot {
   facility?: {
     id: string
     name: string
+    capacity: string
   }
 }
 
@@ -482,6 +483,7 @@ export async function createTimeSlotAction(
         start_time: startTime,
         end_time: endTime,
         is_blocked: isBlocked,
+        is_available: !isBlocked, // If blocked, not available; if not blocked, available
         notes: notes || null
       })
 
@@ -497,76 +499,6 @@ export async function createTimeSlotAction(
   }
 }
 
-// Admin action to update a time slot
-export async function updateTimeSlotAction(
-  id: string,
-  data: {
-    facility_id?: string
-    slot_date?: string
-    start_time?: string
-    end_time?: string
-    is_available?: boolean
-    is_blocked?: boolean
-    notes?: string
-  }
-): Promise<ActionResult> {
-  try {
-    const supabase = await createClient()
-
-    // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return { success: false, error: 'Unauthorized' }
-    }
-
-    // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role, studio_id')
-      .eq('id', user.id)
-      .single()
-
-    if (!currentProfile) {
-      return { success: false, error: 'User profile not found' }
-    }
-
-    // Check permissions - admin can manage all studios, cs can only manage their studio
-    // First get the time slot to check studio ownership
-    const { data: timeSlot } = await supabase
-      .from('time_slots')
-      .select('studio_id')
-      .eq('id', id)
-      .single()
-
-    if (!timeSlot) {
-      return { success: false, error: 'Time slot not found' }
-    }
-
-    if (currentProfile.role === 'cs' && currentProfile.studio_id !== timeSlot.studio_id) {
-      return { success: false, error: 'Insufficient permissions' }
-    }
-
-    if (!['admin', 'cs'].includes(currentProfile.role)) {
-      return { success: false, error: 'Insufficient permissions' }
-    }
-
-    // Update the time slot
-    const { error } = await supabase
-      .from('time_slots')
-      .update(data)
-      .eq('id', id)
-
-    if (error) {
-      console.error('Error updating time slot:', error)
-      return { success: false, error: `Failed to update time slot: ${error.message}` }
-    }
-
-    return { success: true }
-  } catch (error: any) {
-    console.error('Error in updateTimeSlotAction:', error)
-    return { success: false, error: error.message || 'An error occurred' }
-  }
-}
 
 // Admin action to delete a time slot
 export async function deleteTimeSlotAction(id: string): Promise<ActionResult> {
@@ -628,10 +560,10 @@ export async function deleteTimeSlotAction(id: string): Promise<ActionResult> {
   }
 }
 
-// Admin action to toggle time slot availability
-export async function toggleTimeSlotAvailabilityAction(
+// Admin action to toggle time slot blocking status
+export async function toggleTimeSlotBlockingAction(
   id: string,
-  isAvailable: boolean
+  isBlocked: boolean
 ): Promise<ActionResult> {
   try {
     const supabase = await createClient()
@@ -673,20 +605,23 @@ export async function toggleTimeSlotAvailabilityAction(
       return { success: false, error: 'Insufficient permissions' }
     }
 
-    // Update the time slot availability
+    // Update the time slot blocking status
     const { error } = await supabase
       .from('time_slots')
-      .update({ is_available: isAvailable })
+      .update({
+        is_blocked: isBlocked,
+        is_available: !isBlocked // If blocked, not available; if not blocked, available
+      })
       .eq('id', id)
 
     if (error) {
-      console.error('Error toggling time slot availability:', error)
+      console.error('Error toggling time slot blocking:', error)
       return { success: false, error: `Failed to update time slot: ${error.message}` }
     }
 
     return { success: true }
   } catch (error: any) {
-    console.error('Error in toggleTimeSlotAvailabilityAction:', error)
+    console.error('Error in toggleTimeSlotBlockingAction:', error)
     return { success: false, error: error.message || 'An error occurred' }
   }
 }
@@ -863,8 +798,8 @@ export async function bulkCreateTimeSlotsAction(
           slot_date: date,
           start_time: range.startTime,
           end_time: range.endTime,
-          is_available: true,
-          is_blocked: false
+          is_available: false,
+          is_blocked: true
         })
       }
     }

@@ -30,7 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { useCreateTimeSlot, useUpdateTimeSlot } from "@/hooks/use-time-slots"
+import { useCreateTimeSlot } from "@/hooks/use-time-slots"
 import { useFacilities } from "@/hooks/use-facilities"
 import { useStudios } from "@/hooks/use-studios"
 import { type TimeSlot } from "@/actions/time-slots"
@@ -42,7 +42,6 @@ const timeSlotSchema = z.object({
   slot_date: z.string().min(1, "Tanggal harus diisi"),
   start_time: z.string().min(1, "Waktu mulai harus diisi"),
   end_time: z.string().min(1, "Waktu selesai harus diisi"),
-  is_available: z.boolean().optional(),
   is_blocked: z.boolean().optional(),
   notes: z.string().optional(),
 }).refine((data) => {
@@ -63,17 +62,15 @@ interface TimeSlotDialogProps {
   onTimeSlotSaved: () => void
 }
 
-export function TimeSlotDialog({ 
-  open, 
-  onOpenChange, 
-  timeSlotData, 
-  onTimeSlotSaved 
+export function TimeSlotDialog({
+  open,
+  onOpenChange,
+  timeSlotData,
+  onTimeSlotSaved
 }: TimeSlotDialogProps) {
-  const isEdit = !!timeSlotData
   const [selectedStudioId, setSelectedStudioId] = useState<string>("")
 
   const createTimeSlotMutation = useCreateTimeSlot()
-  const updateTimeSlotMutation = useUpdateTimeSlot()
   const { data: studios = [], isLoading: studiosLoading } = useStudios()
   const { data: facilities = [], isLoading: facilitiesLoading } = useFacilities(selectedStudioId)
 
@@ -85,7 +82,6 @@ export function TimeSlotDialog({
       slot_date: "",
       start_time: "",
       end_time: "",
-      is_available: true,
       is_blocked: false,
       notes: "",
     },
@@ -100,7 +96,6 @@ export function TimeSlotDialog({
         slot_date: timeSlotData.slot_date,
         start_time: timeSlotData.start_time,
         end_time: timeSlotData.end_time,
-        is_available: timeSlotData.is_available,
         is_blocked: timeSlotData.is_blocked,
         notes: timeSlotData.notes || "",
       })
@@ -112,38 +107,35 @@ export function TimeSlotDialog({
         slot_date: "",
         start_time: "",
         end_time: "",
-        is_available: true,
-        is_blocked: false,
+        is_blocked: false, // Default to blocked for new slots
         notes: "",
       })
     }
   }, [timeSlotData, form])
 
   const onSubmit = async (data: TimeSlotFormValues) => {
-    if (isEdit) {
-      updateTimeSlotMutation.mutate(
-        {
-          timeSlotId: timeSlotData!.id,
-          timeSlotData: data
-        },
-        {
-          onSuccess: () => {
-            onTimeSlotSaved()
-            onOpenChange(false)
-          }
-        }
-      )
-    } else {
-      createTimeSlotMutation.mutate(
-        data,
-        {
-          onSuccess: () => {
-            onTimeSlotSaved()
-            onOpenChange(false)
-          }
-        }
-      )
+    // For blocked slots, we always set is_available to false
+    const submitData = {
+      studioId: data.studio_id,
+      facilityId: data.facility_id,
+      date: data.slot_date,
+      startTime: data.start_time,
+      endTime: data.end_time,
+      isBlocked: data.is_blocked,
+      notes: data.notes
     }
+
+
+    createTimeSlotMutation.mutate(
+      submitData,
+      {
+        onSuccess: () => {
+          onTimeSlotSaved()
+          onOpenChange(false)
+        }
+      }
+    )
+
   }
 
   const handleStudioChange = (studioId: string) => {
@@ -152,7 +144,7 @@ export function TimeSlotDialog({
     form.setValue("facility_id", "") // Reset facility when studio changes
   }
 
-  const isLoading = createTimeSlotMutation.isPending || updateTimeSlotMutation.isPending
+  const isLoading = createTimeSlotMutation.isPending
 
   // Generate time options (every 30 minutes from 06:00 to 22:00)
   const timeOptions: string[] = []
@@ -169,7 +161,7 @@ export function TimeSlotDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CalendarDays className="h-5 w-5" />
-            {isEdit ? "Edit Time Slot" : "Tambah Time Slot Baru"}
+            Blokir Time Slot
           </DialogTitle>
         </DialogHeader>
 
@@ -182,10 +174,10 @@ export function TimeSlotDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Studio</FormLabel>
-                  <Select 
-                    onValueChange={handleStudioChange} 
-                    value={field.value} 
-                    disabled={studiosLoading || isEdit}
+                  <Select
+                    onValueChange={handleStudioChange}
+                    value={field.value}
+                    disabled={studiosLoading}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -212,10 +204,10 @@ export function TimeSlotDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Fasilitas</FormLabel>
-                  <Select 
-                    onValueChange={field.onChange} 
-                    value={field.value} 
-                    disabled={facilitiesLoading || !selectedStudioId || isEdit}
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value}
+                    disabled={facilitiesLoading || !selectedStudioId}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -303,30 +295,9 @@ export function TimeSlotDialog({
               />
             </div>
 
-            {/* Status Settings */}
+            {/* Blocking Status */}
             <div className="space-y-4">
-              <h3 className="text-lg font-medium">Pengaturan Status</h3>
-              
-              <FormField
-                control={form.control}
-                name="is_available"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <FormLabel className="text-base">Tersedia</FormLabel>
-                      <FormDescription>
-                        Time slot dapat dibooking oleh customer
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
+              <h3 className="text-lg font-medium">Pengaturan Blokir</h3>
 
               <FormField
                 control={form.control}
@@ -334,9 +305,9 @@ export function TimeSlotDialog({
                 render={({ field }) => (
                   <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                     <div className="space-y-0.5">
-                      <FormLabel className="text-base">Diblokir</FormLabel>
+                      <FormLabel className="text-base">Blokir Time Slot</FormLabel>
                       <FormDescription>
-                        Time slot diblokir untuk keperluan internal
+                        Jika diaktifkan, time slot ini tidak akan tersedia untuk booking customer
                       </FormDescription>
                     </div>
                     <FormControl>
@@ -358,14 +329,14 @@ export function TimeSlotDialog({
                 <FormItem>
                   <FormLabel>Catatan (Opsional)</FormLabel>
                   <FormControl>
-                    <Textarea 
-                      placeholder="Catatan untuk time slot ini..."
+                    <Textarea
+                      placeholder="Alasan pemblokiran atau catatan lainnya..."
                       rows={3}
-                      {...field} 
+                      {...field}
                     />
                   </FormControl>
                   <FormDescription>
-                    Catatan internal untuk time slot
+                    Catatan untuk tujuan internal
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -384,7 +355,7 @@ export function TimeSlotDialog({
               </Button>
               <Button type="submit" disabled={isLoading}>
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isEdit ? "Simpan Perubahan" : "Tambah Time Slot"}
+                "Blokir Time Slot"
               </Button>
             </div>
           </form>

@@ -101,7 +101,17 @@ export function BulkTimeSlotsDialog({
 
   const onSubmit = async (data: BulkTimeSlotFormValues) => {
     bulkCreateMutation.mutate(
-      data,
+      {
+        studioId: data.studio_id,
+        facilityId: data.facility_id,
+        startDate: data.start_date,
+        endDate: data.end_date,
+        timeRanges: data.time_ranges.map(range => ({
+          startTime: range.start_time,
+          endTime: range.end_time
+        })),
+        skipWeekends: data.skip_weekends
+      },
       {
         onSuccess: () => {
           onTimeSlotsSaved()

@@ -1,12 +1,12 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { 
-  Plus, 
-  Search, 
-  MoreHorizontal, 
-  Edit, 
-  Trash, 
+import {
+  Plus,
+  Search,
+  MoreHorizontal,
+  Edit,
+  Trash,
   CalendarDays,
   Clock,
   MapPin,
@@ -19,6 +19,7 @@ import {
   AlertCircle,
   Layers,
   Zap,
+  Ban,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -67,7 +68,7 @@ import {
 } from "@/components/ui/popover"
 import { TimeSlotDialog } from "@/app/(dashboard)/admin/_components/time-slot-dialog"
 import { BulkTimeSlotsDialog } from "@/app/(dashboard)/admin/_components/bulk-time-slots-dialog"
-import { usePaginatedTimeSlots, useDeleteTimeSlot, useToggleTimeSlotAvailability } from "@/hooks/use-time-slots"
+import { usePaginatedTimeSlots, useDeleteTimeSlot, useToggleTimeSlotBlocking } from "@/hooks/use-time-slots"
 import { useFacilities } from "@/hooks/use-facilities"
 import { useStudios } from "@/hooks/use-studios"
 import { type TimeSlot } from "@/actions/time-slots"
@@ -93,11 +94,11 @@ export default function TimeSlotsPage() {
 
   const { data: studios = [], isLoading: studiosLoading } = useStudios()
   const { data: facilities = [] } = useFacilities(selectedStudioId)
-  
+
   // Format date for API calls - using Jakarta timezone
   const formatDateForApi = (date: Date | undefined): string | undefined => {
     if (!date) return undefined;
-    
+
     // Format date as YYYY-MM-DD in local timezone
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -107,13 +108,13 @@ export default function TimeSlotsPage() {
 
   const startDate = formatDateForApi(selectedDate)
   const endDate = startDate // For single date filtering
-  
+
   // Use paginated hook instead of regular hook
-  const { 
-    data: paginatedResult, 
-    isLoading: loading, 
-    error, 
-    refetch 
+  const {
+    data: paginatedResult,
+    isLoading: loading,
+    error,
+    refetch
   } = usePaginatedTimeSlots({
     studioId: selectedStudioId,
     page: currentPage,
@@ -127,9 +128,9 @@ export default function TimeSlotsPage() {
 
   const timeSlots = paginatedResult?.data || []
   const pagination = paginatedResult?.pagination
-  
+
   const deleteTimeSlotMutation = useDeleteTimeSlot()
-  const toggleAvailabilityMutation = useToggleTimeSlotAvailability()
+  const toggleBlockingMutation = useToggleTimeSlotBlocking()
 
   // Set default studio
   useEffect(() => {
@@ -177,12 +178,18 @@ export default function TimeSlotsPage() {
     })
   }
 
-  const handleToggleAvailability = async (timeSlot: TimeSlot) => {
-    toggleAvailabilityMutation.mutate(timeSlot.id, {
-      onSuccess: () => {
-        setTimeSlotToToggle(null)
+  const handleToggleBlocking = async (timeSlot: TimeSlot) => {
+    toggleBlockingMutation.mutate(
+      {
+        id: timeSlot.id,
+        isBlocked: !timeSlot.is_blocked // Toggle the current blocking status
+      },
+      {
+        onSuccess: () => {
+          setTimeSlotToToggle(null)
+        }
       }
-    })
+    )
   }
 
   const handleTimeSlotSaved = () => {
@@ -243,8 +250,8 @@ export default function TimeSlotsPage() {
             Bulk Create
           </Button>
           <Button onClick={handleAdd} disabled={!selectedStudioId}>
-            <Plus className="h-4 w-4 mr-2" />
-            Tambah Time Slot
+            <Ban className="h-4 w-4 mr-2" />
+            Blokir Time Slot
           </Button>
         </div>
       </div>
@@ -371,7 +378,7 @@ export default function TimeSlotsPage() {
                                 // Don't allow backdating
                                 return
                               }
-                              
+
                               // Check if date is not more than 1 month ahead
                               const maxDate = new Date()
                               maxDate.setMonth(maxDate.getMonth() + 1)
@@ -381,7 +388,7 @@ export default function TimeSlotsPage() {
                                 return
                               }
                             }
-                            
+
                             setSelectedDate(date)
                             setIsCalendarOpen(false)
                           }}
@@ -487,13 +494,13 @@ export default function TimeSlotsPage() {
                           </TableCell>
                           <TableCell>
                             <div className="flex flex-col gap-1">
-                              <Badge 
+                              <Badge
                                 variant={slot.is_available && !slot.is_blocked ? "default" : "secondary"}
                               >
-                                {slot.is_blocked 
-                                  ? "Diblokir" 
-                                  : slot.is_available 
-                                    ? "Tersedia" 
+                                {slot.is_blocked
+                                  ? "Diblokir"
+                                  : slot.is_available
+                                    ? "Tersedia"
                                     : "Tidak Tersedia"
                                 }
                               </Badge>
@@ -518,21 +525,15 @@ export default function TimeSlotsPage() {
                               <DropdownMenuContent align="end">
                                 <DropdownMenuLabel>Aksi</DropdownMenuLabel>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => handleEdit(slot)}>
-                                  <Edit className="mr-2 h-4 w-4" />
-                                  Edit
-                                </DropdownMenuItem>
-                                <DropdownMenuItem 
+                                <DropdownMenuItem
                                   onClick={() => setTimeSlotToToggle(slot)}
                                   className="text-orange-600"
                                 >
-                                  {slot.is_available ? (
-                                    <><EyeOff className="mr-2 h-4 w-4" />Nonaktifkan</>
-                                  ) : (
-                                    <><Eye className="mr-2 h-4 w-4" />Aktifkan</>
+                                  {!slot.is_blocked && (
+                                    <><Ban className="mr-2 h-4 w-4" />Blokir</>
                                   )}
                                 </DropdownMenuItem>
-                                <DropdownMenuItem 
+                                <DropdownMenuItem
                                   className="text-red-600"
                                   onClick={() => setTimeSlotToDelete(slot)}
                                 >
@@ -581,27 +582,27 @@ export default function TimeSlotsPage() {
         onTimeSlotsSaved={handleTimeSlotSaved}
       />
 
-      {/* Toggle Availability Dialog */}
+      {/* Toggle Blocking Dialog */}
       <AlertDialog open={!!timeSlotToToggle} onOpenChange={() => setTimeSlotToToggle(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {timeSlotToToggle?.is_available ? "Nonaktifkan Time Slot" : "Aktifkan Time Slot"}
+              {timeSlotToToggle?.is_blocked ? "Aktifkan Time Slot" : "Blokir Time Slot"}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {timeSlotToToggle?.is_available 
-                ? "Apakah Anda yakin ingin menonaktifkan time slot ini? Time slot tidak akan tersedia untuk booking."
-                : "Apakah Anda yakin ingin mengaktifkan time slot ini? Time slot akan tersedia untuk booking."
+              {timeSlotToToggle?.is_blocked
+                ? "Apakah Anda yakin ingin mengaktifkan time slot ini? Time slot akan tersedia untuk booking."
+                : "Apakah Anda yakin ingin memblokir time slot ini? Time slot tidak akan tersedia untuk booking."
               }
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Batal</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => timeSlotToToggle && handleToggleAvailability(timeSlotToToggle)}
-              className={timeSlotToToggle?.is_available ? "bg-orange-600 hover:bg-orange-700" : "bg-green-600 hover:bg-green-700"}
+              onClick={() => timeSlotToToggle && handleToggleBlocking(timeSlotToToggle)}
+              className={timeSlotToToggle?.is_blocked ? "bg-green-600 hover:bg-green-700" : "bg-orange-600 hover:bg-orange-700"}
             >
-              {timeSlotToToggle?.is_available ? "Nonaktifkan" : "Aktifkan"}
+              {timeSlotToToggle?.is_blocked ? "Aktifkan" : "Blokir"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -618,7 +619,7 @@ export default function TimeSlotsPage() {
                 <p>
                   Apakah Anda yakin ingin menghapus time slot pada tanggal{" "}
                   <strong>{timeSlotToDelete && formatDate(timeSlotToDelete.slot_date)}</strong>{" "}
-                  waktu <strong>{timeSlotToDelete && formatTime(timeSlotToDelete.start_time)} - {timeSlotToDelete && formatTime(timeSlotToDelete.end_time)}</strong>? 
+                  waktu <strong>{timeSlotToDelete && formatTime(timeSlotToDelete.start_time)} - {timeSlotToDelete && formatTime(timeSlotToDelete.end_time)}</strong>?
                 </p>
                 <p className="text-sm text-muted-foreground">
                   Time slot akan dihapus permanen dari sistem. Pastikan tidak ada booking yang menggunakan time slot ini.
