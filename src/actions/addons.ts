@@ -183,7 +183,10 @@ export async function getPackageAddonsGroupedAction(packageId: string): Promise<
     const result = await getPackageAddonsAction(packageId)
     
     if (!result.success || !result.data) {
-      return result
+      return {
+        success: false,
+        error: result.error || 'Failed to fetch addons'
+      }
     }
 
     // Group addons by type with same logic as before
@@ -253,7 +256,10 @@ export async function getPublicAddonsGroupedAction(studioId?: string): Promise<A
     const result = await getPublicAddonsAction(studioId)
     
     if (!result.success || !result.data) {
-      return result
+      return {
+        success: false,
+        error: result.error || 'Failed to fetch addons'
+      }
     }
 
     // Group addons by type (using facility name or type field)

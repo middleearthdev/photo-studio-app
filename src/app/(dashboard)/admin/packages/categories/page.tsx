@@ -345,7 +345,6 @@ export default function PackageCategoriesPage() {
                       <Switch
                         checked={category.is_active}
                         onCheckedChange={() => handleToggleActive(category.id)}
-                        size="sm"
                       />
                     </div>
                   </TableCell>

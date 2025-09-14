@@ -5,6 +5,12 @@ import { revalidatePath } from 'next/cache'
 import { PaginationParams, PaginatedResult, calculatePagination } from '@/lib/constants/pagination'
 import { updateReservationPaymentStatus } from '@/actions/reservations'
 
+export interface ActionResult<T = any> {
+  success: boolean
+  data?: T
+  error?: string
+}
+
 export type PaymentStatus = 'pending' | 'completed' | 'failed' | 'partial' | 'refunded'
 
 export interface Payment {
@@ -621,10 +627,12 @@ export async function updatePaymentStatus(id: string, status: PaymentStatus): Pr
         reservationPaymentStatus = 'completed'
       } else if (payment.payment_type === 'remaining') {
         // Remaining payment completed - check if all payments are now completed
-        const allPayments = await getPaymentsByReservationId(payment.reservation_id)
-        const allCompleted = allPayments.every(p => 
-          p.id === payment.id || p.status === 'completed'
-        )
+        const allPaymentsResult = await getPaymentsByReservationId(payment.reservation_id)
+        const allCompleted = allPaymentsResult.success && allPaymentsResult.data 
+          ? allPaymentsResult.data.every(p => 
+              p.id === payment.id || p.status === 'completed'
+            )
+          : false
         
         if (allCompleted) {
           reservationPaymentStatus = 'completed'

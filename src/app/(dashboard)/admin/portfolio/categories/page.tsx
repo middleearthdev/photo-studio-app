@@ -355,7 +355,6 @@ export default function PortfolioCategoriesPage() {
                       <Switch
                         checked={category.is_active}
                         onCheckedChange={() => handleToggleActive(category.id)}
-                        size="sm"
                       />
                     </div>
                   </TableCell>
