@@ -180,7 +180,7 @@ export default function PackagesPage() {
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as any)}
-                  className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 lg:py-5 border rounded-xl sm:rounded-2xl border-slate-300 focus:border-[#00052e] focus:ring-[#00052e] bg-white text-sm sm:text-base shadow-sm min-w-[140px] sm:min-w-[160px] lg:min-w-[180px]"
+                  className="px-3 sm:px-4 lg:px-6 py-3 border rounded-xl sm:rounded-2xl border-slate-300 focus:border-[#00052e] focus:ring-[#00052e] bg-white text-sm sm:text-base shadow-sm min-w-[140px] sm:min-w-[160px] lg:min-w-[180px]"
                 >
                   <option value="popular">Terpopuler</option>
                   <option value="price-asc">Harga Terendah</option>
@@ -352,7 +352,7 @@ export default function PackagesPage() {
         </div>
       </section>
       <Footer />
-      
+
       {/* Bottom Navigation for Mobile */}
       <BottomNav />
     </div>

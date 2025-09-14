@@ -132,7 +132,7 @@ export default function BookingSuccessPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00052e] mx-auto mb-4"></div>
           <p className="text-slate-600">Memverifikasi pembayaran...</p>
         </div>
       </div>
@@ -143,24 +143,24 @@ export default function BookingSuccessPage() {
   if (verificationError) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-red-50 to-slate-100 flex items-center justify-center">
-        <div className="text-center max-w-md mx-auto p-6">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="text-center max-w-md mx-auto p-4 sm:p-6">
+          <div className="w-12 h-12 sm:w-16 sm:h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
+            <svg className="w-6 h-6 sm:w-8 sm:h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-slate-900 mb-2">Akses Ditolak</h1>
-          <p className="text-slate-600 mb-6">{verificationError}</p>
-          <div className="space-y-3">
+          <h1 className="text-xl sm:text-2xl font-bold text-[#00052e] mb-2">Akses Ditolak</h1>
+          <p className="text-xs sm:text-base text-slate-600 mb-4 sm:mb-6">{verificationError}</p>
+          <div className="space-y-2 sm:space-y-3">
             <Link href="/packages">
-              <Button className="w-full">
-                <Camera className="h-4 w-4 mr-2" />
+              <Button className="w-full bg-gradient-to-r from-[#00052e] to-[#b0834d] hover:from-[#00052e]/90 hover:to-[#b0834d]/90 text-xs sm:text-sm py-2 sm:py-3">
+                <Camera className="h-3 w-3 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
                 Buat Booking Baru
               </Button>
             </Link>
             <Link href="/">
-              <Button variant="outline" className="w-full">
-                <Home className="h-4 w-4 mr-2" />
+              <Button variant="outline" className="w-full text-xs sm:text-sm py-2 sm:py-3 border-[#00052e]/30 text-[#00052e] hover:bg-[#00052e]/10">
+                <Home className="h-3 w-3 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
                 Kembali ke Beranda
               </Button>
             </Link>
@@ -266,12 +266,12 @@ export default function BookingSuccessPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50/30 to-slate-100">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
-          className="space-y-8"
+          className="space-y-6 sm:space-y-8"
         >
           {/* Success Header */}
           <div className="text-center">
@@ -279,9 +279,9 @@ export default function BookingSuccessPage() {
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ duration: 0.6, delay: 0.2 }}
-              className="w-20 h-20 bg-gradient-to-r from-green-500 to-green-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg"
+              className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-r from-[#00052e] to-[#b0834d] rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6 shadow-lg"
             >
-              <CheckCircle className="h-12 w-12 text-white" />
+              <CheckCircle className="h-8 w-8 sm:h-12 sm:w-12 text-white" />
             </motion.div>
             
             <motion.div
@@ -289,28 +289,28 @@ export default function BookingSuccessPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.4 }}
             >
-              <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
+              <h1 className="text-2xl sm:text-4xl md:text-5xl font-bold text-[#00052e] mb-2 sm:mb-4">
                 Booking Berhasil!
               </h1>
-              <p className="text-xl text-slate-600 mb-6">
+              <p className="text-base sm:text-xl text-slate-600 mb-4 sm:mb-6">
                 Terima kasih atas kepercayaan Anda. Kami akan segera mengkonfirmasi detail sesi foto.
               </p>
               
-              <div className="flex items-center justify-center gap-4 flex-wrap">
-                <div className="flex items-center gap-2 bg-white/80 rounded-full px-4 py-2 shadow-sm">
-                  <span className="text-sm text-slate-600">Booking ID:</span>
-                  <code className="font-mono font-semibold text-blue-600">{transactionData.reservation.booking_code}</code>
+              <div className="flex items-center justify-center gap-2 sm:gap-4 flex-wrap">
+                <div className="flex items-center gap-1.5 sm:gap-2 bg-white/80 rounded-full px-3 py-1.5 sm:px-4 sm:py-2 shadow-sm">
+                  <span className="text-xs sm:text-sm text-slate-600">Booking ID:</span>
+                  <code className="font-mono font-semibold text-[#b0834d] text-xs sm:text-sm">{transactionData.reservation.booking_code}</code>
                   <Button
                     size="sm"
                     variant="ghost"
                     onClick={handleCopyBookingId}
-                    className="h-6 w-6 p-0 hover:bg-blue-100"
+                    className="h-5 w-5 sm:h-6 sm:w-6 p-0 hover:bg-[#b0834d]/10"
                   >
                     <Copy className="h-3 w-3" />
                   </Button>
                 </div>
                 
-                <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
+                <Badge className="bg-green-100 text-green-800 hover:bg-green-100 text-xs sm:text-sm py-0.5 px-2">
                   <CheckCircle className="h-3 w-3 mr-1" />
                   Pembayaran Berhasil
                 </Badge>
@@ -326,80 +326,80 @@ export default function BookingSuccessPage() {
           >
             <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-xl">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Camera className="h-5 w-5 text-blue-600" />
+                <CardTitle className="flex items-center gap-2 text-lg sm:text-xl text-[#00052e]">
+                  <Camera className="h-4 w-4 sm:h-5 sm:w-5 text-[#00052e]" />
                   Detail Booking
                 </CardTitle>
               </CardHeader>
               
-              <CardContent className="space-y-6">
+              <CardContent className="space-y-4 sm:space-y-6">
                 {/* Package Info */}
-                <div className="flex items-start gap-4">
-                  <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <Camera className="h-8 w-8 text-white" />
+                <div className="flex items-start gap-3 sm:gap-4">
+                  <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-[#00052e] to-[#b0834d] rounded-xl flex items-center justify-center flex-shrink-0">
+                    <Camera className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-xl font-semibold text-slate-900">{transactionData.reservation.package?.name}</h3>
-                    <p className="text-slate-600">{transactionData.reservation.studio?.name}</p>
-                    <div className="flex items-center gap-4 mt-2 text-sm text-slate-600">
+                    <h3 className="text-base sm:text-xl font-semibold text-[#00052e]">{transactionData.reservation.package?.name}</h3>
+                    <p className="text-xs sm:text-base text-slate-600">{transactionData.reservation.studio?.name}</p>
+                    <div className="flex items-center gap-2 sm:gap-4 mt-1.5 sm:mt-2 text-xs sm:text-sm text-slate-600">
                       <div className="flex items-center gap-1">
-                        <Clock className="h-4 w-4" />
+                        <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
                         {formatDuration(transactionData.reservation.package?.duration_minutes || 0)}
                       </div>
                       <div className="flex items-center gap-1">
-                        <MapPin className="h-4 w-4" />
+                        <MapPin className="h-3 w-3 sm:h-4 sm:w-4" />
                         Studio Foto
                       </div>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-2xl font-bold text-blue-600">
+                    <p className="text-lg sm:text-2xl font-bold text-[#b0834d]">
                       {formatPrice(transactionData.reservation.total_amount)}
                     </p>
-                    <p className="text-sm text-slate-600">Total</p>
+                    <p className="text-xs sm:text-sm text-slate-600">Total</p>
                   </div>
                 </div>
 
                 <Separator />
 
                 {/* Schedule Info */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <h4 className="font-semibold text-slate-900 flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-blue-600" />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                  <div className="space-y-3 sm:space-y-4">
+                    <h4 className="font-semibold text-[#00052e] flex items-center gap-1.5 sm:gap-2 text-base sm:text-lg">
+                      <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-[#00052e]" />
                       Jadwal Sesi Foto
                     </h4>
                     
                     {selectedDate && (
-                      <div className="bg-blue-50 p-4 rounded-lg">
-                        <p className="font-medium text-slate-900">
+                      <div className="bg-[#00052e]/5 p-3 sm:p-4 rounded-lg">
+                        <p className="font-medium text-[#00052e] text-sm sm:text-base">
                           {format(selectedDate, 'EEEE, dd MMMM yyyy', { locale: idLocale })}
                         </p>
-                        <p className="text-blue-700 font-semibold">
+                        <p className="text-[#b0834d] font-semibold text-sm sm:text-base">
                           Pukul {transactionData.reservation.start_time}
                         </p>
                       </div>
                     )}
                   </div>
 
-                  <div className="space-y-4">
-                    <h4 className="font-semibold text-slate-900 flex items-center gap-2">
-                      <User className="h-4 w-4 text-blue-600" />
+                  <div className="space-y-3 sm:space-y-4">
+                    <h4 className="font-semibold text-[#00052e] flex items-center gap-1.5 sm:gap-2 text-base sm:text-lg">
+                      <User className="h-4 w-4 sm:h-5 sm:w-5 text-[#00052e]" />
                       Informasi Pelanggan
                     </h4>
                     
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-sm">
-                        <User className="h-4 w-4 text-slate-500" />
+                    <div className="space-y-1.5 sm:space-y-2">
+                      <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
+                        <User className="h-3 w-3 sm:h-4 sm:w-4 text-slate-500" />
                         <span>{transactionData.reservation.customer?.full_name}</span>
                       </div>
-                      <div className="flex items-center gap-2 text-sm">
-                        <Phone className="h-4 w-4 text-slate-500" />
+                      <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
+                        <Phone className="h-3 w-3 sm:h-4 sm:w-4 text-slate-500" />
                         <span>{transactionData.reservation.customer?.phone}</span>
                       </div>
                       {transactionData.reservation.customer?.email && (
-                        <div className="flex items-center gap-2 text-sm">
-                          <Mail className="h-4 w-4 text-slate-500" />
+                        <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
+                          <Mail className="h-3 w-3 sm:h-4 sm:w-4 text-slate-500" />
                           <span>{transactionData.reservation.customer.email}</span>
                         </div>
                       )}
@@ -412,17 +412,17 @@ export default function BookingSuccessPage() {
                   <>
                     <Separator />
                     <div>
-                      <h4 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                        <Gift className="h-4 w-4 text-blue-600" />
+                      <h4 className="font-semibold text-[#00052e] mb-2 sm:mb-3 flex items-center gap-1.5 sm:gap-2 text-base sm:text-lg">
+                        <Gift className="h-4 w-4 sm:h-5 sm:w-5 text-[#00052e]" />
                         Add-ons Terpilih
                       </h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                         {selectedAddons.map((addon) => (
-                          <div key={addon.id} className="flex justify-between items-center bg-slate-50 p-3 rounded-lg">
-                            <span className="text-sm">
+                          <div key={addon.id} className="flex justify-between items-center bg-slate-50 p-2 sm:p-3 rounded-lg">
+                            <span className="text-xs sm:text-sm">
                               {addon.name} {addon.quantity > 1 && `(${addon.quantity}x)`}
                             </span>
-                            <span className="font-medium text-slate-900">
+                            <span className="font-medium text-[#00052e] text-xs sm:text-sm">
                               {formatPrice(addon.price * addon.quantity)}
                             </span>
                           </div>
@@ -435,28 +435,28 @@ export default function BookingSuccessPage() {
                 {/* Payment Summary */}
                 <Separator />
                 <div>
-                  <h4 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                    <CreditCard className="h-4 w-4 text-blue-600" />
+                  <h4 className="font-semibold text-[#00052e] mb-2 sm:mb-3 flex items-center gap-1.5 sm:gap-2 text-base sm:text-lg">
+                    <CreditCard className="h-4 w-4 sm:h-5 sm:w-5 text-[#00052e]" />
                     Ringkasan Pembayaran
                   </h4>
                   
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
+                  <div className="space-y-1.5 sm:space-y-2">
+                    <div className="flex justify-between text-xs sm:text-sm">
                       <span className="text-slate-600">DP Dibayar</span>
                       <span className="font-medium text-green-600">{formatPrice(transactionData.reservation.dp_amount)}</span>
                     </div>
-                    <div className="flex justify-between">
+                    <div className="flex justify-between text-xs sm:text-sm">
                       <span className="text-slate-600">Sisa Pembayaran</span>
                       <span className="font-medium text-amber-600">{formatPrice(remainingPayment)}</span>
                     </div>
-                    <div className="flex justify-between text-lg font-bold pt-2 border-t">
+                    <div className="flex justify-between text-base sm:text-lg font-bold pt-2 border-t">
                       <span>Total</span>
-                      <span className="text-blue-600">{formatPrice(transactionData.reservation.total_amount)}</span>
+                      <span className="text-[#b0834d]">{formatPrice(transactionData.reservation.total_amount)}</span>
                     </div>
                   </div>
                   
-                  <div className="mt-4 p-3 bg-amber-50 rounded-lg border border-amber-200">
-                    <p className="text-sm text-amber-800">
+                  <div className="mt-3 sm:mt-4 p-2 sm:p-3 bg-amber-50 rounded-lg border border-amber-200">
+                    <p className="text-xs sm:text-sm text-amber-800">
                       <strong>Catatan:</strong> Sisa pembayaran sebesar {formatPrice(remainingPayment)} akan dibayar pada hari sesi foto.
                     </p>
                   </div>
@@ -467,8 +467,8 @@ export default function BookingSuccessPage() {
                   <>
                     <Separator />
                     <div>
-                      <h4 className="font-semibold text-slate-900 mb-2">Catatan Tambahan</h4>
-                      <p className="text-slate-600 bg-slate-50 p-3 rounded-lg">
+                      <h4 className="font-semibold text-[#00052e] mb-1.5 sm:mb-2 text-base sm:text-lg">Catatan Tambahan</h4>
+                      <p className="text-xs sm:text-sm text-slate-600 bg-slate-50 p-2 sm:p-3 rounded-lg">
                         {transactionData.reservation.special_requests}
                       </p>
                     </div>
@@ -483,24 +483,24 @@ export default function BookingSuccessPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.8 }}
-            className="space-y-4"
+            className="space-y-3 sm:space-y-4"
           >
             <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-lg">
-              <CardContent className="pt-6">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <CardContent className="pt-4 sm:pt-6">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4">
                   <Button
                     onClick={handleDownloadInvoice}
                     disabled={isDownloading}
-                    className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
+                    className="flex items-center gap-1.5 sm:gap-2 bg-gradient-to-r from-[#00052e] to-[#b0834d] hover:from-[#00052e]/90 hover:to-[#b0834d]/90 text-xs sm:text-sm py-2 sm:py-3"
                   >
                     {isDownloading ? (
                       <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-white"></div>
                         Memproses...
                       </>
                     ) : (
                       <>
-                        <Download className="h-4 w-4" />
+                        <Download className="h-3 w-3 sm:h-4 sm:w-4" />
                         Download Invoice
                       </>
                     )}
@@ -509,18 +509,18 @@ export default function BookingSuccessPage() {
                   <Button
                     onClick={handleShareWhatsApp}
                     variant="outline"
-                    className="flex items-center gap-2 border-green-200 text-green-700 hover:bg-green-50"
+                    className="flex items-center gap-1.5 sm:gap-2 border-green-200 text-green-700 hover:bg-green-50 text-xs sm:text-sm py-2 sm:py-3"
                   >
-                    <Share2 className="h-4 w-4" />
+                    <Share2 className="h-3 w-3 sm:h-4 sm:w-4" />
                     Share ke WhatsApp
                   </Button>
                   
                   <Button
                     onClick={() => window.print()}
                     variant="outline"
-                    className="flex items-center gap-2"
+                    className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm py-2 sm:py-3 border-[#00052e]/30 text-[#00052e] hover:bg-[#00052e]/10"
                   >
-                    <Printer className="h-4 w-4" />
+                    <Printer className="h-3 w-3 sm:h-4 sm:w-4" />
                     Print
                   </Button>
                 </div>
@@ -528,17 +528,17 @@ export default function BookingSuccessPage() {
             </Card>
 
             {/* Navigation */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
               <Link href="/packages">
-                <Button variant="outline" className="flex items-center gap-2">
-                  <Camera className="h-4 w-4" />
+                <Button variant="outline" className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm py-2 sm:py-3 border-[#00052e]/30 text-[#00052e] hover:bg-[#00052e]/10">
+                  <Camera className="h-3 w-3 sm:h-4 sm:w-4" />
                   Booking Lagi
                 </Button>
               </Link>
               
               <Link href="/">
-                <Button className="flex items-center gap-2">
-                  <Home className="h-4 w-4" />
+                <Button className="flex items-center gap-1.5 sm:gap-2 bg-gradient-to-r from-[#00052e] to-[#b0834d] hover:from-[#00052e]/90 hover:to-[#b0834d]/90 text-xs sm:text-sm py-2 sm:py-3">
+                  <Home className="h-3 w-3 sm:h-4 sm:w-4" />
                   Kembali ke Beranda
                 </Button>
               </Link>
@@ -551,24 +551,24 @@ export default function BookingSuccessPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 1 }}
           >
-            <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
-              <CardContent className="pt-6">
-                <h3 className="font-semibold text-slate-900 mb-4">Langkah Selanjutnya:</h3>
-                <div className="space-y-3 text-sm text-slate-700">
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">1</div>
+            <Card className="bg-gradient-to-r from-[#00052e]/5 to-[#b0834d]/5 border-[#00052e]/20">
+              <CardContent className="pt-4 sm:pt-6">
+                <h3 className="font-semibold text-[#00052e] mb-3 sm:mb-4 text-base sm:text-lg">Langkah Selanjutnya:</h3>
+                <div className="space-y-2 sm:space-y-3 text-xs sm:text-sm text-slate-700">
+                  <div className="flex items-start gap-2 sm:gap-3">
+                    <div className="w-5 h-5 sm:w-6 sm:h-6 bg-[#00052e] text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">1</div>
                     <p>Kami akan menghubungi Anda via WhatsApp untuk konfirmasi detail sesi foto</p>
                   </div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">2</div>
+                  <div className="flex items-start gap-2 sm:gap-3">
+                    <div className="w-5 h-5 sm:w-6 sm:h-6 bg-[#00052e] text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">2</div>
                     <p>Datang 15 menit sebelum jadwal dengan membawa invoice ini</p>
                   </div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">3</div>
+                  <div className="flex items-start gap-2 sm:gap-3">
+                    <div className="w-5 h-5 sm:w-6 sm:h-6 bg-[#00052e] text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">3</div>
                     <p>Selesaikan sisa pembayaran sebelum sesi foto dimulai</p>
                   </div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">4</div>
+                  <div className="flex items-start gap-2 sm:gap-3">
+                    <div className="w-5 h-5 sm:w-6 sm:h-6 bg-[#00052e] text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">4</div>
                     <p>Nikmati sesi foto profesional dan dapatkan hasil terbaik!</p>
                   </div>
                 </div>

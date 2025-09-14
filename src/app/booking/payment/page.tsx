@@ -97,10 +97,10 @@ export default function PaymentPage() {
   // Calculate fee based on payment method (if available)
   const calculatePaymentFee = () => {
     if (!bookingData || !bookingData.paymentMethodDetails) return 0;
-    
+
     const paymentMethod = bookingData.paymentMethodDetails;
     const dpAmount = bookingData.reservation?.dp_amount || bookingData.dpAmount || 0;
-    
+
     if (paymentMethod.fee_type === 'fixed') {
       return paymentMethod.fee_amount || 0;
     } else {
@@ -143,7 +143,7 @@ export default function PaymentPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00052e] mx-auto mb-4"></div>
           <p className="text-slate-600">Memuat halaman pembayaran...</p>
         </div>
       </div>
@@ -195,15 +195,14 @@ export default function PaymentPage() {
 
       localStorage.setItem('transactionData', JSON.stringify(transactionData))
 
-      // Redirect based on payment method
-      if (paymentMethod === 'bank_transfer') {
-        router.push('/booking/bank-transfer')
-      } else if (result.data.invoice_url) {
+      if (result.data.invoice_url) {
         // Redirect to Xendit payment page
         window.location.href = result.data.invoice_url
       } else {
+        console.error('Payment error:')
+
         // For manual payments, redirect to success page immediately
-        router.push(`/booking/success?payment=completed&booking=${bookingData.reservation?.booking_code || bookingCode}`)
+        // router.push(`/booking/success?payment=completed&booking=${bookingData.reservation?.booking_code || bookingCode}`)
       }
     } catch (error) {
       const newRetryCount = retryCount + 1
@@ -237,84 +236,84 @@ export default function PaymentPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-100">
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="space-y-8"
+          className="space-y-6 sm:space-y-8"
         >
           {/* Header */}
           <div className="text-center">
-            <div className="w-16 h-16 bg-gradient-to-r from-blue-600 to-blue-700 rounded-full flex items-center justify-center mx-auto mb-4">
-              <CreditCard className="h-8 w-8 text-white" />
+            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-[#00052e] to-[#b0834d] rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
+              <CreditCard className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
             </div>
-            <h1 className="text-3xl font-bold text-slate-900 mb-2">Pembayaran</h1>
-            <p className="text-slate-600">
+            <h1 className="text-2xl sm:text-3xl font-bold text-[#00052e] mb-1 sm:mb-2">Pembayaran</h1>
+            <p className="text-xs sm:text-base text-slate-600">
               Booking ID: <span className="font-mono font-medium">{bookingData.reservation?.booking_code || bookingCode}</span>
             </p>
           </div>
 
           {/* Payment Method Info */}
           <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-xl">
-            <CardHeader className="text-center pb-4">
-              <div className="flex items-center justify-center gap-3 mb-4">
-                <Icon className="h-8 w-8 text-blue-600" />
+            <CardHeader className="text-center pb-3 sm:pb-4">
+              <div className="flex items-center justify-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+                <Icon className="h-6 w-6 sm:h-8 sm:w-8 text-[#00052e]" />
                 <div>
-                  <CardTitle className="text-xl">{methodInfo.name}</CardTitle>
-                  <CardDescription>{methodInfo.description}</CardDescription>
+                  <CardTitle className="text-lg sm:text-xl text-[#00052e]">{methodInfo.name}</CardTitle>
+                  <CardDescription className="text-xs sm:text-sm">{methodInfo.description}</CardDescription>
                 </div>
               </div>
 
-              <div className="text-3xl font-bold text-blue-600 mb-2">
+              <div className="text-2xl sm:text-3xl font-bold text-[#b0834d] mb-1 sm:mb-2">
                 {shouldDisplayFeesToCustomers() && calculatePaymentFee() > 0 ? (
-                  <>{formatPrice(getDisplayTotal())} <span className="text-lg font-normal text-red-600">(+{formatPrice(calculatePaymentFee())} fee)</span></>
+                  <>{formatPrice(getDisplayTotal())} <span className="text-base sm:text-lg font-normal text-red-600">(+{formatPrice(calculatePaymentFee())} fee)</span></>
                 ) : (
                   formatPrice(bookingData.reservation?.dp_amount || bookingData.dpAmount)
                 )}
               </div>
-              <p className="text-sm text-slate-600">
+              <p className="text-xs sm:text-sm text-slate-600">
                 DP untuk booking {bookingData.reservation?.customer?.full_name || bookingData.customer?.full_name}
               </p>
             </CardHeader>
           </Card>
 
           {/* Security Badge */}
-          <div className="flex items-center justify-center gap-2 text-sm text-slate-600">
-            <Shield className="h-4 w-4 text-green-500" />
+          <div className="flex items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-slate-600">
+            <Shield className="h-3 w-3 sm:h-4 sm:w-4 text-green-500" />
             <span>Pembayaran diamankan dengan enkripsi SSL 256-bit</span>
           </div>
 
           {hasError && retryCount >= 3 ? (
             /* Maximum Retries Reached */
             <Card className="bg-red-50 border-red-200">
-              <CardContent className="pt-6 text-center">
-                <div className="space-y-4">
+              <CardContent className="pt-4 sm:pt-6 text-center">
+                <div className="space-y-3 sm:space-y-4">
                   <div className="flex items-center justify-center">
-                    <AlertCircle className="h-12 w-12 text-red-600" />
+                    <AlertCircle className="h-8 w-8 sm:h-12 sm:w-12 text-red-600" />
                   </div>
 
                   <div>
-                    <h3 className="text-lg font-semibold text-red-900 mb-2">
+                    <h3 className="text-base sm:text-lg font-semibold text-red-900 mb-1 sm:mb-2">
                       Pembayaran Gagal
                     </h3>
-                    <p className="text-red-700 mb-4">
+                    <p className="text-xs sm:text-sm text-red-700 mb-3 sm:mb-4">
                       Maaf, pembayaran tidak dapat diproses setelah 3 kali percobaan.
                     </p>
                     {errorMessage && (
-                      <div className="bg-red-100 border border-red-300 rounded-lg p-3 mb-4">
-                        <p className="text-sm text-red-800">
+                      <div className="bg-red-100 border border-red-300 rounded-lg p-2 sm:p-3 mb-3 sm:mb-4">
+                        <p className="text-xs sm:text-sm text-red-800">
                           <strong>Error:</strong> {errorMessage}
                         </p>
                       </div>
                     )}
                   </div>
 
-                  <div className="space-y-3">
+                  <div className="space-y-2 sm:space-y-3">
                     <Button
                       onClick={() => router.push('/packages')}
                       variant="destructive"
-                      className="w-full"
+                      className="w-full text-xs sm:text-sm py-2 sm:py-3"
                       size="lg"
                     >
                       Kembali ke Paket
@@ -330,32 +329,32 @@ export default function PaymentPage() {
           ) : hasError ? (
             /* Error with Retry Option */
             <Card className="bg-amber-50 border-amber-200">
-              <CardContent className="pt-6 text-center">
-                <div className="space-y-4">
+              <CardContent className="pt-4 sm:pt-6 text-center">
+                <div className="space-y-3 sm:space-y-4">
                   <div className="flex items-center justify-center">
-                    <AlertCircle className="h-12 w-12 text-amber-600" />
+                    <AlertCircle className="h-8 w-8 sm:h-12 sm:w-12 text-amber-600" />
                   </div>
 
                   <div>
-                    <h3 className="text-lg font-semibold text-amber-900 mb-2">
+                    <h3 className="text-base sm:text-lg font-semibold text-amber-900 mb-1 sm:mb-2">
                       Terjadi Kesalahan
                     </h3>
-                    <p className="text-amber-700 mb-4">
+                    <p className="text-xs sm:text-sm text-amber-700 mb-3 sm:mb-4">
                       Pembayaran gagal diproses. Percobaan {retryCount}/3
                     </p>
                     {errorMessage && (
-                      <div className="bg-amber-100 border border-amber-300 rounded-lg p-3 mb-4">
-                        <p className="text-sm text-amber-800">
+                      <div className="bg-amber-100 border border-amber-300 rounded-lg p-2 sm:p-3 mb-3 sm:mb-4">
+                        <p className="text-xs sm:text-sm text-amber-800">
                           <strong>Error:</strong> {errorMessage}
                         </p>
                       </div>
                     )}
                   </div>
 
-                  <div className="space-y-3">
+                  <div className="space-y-2 sm:space-y-3">
                     <Button
                       onClick={handleRetry}
-                      className="w-full bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800"
+                      className="w-full bg-gradient-to-r from-[#00052e] to-[#b0834d] hover:from-[#00052e]/90 hover:to-[#b0834d]/90 text-xs sm:text-sm py-2 sm:py-3"
                       size="lg"
                     >
                       Coba Lagi ({3 - retryCount} percobaan tersisa)
@@ -364,7 +363,7 @@ export default function PaymentPage() {
                     <Button
                       variant="ghost"
                       onClick={() => router.push('/packages')}
-                      className="w-full"
+                      className="w-full text-xs sm:text-sm py-2 sm:py-3"
                     >
                       Batalkan
                     </Button>
@@ -375,23 +374,23 @@ export default function PaymentPage() {
           ) : !isProcessing ? (
             /* Countdown and Manual Trigger */
             <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-lg">
-              <CardContent className="pt-6 text-center">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-center gap-2 text-slate-600">
-                    <Clock className="h-5 w-5" />
+              <CardContent className="pt-4 sm:pt-6 text-center">
+                <div className="space-y-3 sm:space-y-4">
+                  <div className="flex items-center justify-center gap-1.5 sm:gap-2 text-slate-600 text-xs sm:text-sm">
+                    <Clock className="h-4 w-4 sm:h-5 sm:w-5" />
                     <span>Otomatis mengarahkan dalam {countdown} detik</span>
                   </div>
 
-                  <div className="space-y-3">
+                  <div className="space-y-2 sm:space-y-3">
                     <Button
                       onClick={handlePayment}
-                      className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 py-6 text-lg"
+                      className="w-full bg-gradient-to-r from-[#00052e] to-[#b0834d] hover:from-[#00052e]/90 hover:to-[#b0834d]/90 text-xs sm:text-base py-2.5 sm:py-6"
                       size="lg"
                     >
-                      {shouldDisplayFeesToCustomers() && calculatePaymentFee() > 0 
-                        ? `Bayar ${formatPrice(getDisplayTotal())} (Termasuk Fee)` 
+                      {shouldDisplayFeesToCustomers() && calculatePaymentFee() > 0
+                        ? `Bayar ${formatPrice(getDisplayTotal())} (Termasuk Fee)`
                         : 'Bayar Sekarang'}
-                      <ExternalLink className="h-5 w-5 ml-2" />
+                      <ExternalLink className="h-4 w-4 sm:h-5 sm:w-5 ml-1.5 sm:ml-2" />
                     </Button>
 
                     <p className="text-xs text-slate-500">
@@ -410,23 +409,23 @@ export default function PaymentPage() {
           ) : (
             /* Processing State */
             <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-lg">
-              <CardContent className="pt-6 text-center">
-                <div className="space-y-4">
+              <CardContent className="pt-4 sm:pt-6 text-center">
+                <div className="space-y-3 sm:space-y-4">
                   <div className="flex items-center justify-center">
-                    <Loader2 className="h-12 w-12 text-blue-600 animate-spin" />
+                    <Loader2 className="h-8 w-8 sm:h-12 sm:w-12 text-[#00052e] animate-spin" />
                   </div>
 
                   <div>
-                    <h3 className="text-lg font-semibold text-slate-900 mb-2">
+                    <h3 className="text-base sm:text-lg font-semibold text-[#00052e] mb-1 sm:mb-2">
                       Memproses Pembayaran...
                     </h3>
-                    <p className="text-slate-600">
+                    <p className="text-xs sm:text-sm text-slate-600">
                       Mohon tunggu, Anda akan segera diarahkan ke halaman pembayaran
                     </p>
                   </div>
 
-                  <div className="bg-blue-50 p-4 rounded-lg">
-                    <p className="text-sm text-blue-700">
+                  <div className="bg-[#00052e]/5 p-3 sm:p-4 rounded-lg">
+                    <p className="text-xs sm:text-sm text-[#00052e]">
                       <strong>Jangan tutup atau refresh halaman ini</strong> selama proses berlangsung
                     </p>
                   </div>
@@ -437,10 +436,10 @@ export default function PaymentPage() {
 
           {/* Important Notes */}
           <Card className="bg-amber-50 border-amber-200">
-            <CardContent className="pt-6">
-              <div className="flex items-start gap-3">
-                <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
-                <div className="space-y-2 text-sm text-amber-800">
+            <CardContent className="pt-4 sm:pt-6">
+              <div className="flex items-start gap-2 sm:gap-3">
+                <AlertCircle className="h-4 w-4 sm:h-5 sm:w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                <div className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm text-amber-800">
                   <p className="font-medium">Penting:</p>
                   <ul className="space-y-1 list-disc list-inside">
                     <li>Selesaikan pembayaran dalam 15 menit</li>
@@ -458,7 +457,7 @@ export default function PaymentPage() {
             <Button
               variant="ghost"
               onClick={() => router.push('/packages')}
-              className="text-slate-600 hover:text-slate-900"
+              className="text-slate-600 hover:text-[#00052e] text-xs sm:text-sm py-1.5 sm:py-2"
             >
               Batalkan Booking
             </Button>

@@ -96,7 +96,7 @@ export default function BookingSummaryPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00052e] mx-auto mb-4"></div>
           <p className="text-slate-600">Memuat ringkasan booking...</p>
         </div>
       </div>
@@ -295,15 +295,15 @@ export default function BookingSummaryPage() {
                 Kembali
               </Button>
               <div className="text-sm text-slate-600">
-                <Link href="/packages" className="hover:text-blue-600">Paket</Link> / 
-                <Link href={`/packages/${packageData.id}`} className="hover:text-blue-600 mx-1">{packageData.name}</Link> / 
-                <Link href="/booking/addons" className="hover:text-blue-600 mx-1">Add-ons</Link> / 
+                <Link href="/packages" className="hover:text-[#00052e]">Paket</Link> / 
+                <Link href={`/packages/${packageData.id}`} className="hover:text-[#00052e] mx-1">{packageData.name}</Link> / 
+                <Link href="/booking/addons" className="hover:text-[#00052e] mx-1">Add-ons</Link> / 
                 Ringkasan
               </div>
             </div>
             
-            {/* Progress Indicator */}
-            <div className="flex items-center gap-2 text-sm text-slate-600">
+            {/* Progress Indicator - Hidden on mobile */}
+            <div className="hidden sm:flex items-center gap-2 text-sm text-slate-600">
               <div className="flex items-center gap-2">
                 <CheckCircle className="h-4 w-4 text-green-500" />
                 <span>Paket</span>
@@ -315,7 +315,7 @@ export default function BookingSummaryPage() {
               </div>
               <div className="w-8 h-px bg-slate-300"></div>
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-blue-600 rounded-full flex items-center justify-center">
+                <div className="w-4 h-4 bg-[#00052e] rounded-full flex items-center justify-center">
                   <div className="w-2 h-2 bg-white rounded-full"></div>
                 </div>
                 <span className="font-medium">Pembayaran</span>
@@ -325,23 +325,23 @@ export default function BookingSummaryPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-8">
           {/* Customer Information Form - Left Side */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-4 sm:space-y-6">
             {/* Title */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
             >
-              <h1 className="text-3xl font-bold text-slate-900 mb-2">Konfirmasi Booking</h1>
-              <p className="text-slate-600">
+              <h1 className="text-xl sm:text-3xl font-bold text-[#00052e] mb-1 sm:mb-2">Konfirmasi Booking</h1>
+              <p className="text-xs sm:text-base text-slate-600">
                 Lengkapi data diri dan pilih metode pembayaran untuk menyelesaikan booking
               </p>
             </motion.div>
 
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 sm:space-y-6">
               {/* Customer Data */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -350,75 +350,76 @@ export default function BookingSummaryPage() {
               >
                 <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <User className="h-5 w-5 text-blue-600" />
+                    <CardTitle className="flex items-center gap-2 text-lg sm:text-xl text-[#00052e]">
+                      <User className="h-4 w-4 sm:h-5 sm:w-5 text-[#00052e]" />
                       Data Pelanggan
                     </CardTitle>
-                    <CardDescription>
+                    <CardDescription className="text-xs sm:text-sm">
                       Masukkan data diri untuk keperluan booking dan komunikasi
                     </CardDescription>
                   </CardHeader>
                   
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="name">Nama Lengkap *</Label>
+                  <CardContent className="space-y-3 sm:space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
+                      <div className="space-y-1.5 sm:space-y-2">
+                        <Label htmlFor="name" className="text-xs sm:text-sm">Nama Lengkap *</Label>
                         <Input
                           id="name"
                           {...register('name')}
                           placeholder="Masukkan nama lengkap"
-                          className={errors.name ? 'border-red-500' : ''}
+                          className={`text-xs sm:text-sm ${errors.name ? 'border-red-500' : ''}`}
                         />
                         {errors.name && (
-                          <p className="text-sm text-red-500 flex items-center gap-1">
-                            <AlertCircle className="h-4 w-4" />
+                          <p className="text-xs text-red-500 flex items-center gap-1">
+                            <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4" />
                             {errors.name.message}
                           </p>
                         )}
                       </div>
                       
-                      <div className="space-y-2">
-                        <Label htmlFor="whatsapp">Nomor WhatsApp *</Label>
+                      <div className="space-y-1.5 sm:space-y-2">
+                        <Label htmlFor="whatsapp" className="text-xs sm:text-sm">Nomor WhatsApp *</Label>
                         <Input
                           id="whatsapp"
                           {...register('whatsapp')}
                           onChange={handleWhatsAppChange}
                           placeholder="+62812345678"
-                          className={errors.whatsapp ? 'border-red-500' : ''}
+                          className={`text-xs sm:text-sm ${errors.whatsapp ? 'border-red-500' : ''}`}
                         />
                         {errors.whatsapp && (
-                          <p className="text-sm text-red-500 flex items-center gap-1">
-                            <AlertCircle className="h-4 w-4" />
+                          <p className="text-xs text-red-500 flex items-center gap-1">
+                            <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4" />
                             {errors.whatsapp.message}
                           </p>
                         )}
                       </div>
                     </div>
                     
-                    <div className="space-y-2">
-                      <Label htmlFor="email">Email (Opsional)</Label>
+                    <div className="space-y-1.5 sm:space-y-2">
+                      <Label htmlFor="email" className="text-xs sm:text-sm">Email (Opsional)</Label>
                       <Input
                         id="email"
                         type="email"
                         {...register('email')}
                         placeholder="email@example.com"
-                        className={errors.email ? 'border-red-500' : ''}
+                        className={`text-xs sm:text-sm ${errors.email ? 'border-red-500' : ''}`}
                       />
                       {errors.email && (
-                        <p className="text-sm text-red-500 flex items-center gap-1">
-                          <AlertCircle className="h-4 w-4" />
+                        <p className="text-xs text-red-500 flex items-center gap-1">
+                          <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4" />
                           {errors.email.message}
                         </p>
                       )}
                     </div>
                     
-                    <div className="space-y-2">
-                      <Label htmlFor="notes">Catatan Tambahan (Opsional)</Label>
+                    <div className="space-y-1.5 sm:space-y-2">
+                      <Label htmlFor="notes" className="text-xs sm:text-sm">Catatan Tambahan (Opsional)</Label>
                       <Textarea
                         id="notes"
                         {...register('notes')}
                         placeholder="Permintaan khusus, tema foto, dll."
                         rows={3}
+                        className="text-xs sm:text-sm"
                       />
                     </div>
                   </CardContent>
@@ -433,11 +434,11 @@ export default function BookingSummaryPage() {
               >
                 <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <CreditCard className="h-5 w-5 text-blue-600" />
+                    <CardTitle className="flex items-center gap-2 text-lg sm:text-xl text-[#00052e]">
+                      <CreditCard className="h-4 w-4 sm:h-5 sm:w-5 text-[#00052e]" />
                       Metode Pembayaran
                     </CardTitle>
-                    <CardDescription>
+                    <CardDescription className="text-xs sm:text-sm">
                       Pilih metode pembayaran untuk DP sebesar {formatPrice(getDpAmount())}
                     </CardDescription>
                   </CardHeader>
@@ -447,23 +448,23 @@ export default function BookingSummaryPage() {
                       <RadioGroup 
                         value={selectedPaymentMethod} 
                         onValueChange={(value) => setValue('paymentMethod', value)}
-                        className="space-y-3"
+                        className="space-y-2 sm:space-y-3"
                       >
                         {paymentMethods.map((method) => {
                           const formattedMethod = formatPaymentMethod(method)
                           return (
-                            <div key={method.id} className="flex items-center space-x-3">
-                              <RadioGroupItem value={method.id} id={method.id} />
+                            <div key={method.id} className="flex items-center space-x-2 sm:space-x-3">
+                              <RadioGroupItem value={method.id} id={method.id} className="h-4 w-4 sm:h-5 sm:w-5" />
                               <Label 
                                 htmlFor={method.id} 
-                                className="flex-1 flex items-center gap-3 p-3 rounded-lg border hover:bg-slate-50 cursor-pointer"
+                                className="flex-1 flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg border hover:bg-slate-50 cursor-pointer text-xs sm:text-sm"
                               >
-                                <div className="text-2xl">{formattedMethod.icon}</div>
+                                <div className="text-lg sm:text-xl">{formattedMethod.icon}</div>
                                 <div className="flex-1">
-                                  <div className="flex items-center gap-2">
+                                  <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
                                     <span className="font-medium">{method.name}</span>
                                     {shouldDisplayFeesToCustomers() && method.fee_percentage > 0 && (
-                                      <Badge variant="outline" className="text-xs">
+                                      <Badge variant="outline" className="text-xs py-0.5 px-1.5">
                                         Fee {formatFeeDisplay(
                                           method.fee_type || 'percentage',
                                           method.fee_percentage,
@@ -472,12 +473,12 @@ export default function BookingSummaryPage() {
                                       </Badge>
                                     )}
                                     {method.type === 'e_wallet' && (
-                                      <Badge variant="secondary" className="text-xs">
+                                      <Badge variant="secondary" className="text-xs py-0.5 px-1.5">
                                         Populer
                                       </Badge>
                                     )}
                                   </div>
-                                  <p className="text-sm text-slate-600">{formattedMethod.description}</p>
+                                  <p className="text-xs text-slate-600 mt-0.5">{formattedMethod.description}</p>
                                 </div>
                               </Label>
                             </div>
@@ -485,14 +486,14 @@ export default function BookingSummaryPage() {
                         })}
                       </RadioGroup>
                     ) : (
-                      <div className="text-center py-4 text-slate-500">
+                      <div className="text-center py-3 sm:py-4 text-slate-500 text-xs sm:text-sm">
                         <p>Metode pembayaran belum tersedia untuk studio ini</p>
                       </div>
                     )}
                     
                     {errors.paymentMethod && (
-                      <p className="text-sm text-red-500 flex items-center gap-1 mt-3">
-                        <AlertCircle className="h-4 w-4" />
+                      <p className="text-xs sm:text-sm text-red-500 flex items-center gap-1 mt-2 sm:mt-3">
+                        <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4" />
                         {errors.paymentMethod.message}
                       </p>
                     )}
@@ -510,18 +511,18 @@ export default function BookingSummaryPage() {
                 <Button 
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
+                  className="w-full bg-gradient-to-r from-[#00052e] to-[#b0834d] hover:from-[#00052e]/90 hover:to-[#b0834d]/90 text-xs sm:text-base py-2 sm:py-3"
                   size="lg"
                 >
                   {isSubmitting ? (
                     <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                      <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-white mr-1.5 sm:mr-2"></div>
                       Memproses...
                     </>
                   ) : (
                     <>
                       Lanjut ke Pembayaran
-                      <ArrowRight className="h-5 w-5 ml-2" />
+                      <ArrowRight className="h-3 w-3 sm:h-4 sm:w-4 ml-1.5 sm:ml-2" />
                     </>
                   )}
                 </Button>
@@ -535,53 +536,53 @@ export default function BookingSummaryPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.4 }}
-              className="sticky top-24 space-y-6"
+              className="sticky top-20 sm:top-24 space-y-4 sm:space-y-6"
             >
               {/* Booking Details */}
               <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-xl">
                 <CardHeader>
-                  <CardTitle>Detail Booking</CardTitle>
+                  <CardTitle className="text-lg sm:text-xl text-[#00052e]">Detail Booking</CardTitle>
                 </CardHeader>
                 
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-3 sm:space-y-4">
                   {/* Package Info */}
-                  <div className="space-y-3">
-                    <div className="flex items-start gap-3">
-                      <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <Camera className="h-6 w-6 text-white" />
+                  <div className="space-y-2 sm:space-y-3">
+                    <div className="flex items-start gap-2 sm:gap-3">
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-[#00052e] to-[#b0834d] rounded-lg flex items-center justify-center flex-shrink-0">
+                        <Camera className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                       </div>
                       <div className="flex-1">
-                        <h4 className="font-medium text-slate-900">{packageData.name}</h4>
+                        <h4 className="font-medium text-[#00052e] text-sm sm:text-base">{packageData.name}</h4>
                         {packageData.category && (
-                          <p className="text-sm text-slate-600">{packageData.category.name}</p>
+                          <p className="text-xs sm:text-sm text-slate-600">{packageData.category.name}</p>
                         )}
                       </div>
-                      <p className="font-semibold text-slate-900">{formatPrice(packageData.price)}</p>
+                      <p className="font-semibold text-[#b0834d] text-sm sm:text-base">{formatPrice(packageData.price)}</p>
                     </div>
                     
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div className="flex items-center gap-2 text-slate-600">
-                        <Clock className="h-4 w-4" />
+                    <div className="grid grid-cols-2 gap-2 sm:gap-4 text-xs sm:text-sm">
+                      <div className="flex items-center gap-1.5 sm:gap-2 text-slate-600">
+                        <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
                         {formatDuration(packageData.duration_minutes)}
                       </div>
-                      <div className="flex items-center gap-2 text-slate-600">
-                        <MapPin className="h-4 w-4" />
+                      <div className="flex items-center gap-1.5 sm:gap-2 text-slate-600">
+                        <MapPin className="h-3 w-3 sm:h-4 sm:w-4" />
                         Studio
                       </div>
                     </div>
                   </div>
 
                   {/* Date and Time */}
-                  <div className="border-t pt-4">
-                    <div className="space-y-2">
+                  <div className="border-t pt-3 sm:pt-4">
+                    <div className="space-y-1.5 sm:space-y-2">
                       {selectedDate && (
-                        <div className="flex items-center gap-2 text-slate-600">
-                          <Calendar className="h-4 w-4" />
+                        <div className="flex items-center gap-1.5 sm:gap-2 text-slate-600 text-xs sm:text-sm">
+                          <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
                           <span>{format(selectedDate, 'EEEE, dd MMMM yyyy', { locale: idLocale })}</span>
                         </div>
                       )}
-                      <div className="flex items-center gap-2 text-slate-600">
-                        <Clock className="h-4 w-4" />
+                      <div className="flex items-center gap-1.5 sm:gap-2 text-slate-600 text-xs sm:text-sm">
+                        <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
                         <span>{bookingData.timeSlot}</span>
                       </div>
                     </div>
@@ -589,14 +590,14 @@ export default function BookingSummaryPage() {
 
                   {/* Selected Add-ons */}
                   {selectedAddons.length > 0 && (
-                    <div className="border-t pt-4">
-                      <h4 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                        <Gift className="h-4 w-4" />
+                    <div className="border-t pt-3 sm:pt-4">
+                      <h4 className="font-semibold text-[#00052e] mb-2 sm:mb-3 flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base">
+                        <Gift className="h-3 w-3 sm:h-4 sm:w-4" />
                         Add-ons
                       </h4>
-                      <div className="space-y-2">
+                      <div className="space-y-1.5 sm:space-y-2">
                         {selectedAddons.map((addon) => (
-                          <div key={addon.id} className="flex justify-between text-sm">
+                          <div key={addon.id} className="flex justify-between text-xs sm:text-sm">
                             <span className="text-slate-600">
                               {addon.name} {addon.quantity > 1 && `(${addon.quantity}x)`}
                             </span>
@@ -610,29 +611,29 @@ export default function BookingSummaryPage() {
                   )}
                   
                   {/* Total */}
-                  <div className="border-t pt-4 space-y-3">
-                    <div className="flex justify-between">
+                  <div className="border-t pt-3 sm:pt-4 space-y-2 sm:space-y-3">
+                    <div className="flex justify-between text-xs sm:text-sm">
                       <span className="text-slate-600">Subtotal</span>
                       <span className="font-medium">{formatPrice(getTotalPrice())}</span>
                     </div>
                     
                     {selectedPaymentMethod && shouldDisplayFeesToCustomers() && calculateSelectedMethodFee() > 0 && (
-                      <div className="flex justify-between">
+                      <div className="flex justify-between text-xs sm:text-sm">
                         <span className="text-slate-600">Biaya Payment</span>
                         <span className="font-medium text-red-600">+{formatPrice(calculateSelectedMethodFee())}</span>
                       </div>
                     )}
                     
-                    <div className="flex justify-between text-lg font-bold">
+                    <div className="flex justify-between text-base sm:text-lg font-bold">
                       <span>DP ({packageData.dp_percentage}%)</span>
                       {shouldDisplayFeesToCustomers() && calculateSelectedMethodFee() > 0 ? (
-                        <span className="text-blue-600">{formatPrice(getDisplayTotal())}</span>
+                        <span className="text-[#b0834d]">{formatPrice(getDisplayTotal())}</span>
                       ) : (
-                        <span className="text-blue-600">{formatPrice(getDpAmount())}</span>
+                        <span className="text-[#b0834d]">{formatPrice(getDpAmount())}</span>
                       )}
                     </div>
                     
-                    <div className="text-xs text-slate-500 bg-slate-50 p-3 rounded-lg">
+                    <div className="text-xs text-slate-500 bg-slate-50 p-2 sm:p-3 rounded-lg">
                       <p className="font-medium mb-1">Catatan:</p>
                       <p>
                         Sisa pembayaran {formatPrice(getTotalPrice() - getDpAmount())} akan dibayar 
@@ -650,18 +651,18 @@ export default function BookingSummaryPage() {
                   form="booking-form"
                   onClick={handleSubmit(onSubmit)}
                   disabled={isSubmitting}
-                  className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
+                  className="w-full bg-gradient-to-r from-[#00052e] to-[#b0834d] hover:from-[#00052e]/90 hover:to-[#b0834d]/90 text-xs sm:text-base py-2 sm:py-3"
                   size="lg"
                 >
                   {isSubmitting ? (
                     <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                      <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-white mr-1.5 sm:mr-2"></div>
                       Memproses...
                     </>
                   ) : (
                     <>
                       Lanjut ke Pembayaran
-                      <ArrowRight className="h-5 w-5 ml-2" />
+                      <ArrowRight className="h-3 w-3 sm:h-4 sm:w-4 ml-1.5 sm:ml-2" />
                     </>
                   )}
                 </Button>
