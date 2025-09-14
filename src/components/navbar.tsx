@@ -3,7 +3,6 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { MobileNav } from '@/components/navigation/mobile-nav'
 
 interface NavbarProps {
   currentPath?: string
@@ -11,7 +10,7 @@ interface NavbarProps {
 
 export function Navbar({ currentPath = '/' }: NavbarProps) {
   const isActive = (path: string) => currentPath === path
-  
+
   return (
     <nav className="fixed top-0 w-full z-50 bg-white/90 backdrop-blur-md border-b border-slate-200/20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -28,44 +27,41 @@ export function Navbar({ currentPath = '/' }: NavbarProps) {
           </Link>
 
           <div className="hidden md:flex items-center space-x-8">
-            <Link 
-              href="/" 
-              className={`transition-colors font-medium ${
-                isActive('/') 
-                  ? 'text-[#00052e] hover:text-[#b0834d]' 
-                  : 'text-slate-600 hover:text-[#00052e]'
-              }`}
+            <Link
+              href="/"
+              className={`transition-colors font-medium ${isActive('/')
+                ? 'text-[#00052e] hover:text-[#b0834d]'
+                : 'text-slate-600 hover:text-[#00052e]'
+                }`}
             >
               Beranda
             </Link>
-            <Link 
-              href="/packages" 
-              className={`transition-colors ${
-                isActive('/packages') 
-                  ? 'text-[#00052e] hover:text-[#b0834d] font-medium' 
-                  : 'text-slate-600 hover:text-[#00052e]'
-              }`}
+            <Link
+              href="/packages"
+              className={`transition-colors ${isActive('/packages')
+                ? 'text-[#00052e] hover:text-[#b0834d] font-medium'
+                : 'text-slate-600 hover:text-[#00052e]'
+                }`}
             >
               Paket Foto
             </Link>
-            <Link 
-              href="/portfolio" 
-              className={`transition-colors ${
-                isActive('/portfolio') 
-                  ? 'text-[#00052e] hover:text-[#b0834d] font-medium' 
-                  : 'text-slate-600 hover:text-[#00052e]'
-              }`}
+            <Link
+              href="/portfolio"
+              className={`transition-colors ${isActive('/portfolio')
+                ? 'text-[#00052e] hover:text-[#b0834d] font-medium'
+                : 'text-slate-600 hover:text-[#00052e]'
+                }`}
             >
               Portfolio
             </Link>
-            <Link 
-              href="#services" 
+            <Link
+              href="#services"
               className="text-slate-600 hover:text-[#00052e] transition-colors"
             >
               Layanan
             </Link>
-            <Link 
-              href="#contact" 
+            <Link
+              href="#contact"
               className="text-slate-600 hover:text-[#00052e] transition-colors"
             >
               Kontak
@@ -77,7 +73,7 @@ export function Navbar({ currentPath = '/' }: NavbarProps) {
             </Link>
           </div>
 
-          <MobileNav currentPath={currentPath} />
+          {/* <MobileNav currentPath={currentPath} /> */}
         </div>
       </div>
     </nav>

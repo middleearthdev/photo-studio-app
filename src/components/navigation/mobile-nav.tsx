@@ -18,8 +18,8 @@ export function MobileNav({ currentPath = '/' }: MobileNavProps) {
     { href: '/', label: 'Beranda', icon: Home },
     { href: '/packages', label: 'Paket Foto', icon: Package },
     { href: '/portfolio', label: 'Portfolio', icon: ImageIcon },
-    { href: '#services', label: 'Layanan', icon: Sparkles },
-    { href: '#contact', label: 'Kontak', icon: Phone },
+    { href: '/#services', label: 'Layanan', icon: Sparkles },
+    { href: '/#contact', label: 'Kontak', icon: Phone },
   ]
 
   const toggleMenu = () => setIsOpen(!isOpen)
@@ -27,8 +27,8 @@ export function MobileNav({ currentPath = '/' }: MobileNavProps) {
 
   return (
     <>
-      {/* Mobile Menu Button */}
-      <div className="md:hidden">
+      {/* Mobile Menu Button - Show only on tablet (sm to md breakpoint) */}
+      <div className="hidden sm:block md:hidden">
         <Button
           variant="outline"
           size="sm"
@@ -71,7 +71,7 @@ export function MobileNav({ currentPath = '/' }: MobileNavProps) {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 md:hidden"
+              className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 sm:block md:hidden"
               onClick={closeMenu}
             />
 
@@ -81,15 +81,15 @@ export function MobileNav({ currentPath = '/' }: MobileNavProps) {
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed top-0 right-0 h-full w-80 bg-white shadow-2xl z-50 md:hidden"
+              className="fixed top-0 right-0 h-full w-80 bg-white shadow-2xl z-50 sm:block md:hidden"
             >
               {/* Header */}
               <div className="flex items-center justify-between p-6 border-b border-slate-200">
                 <div className="flex items-center space-x-3">
-                  <Image 
-                    src="/icons/logo_blue_white.svg" 
-                    alt="Kalarasa Studio Logo" 
-                    width={32} 
+                  <Image
+                    src="/icons/logo_blue_white.svg"
+                    alt="Kalarasa Studio Logo"
+                    width={32}
                     height={32}
                     className="rounded-full"
                   />
@@ -105,7 +105,7 @@ export function MobileNav({ currentPath = '/' }: MobileNavProps) {
                 {menuItems.map((item, index) => {
                   const Icon = item.icon
                   const isActive = currentPath === item.href
-                  
+
                   return (
                     <motion.div
                       key={item.href}
@@ -116,11 +116,10 @@ export function MobileNav({ currentPath = '/' }: MobileNavProps) {
                       <Link
                         href={item.href}
                         onClick={closeMenu}
-                        className={`flex items-center space-x-3 p-3 rounded-lg transition-all duration-300 ${
-                          isActive
+                        className={`flex items-center space-x-3 p-3 rounded-lg transition-all duration-300 ${isActive
                             ? 'bg-[#00052e] text-white shadow-md'
                             : 'text-slate-700 hover:bg-[#00052e]/10'
-                        }`}
+                          }`}
                       >
                         <Icon className="h-5 w-5" />
                         <span className="font-medium">{item.label}</span>
@@ -141,7 +140,7 @@ export function MobileNav({ currentPath = '/' }: MobileNavProps) {
                   <p className="text-white/80 text-sm mb-4">
                     Hubungi kami untuk konsultasi gratis
                   </p>
-                  <Button 
+                  <Button
                     className="w-full bg-white text-[#00052e] hover:bg-white/90 rounded-full shadow-lg"
                     onClick={closeMenu}
                   >

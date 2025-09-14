@@ -12,6 +12,7 @@ import type { Package } from '@/actions/customer-packages'
 import { PackageCard } from '@/components/package-card'
 import { Navbar } from '@/components/navbar'
 import { Footer } from '@/components/footer'
+import { BottomNav } from '@/components/navigation/bottom-nav'
 
 export default function PackagesPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
@@ -101,52 +102,52 @@ export default function PackagesPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
-            <div className="flex justify-center mb-6">
-              <div className="w-20 h-20 bg-gradient-to-r from-[#00052e] to-[#b0834d] rounded-full flex items-center justify-center shadow-xl">
-                <Camera className="h-10 w-10 text-white" />
+            <div className="flex justify-center mb-4 sm:mb-6">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-r from-[#00052e] to-[#b0834d] rounded-full flex items-center justify-center shadow-xl">
+                <Camera className="h-8 w-8 sm:h-10 sm:w-10 text-white" />
               </div>
             </div>
-            <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-[#00052e] mb-6">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-[#00052e] mb-4 sm:mb-6">
               Pilih Paket <span className="text-[#b0834d]">Foto Terbaik</span>
             </h1>
-            <p className="text-xl md:text-2xl text-slate-600 max-w-3xl mx-auto mb-10 leading-relaxed">
+            <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-slate-600 max-w-3xl mx-auto mb-6 sm:mb-8 lg:mb-10 leading-relaxed">
               Berbagai pilihan paket foto profesional dengan fasilitas lengkap dan harga terjangkau di Kalarasa Studio
             </p>
 
             {/* Statistics */}
-            <div className="flex flex-wrap items-center justify-center gap-6 mt-12">
-              <div className="flex items-center gap-3 bg-white/50 backdrop-blur-sm rounded-full px-6 py-3 shadow-sm">
-                <div className="w-10 h-10 bg-[#00052e] rounded-full flex items-center justify-center">
-                  <ImageIcon className="h-5 w-5 text-white" />
+            <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 lg:gap-6 mt-8 sm:mt-12">
+              <div className="flex items-center gap-2 sm:gap-3 bg-white/50 backdrop-blur-sm rounded-full px-3 sm:px-4 lg:px-6 py-2 sm:py-3 shadow-sm">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-[#00052e] rounded-full flex items-center justify-center">
+                  <ImageIcon className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
                 </div>
                 <div className="text-left">
-                  <div className="font-bold text-[#00052e] text-lg">{totalPackages}</div>
+                  <div className="font-bold text-[#00052e] text-sm sm:text-base lg:text-lg">{totalPackages}</div>
                   <div className="text-xs text-slate-600">Paket Tersedia</div>
                 </div>
               </div>
 
               {popularPackages > 0 && (
-                <div className="flex items-center gap-3 bg-white/50 backdrop-blur-sm rounded-full px-6 py-3 shadow-sm">
-                  <div className="w-10 h-10 bg-[#b0834d] rounded-full flex items-center justify-center">
-                    <Star className="h-5 w-5 text-white fill-current" />
+                <div className="flex items-center gap-2 sm:gap-3 bg-white/50 backdrop-blur-sm rounded-full px-3 sm:px-4 lg:px-6 py-2 sm:py-3 shadow-sm">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-[#b0834d] rounded-full flex items-center justify-center">
+                    <Star className="h-4 w-4 sm:h-5 sm:w-5 text-white fill-current" />
                   </div>
                   <div className="text-left">
-                    <div className="font-bold text-[#00052e] text-lg">{popularPackages}</div>
-                    <div className="text-xs text-slate-600">Paket Terpopuler</div>
+                    <div className="font-bold text-[#00052e] text-sm sm:text-base lg:text-lg">{popularPackages}</div>
+                    <div className="text-xs text-slate-600">Terpopuler</div>
                   </div>
                 </div>
               )}
 
               {priceRange.min > 0 && (
-                <div className="flex items-center gap-3 bg-white/50 backdrop-blur-sm rounded-full px-6 py-3 shadow-sm">
-                  <div className="w-10 h-10 bg-[#00052e] rounded-full flex items-center justify-center">
-                    <Award className="h-5 w-5 text-white" />
+                <div className="flex items-center gap-2 sm:gap-3 bg-white/50 backdrop-blur-sm rounded-full px-3 sm:px-4 lg:px-6 py-2 sm:py-3 shadow-sm">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-[#00052e] rounded-full flex items-center justify-center">
+                    <Award className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
                   </div>
                   <div className="text-left">
-                    <div className="font-bold text-[#00052e] text-lg">
+                    <div className="font-bold text-[#00052e] text-xs sm:text-sm lg:text-base leading-tight">
                       {formatPrice(priceRange.min).replace('Rp', '')} - {formatPrice(priceRange.max).replace('Rp', '')}
                     </div>
-                    <div className="text-xs text-slate-600">Harga Paket</div>
+                    <div className="text-xs text-slate-600">Range Harga</div>
                   </div>
                 </div>
               )}
@@ -164,13 +165,13 @@ export default function PackagesPage() {
             transition={{ duration: 0.6, delay: 0.2 }}
           >
             {/* Search Bar */}
-            <div className="flex flex-col lg:flex-row gap-4 mb-8">
+            <div className="flex flex-col lg:flex-row gap-3 sm:gap-4 mb-6 sm:mb-8">
               <div className="relative flex-1">
                 <Input
                   placeholder="Cari paket, fasilitas, atau kategori..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-12 pr-6 py-5 rounded-2xl border-slate-300 focus:border-[#00052e] focus:ring-[#00052e] text-base shadow-sm"
+                  className="pl-4 sm:pl-12 pr-4 sm:pr-6 py-3 sm:py-4 lg:py-5 rounded-xl sm:rounded-2xl border-slate-300 focus:border-[#00052e] focus:ring-[#00052e] text-sm sm:text-base shadow-sm"
                 />
               </div>
 
@@ -179,7 +180,7 @@ export default function PackagesPage() {
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as any)}
-                  className="px-6  border rounded-2xl border-slate-300 focus:border-[#00052e] focus:ring-[#00052e] bg-white text-base shadow-sm min-w-[180px]"
+                  className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 lg:py-5 border rounded-xl sm:rounded-2xl border-slate-300 focus:border-[#00052e] focus:ring-[#00052e] bg-white text-sm sm:text-base shadow-sm min-w-[140px] sm:min-w-[160px] lg:min-w-[180px]"
                 >
                   <option value="popular">Terpopuler</option>
                   <option value="price-asc">Harga Terendah</option>
@@ -191,24 +192,25 @@ export default function PackagesPage() {
 
             {/* Category Filter */}
             {categories.length > 0 && (
-              <div className="flex flex-wrap gap-3 justify-center mb-8">
+              <div className="flex flex-wrap gap-2 sm:gap-3 justify-center mb-6 sm:mb-8">
                 <Button
                   variant={selectedCategory === null ? "default" : "outline"}
                   onClick={() => setSelectedCategory(null)}
-                  className={`rounded-full px-6 py-3 text-base font-medium min-h-[48px] shadow-sm transition-all duration-300 ${selectedCategory === null
+                  className={`rounded-full px-3 sm:px-4 lg:px-6 py-2 sm:py-3 text-xs sm:text-sm lg:text-base font-medium min-h-[36px] sm:min-h-[40px] lg:min-h-[48px] shadow-sm transition-all duration-300 ${selectedCategory === null
                     ? 'bg-[#00052e] hover:bg-[#00052e]/90 text-white border-[#00052e] shadow-md hover:shadow-lg'
                     : 'border-[#00052e]/30 text-[#00052e] hover:bg-[#00052e]/10 hover:shadow-md'
                     }`}
                 >
-                  <Filter className="h-4 w-4 mr-2" />
-                  Semua Paket
+                  <Filter className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">Semua Paket</span>
+                  <span className="sm:hidden">Semua</span>
                 </Button>
                 {categories.map((category) => (
                   <Button
                     key={category.id}
                     variant={selectedCategory === category.id ? "default" : "outline"}
                     onClick={() => setSelectedCategory(category.id)}
-                    className={`rounded-full px-6 py-3 text-base font-medium min-h-[48px] shadow-sm transition-all duration-300 ${selectedCategory === category.id
+                    className={`rounded-full px-3 sm:px-4 lg:px-6 py-2 sm:py-3 text-xs sm:text-sm lg:text-base font-medium min-h-[36px] sm:min-h-[40px] lg:min-h-[48px] shadow-sm transition-all duration-300 ${selectedCategory === category.id
                       ? 'bg-[#00052e] hover:bg-[#00052e]/90 text-white border-[#00052e] shadow-md hover:shadow-lg'
                       : 'border-[#00052e]/30 text-[#00052e] hover:bg-[#00052e]/10 hover:shadow-md'
                       }`}
@@ -220,18 +222,18 @@ export default function PackagesPage() {
             )}
 
             {/* Results Info */}
-            <div className="flex flex-wrap items-center justify-between py-6 border-t border-slate-200 gap-4">
-              <div className="flex flex-wrap items-center gap-4">
-                <p className="text-slate-600 text-lg">
+            <div className="flex flex-wrap items-center justify-between py-4 sm:py-6 border-t border-slate-200 gap-2 sm:gap-4">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+                <p className="text-slate-600 text-sm sm:text-base lg:text-lg">
                   Menampilkan <span className="font-bold text-[#00052e]">{filteredPackages.length}</span> dari {totalPackages} paket
                 </p>
                 {searchQuery && (
-                  <Badge variant="outline" className="border-[#b0834d] text-[#b0834d] text-base py-1">
+                  <Badge variant="outline" className="border-[#b0834d] text-[#b0834d] text-xs sm:text-sm py-1">
                     Pencarian: "{searchQuery}"
                   </Badge>
                 )}
                 {selectedCategory && (
-                  <Badge variant="outline" className="border-[#00052e] text-[#00052e] text-base py-1">
+                  <Badge variant="outline" className="border-[#00052e] text-[#00052e] text-xs sm:text-sm py-1">
                     {categories.find(cat => cat.id === selectedCategory)?.name}
                   </Badge>
                 )}
@@ -244,9 +246,10 @@ export default function PackagesPage() {
                     setSearchQuery('')
                     setSelectedCategory(null)
                   }}
-                  className="text-slate-500 hover:text-[#00052e] text-base py-2 px-4 rounded-full"
+                  className="text-slate-500 hover:text-[#00052e] text-xs sm:text-sm lg:text-base py-1 sm:py-2 px-2 sm:px-4 rounded-full"
                 >
-                  Reset Filter
+                  <span className="hidden sm:inline">Reset Filter</span>
+                  <span className="sm:hidden">Reset</span>
                 </Button>
               )}
             </div>
@@ -264,13 +267,13 @@ export default function PackagesPage() {
               className="text-center py-20"
             >
               <div className="max-w-md mx-auto">
-                <div className="w-32 h-32 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-8">
-                  <Camera className="h-16 w-16 text-slate-400" />
+                <div className="w-20 h-20 sm:w-24 sm:h-24 lg:w-32 lg:h-32 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-6 sm:mb-8">
+                  <Camera className="h-10 w-10 sm:h-12 sm:w-12 lg:h-16 lg:w-16 text-slate-400" />
                 </div>
-                <h3 className="text-3xl font-bold text-slate-600 mb-4">
+                <h3 className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-600 mb-3 sm:mb-4">
                   {searchQuery ? 'Tidak Ada Hasil' : 'Belum Ada Paket Tersedia'}
                 </h3>
-                <p className="text-slate-500 mb-8 text-lg">
+                <p className="text-slate-500 mb-6 sm:mb-8 text-sm sm:text-base lg:text-lg">
                   {searchQuery
                     ? `Tidak ada paket yang sesuai dengan pencarian "${searchQuery}"`
                     : selectedCategory
@@ -284,7 +287,7 @@ export default function PackagesPage() {
                       setSearchQuery('')
                       setSelectedCategory(null)
                     }}
-                    className="bg-[#00052e] hover:bg-[#00052e]/90 text-white text-lg px-8 py-4 rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
+                    className="bg-[#00052e] hover:bg-[#00052e]/90 text-white text-sm sm:text-base lg:text-lg px-6 sm:px-8 py-3 sm:py-4 rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
                   >
                     Lihat Semua Paket
                   </Button>
@@ -292,7 +295,7 @@ export default function PackagesPage() {
               </div>
             </motion.div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6 lg:gap-8">
               {filteredPackages.map((pkg: Package, index: number) => (
                 <PackageCard
                   key={pkg.id}
@@ -318,27 +321,29 @@ export default function PackagesPage() {
           >
             <Card className="bg-gradient-to-r from-[#00052e]/10 to-[#b0834d]/10 border-0 p-10 rounded-3xl shadow-xl">
               <div className="text-center">
-                <h3 className="text-3xl font-bold text-[#00052e] mb-6">
+                <h3 className="text-xl sm:text-2xl lg:text-3xl font-bold text-[#00052e] mb-4 sm:mb-6">
                   Butuh Konsultasi?
                 </h3>
-                <p className="text-slate-600 mb-10 text-xl max-w-3xl mx-auto">
+                <p className="text-slate-600 mb-6 sm:mb-8 lg:mb-10 text-sm sm:text-base lg:text-xl max-w-3xl mx-auto">
                   Tim ahli kami siap membantu Anda memilih paket foto yang tepat sesuai kebutuhan dan budget
                 </p>
-                <div className="flex flex-col sm:flex-row gap-6 justify-center">
+                <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 lg:gap-6 justify-center">
                   <Button
                     size="lg"
-                    className="bg-[#00052e] hover:bg-[#00052e]/90 text-white px-8 py-6 rounded-full text-lg shadow-lg hover:shadow-xl transition-all duration-300"
+                    className="bg-[#00052e] hover:bg-[#00052e]/90 text-white px-4 sm:px-6 lg:px-8 py-3 sm:py-4 lg:py-6 rounded-full text-sm sm:text-base lg:text-lg shadow-lg hover:shadow-xl transition-all duration-300"
                   >
-                    <Phone className="h-6 w-6 mr-3" />
-                    Hubungi Konsultan
+                    <Phone className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 mr-2 sm:mr-3" />
+                    <span className="hidden sm:inline">Hubungi Konsultan</span>
+                    <span className="sm:hidden">Hubungi</span>
                   </Button>
                   <Button
                     size="lg"
                     variant="outline"
-                    className="border-[#b0834d] text-[#b0834d] hover:bg-[#b0834d] hover:text-white px-8 py-6 rounded-full text-lg shadow-lg hover:shadow-xl transition-all duration-300"
+                    className="border-[#b0834d] text-[#b0834d] hover:bg-[#b0834d] hover:text-white px-4 sm:px-6 lg:px-8 py-3 sm:py-4 lg:py-6 rounded-full text-sm sm:text-base lg:text-lg shadow-lg hover:shadow-xl transition-all duration-300"
                   >
-                    <Mail className="h-6 w-6 mr-3" />
-                    Kirim Pesan
+                    <Mail className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 mr-2 sm:mr-3" />
+                    <span className="hidden sm:inline">Kirim Pesan</span>
+                    <span className="sm:hidden">Pesan</span>
                   </Button>
                 </div>
               </div>
@@ -347,6 +352,9 @@ export default function PackagesPage() {
         </div>
       </section>
       <Footer />
+      
+      {/* Bottom Navigation for Mobile */}
+      <BottomNav />
     </div>
   )
 }

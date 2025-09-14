@@ -4,17 +4,18 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Camera, Star, Users, Clock, MapPin, Phone, Mail, Instagram, Facebook, Twitter, Play, ArrowRight, CheckCircle, Award, Heart, Sparkles, Calendar, Image as ImageIcon, Video, ChevronRight, RefreshCw } from 'lucide-react'
+import { Camera, Star, Users, Clock, MapPin, Phone, Mail, ArrowRight, CheckCircle, Award, Heart, Sparkles, Calendar, Image as ImageIcon, ChevronRight, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
-import { MobileNav } from '@/components/navigation/mobile-nav'
+import { BottomNav } from '@/components/navigation/bottom-nav'
 import { usePublicPortfolioCategoriesWithCovers } from '@/hooks/use-customer-portfolios'
 import { usePublicStudios } from '@/hooks/use-studios'
 import { usePublicPackageCategories, usePublicPackages } from '@/hooks/use-customer-packages'
 import type { PortfolioCategoryWithCover } from '@/hooks/use-customer-portfolios'
 import type { Package } from '@/actions/customer-packages'
 import { PackageCard } from '@/components/package-card'
+import { Footer } from '@/components/footer'
 
 export default function Home() {
   const [currentSlide, setCurrentSlide] = useState(0)
@@ -27,9 +28,9 @@ export default function Home() {
   const [showResults, setShowResults] = useState(false)
 
   // Fetch data from database
-  const { data: portfolioCategoriesData = [], isLoading: portfolioCategoriesLoading } = usePublicPortfolioCategoriesWithCovers()
-  const { data: studiosData = [], isLoading: studiosLoading } = usePublicStudios()
-  const { data: packageCategoriesData = [], isLoading: packageCategoriesLoading } = usePublicPackageCategories()
+  const { data: portfolioCategoriesData = [] } = usePublicPortfolioCategoriesWithCovers()
+  const { data: studiosData = [] } = usePublicStudios()
+  const { data: packageCategoriesData = [] } = usePublicPackageCategories()
   const { data: packagesData = [], isLoading: packagesLoading } = usePublicPackages()
 
   // Updated hero images with Unsplash photos
@@ -252,7 +253,7 @@ export default function Home() {
               </Link>
             </div>
 
-            <MobileNav currentPath="/" />
+            {/* <MobileNav currentPath="/" /> */}
           </div>
         </div>
       </nav>
@@ -273,12 +274,12 @@ export default function Home() {
               Studio Foto Terpercaya di Karawang
             </Badge>
 
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-[#00052e] mb-6 leading-tight">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-[#00052e] mb-4 sm:mb-6 leading-tight">
               Abadikan Setiap
               <span className="text-[#b0834d] block">Momen Berharga</span>
             </h1>
 
-            <p className="text-lg md:text-xl text-slate-600 mb-8 max-w-2xl mx-auto lg:mx-0">
+            <p className="text-base sm:text-lg md:text-xl text-slate-600 mb-6 sm:mb-8 max-w-2xl mx-auto lg:mx-0">
               Studio foto profesional di Karawang dengan teknologi terdepan dan tim berpengalaman.
               Wujudkan setiap momen spesial menjadi karya seni yang tak terlupakan.
             </p>
@@ -468,48 +469,48 @@ export default function Home() {
       </section>
 
       {/* Quick Package Finder Section */}
-      <section className="py-20 bg-white">
+      <section className="py-12 sm:py-16 lg:py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="text-center mb-16"
+            className="text-center mb-8 sm:mb-12 lg:mb-16"
             viewport={{ once: true }}
           >
-            <Badge className="mb-4 bg-[#00052e]/10 text-[#00052e] px-4 py-2 rounded-full">
+            <Badge className="mb-3 sm:mb-4 bg-[#00052e]/10 text-[#00052e] px-3 sm:px-4 py-1 sm:py-2 rounded-full text-xs sm:text-sm">
               Temukan Paket
             </Badge>
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#00052e] mb-6">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-[#00052e] mb-4 sm:mb-6">
               Paket Foto Yang Tepat Untuk Anda
             </h2>
-            <p className="text-lg md:text-xl text-slate-600 max-w-2xl mx-auto">
+            <p className="text-sm sm:text-base md:text-lg lg:text-xl text-slate-600 max-w-2xl mx-auto">
               Jawab beberapa pertanyaan singkat dan kami akan merekomendasikan paket foto terbaik sesuai kebutuhan Anda
             </p>
           </motion.div>
 
           {packagesLoading ? (
-            <div className="flex justify-center items-center py-20">
+            <div className="flex justify-center items-center py-12 sm:py-16 lg:py-20">
               <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00052e] mx-auto mb-4"></div>
-                <p className="text-slate-600">Memuat paket...</p>
+                <div className="animate-spin rounded-full h-8 w-8 sm:h-10 sm:w-10 lg:h-12 lg:w-12 border-b-2 border-[#00052e] mx-auto mb-3 sm:mb-4"></div>
+                <p className="text-slate-600 text-sm sm:text-base">Memuat paket...</p>
               </div>
             </div>
           ) : !showResults ? (
             <div className="max-w-4xl mx-auto">
               {/* Progress Indicator */}
-              <div className="flex justify-center mb-12">
-                <div className="flex items-center space-x-4">
+              <div className="flex justify-center mb-8 sm:mb-10 lg:mb-12">
+                <div className="flex items-center space-x-2 sm:space-x-4">
                   {[0, 1, 2].map((step) => (
                     <div key={step} className="flex items-center">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-300 ${step <= finderStep
+                      <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-medium transition-all duration-300 ${step <= finderStep
                         ? 'bg-[#00052e] text-white'
                         : 'bg-slate-200 text-slate-500'
                         }`}>
                         {step + 1}
                       </div>
                       {step < 2 && (
-                        <div className={`w-12 h-1 mx-2 transition-all duration-300 ${step < finderStep ? 'bg-[#00052e]' : 'bg-slate-200'
+                        <div className={`w-8 sm:w-12 h-1 mx-1 sm:mx-2 transition-all duration-300 ${step < finderStep ? 'bg-[#00052e]' : 'bg-slate-200'
                           }`} />
                       )}
                     </div>
@@ -527,14 +528,14 @@ export default function Home() {
                   transition={{ duration: 0.5 }}
                   className="text-center"
                 >
-                  <h3 className="text-2xl font-bold text-[#00052e] mb-4">
+                  <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-[#00052e] mb-3 sm:mb-4">
                     Untuk keperluan apa?
                   </h3>
-                  <p className="text-slate-600 mb-8">
+                  <p className="text-slate-600 mb-6 sm:mb-8 text-sm sm:text-base">
                     Pilih jenis foto yang Anda butuhkan
                   </p>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto mb-8">
+                  <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 max-w-4xl mx-auto mb-6 sm:mb-8">
                     {purposes.map((purpose) => {
                       const Icon = purpose.icon
                       return (
@@ -546,13 +547,13 @@ export default function Home() {
                             }`}
                           onClick={() => setSelectedPurpose(purpose.id)}
                         >
-                          <CardContent className="p-6 text-center">
-                            <Icon className={`h-8 w-8 mx-auto mb-3 ${selectedPurpose === purpose.id ? 'text-[#00052e]' : 'text-slate-500'
+                          <CardContent className="p-3 sm:p-4 lg:p-6 text-center">
+                            <Icon className={`h-6 w-6 sm:h-8 sm:w-8 mx-auto mb-2 sm:mb-3 ${selectedPurpose === purpose.id ? 'text-[#00052e]' : 'text-slate-500'
                               }`} />
-                            <h4 className="font-semibold text-[#00052e] mb-1">
+                            <h4 className="font-semibold text-[#00052e] mb-1 text-sm sm:text-base">
                               {purpose.label}
                             </h4>
-                            <p className="text-sm text-slate-500">
+                            <p className="text-xs sm:text-sm text-slate-500 hidden sm:block">
                               {purpose.description}
                             </p>
                           </CardContent>
@@ -564,10 +565,10 @@ export default function Home() {
                   <Button
                     onClick={nextStep}
                     disabled={!selectedPurpose}
-                    className="bg-[#00052e] hover:bg-[#00052e]/90 text-white px-8 py-3 rounded-full"
+                    className="bg-[#00052e] hover:bg-[#00052e]/90 text-white px-6 sm:px-8 py-2 sm:py-3 rounded-full text-sm sm:text-base"
                   >
                     Lanjut
-                    <ChevronRight className="h-5 w-5 ml-2" />
+                    <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 ml-1 sm:ml-2" />
                   </Button>
                 </motion.div>
               )}
@@ -582,14 +583,14 @@ export default function Home() {
                   transition={{ duration: 0.5 }}
                   className="text-center"
                 >
-                  <h3 className="text-2xl font-bold text-[#00052e] mb-4">
+                  <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-[#00052e] mb-3 sm:mb-4">
                     Berapa lama sesi foto?
                   </h3>
-                  <p className="text-slate-600 mb-8">
+                  <p className="text-slate-600 mb-6 sm:mb-8 text-sm sm:text-base">
                     Pilih durasi yang sesuai dengan kebutuhan Anda
                   </p>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl mx-auto mb-8">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 max-w-3xl mx-auto mb-6 sm:mb-8">
                     {durations.map((duration) => (
                       <Card
                         key={duration.id}
@@ -599,13 +600,13 @@ export default function Home() {
                           }`}
                         onClick={() => setSelectedDuration(duration.id)}
                       >
-                        <CardContent className="p-6 text-center">
-                          <Clock className={`h-8 w-8 mx-auto mb-3 ${selectedDuration === duration.id ? 'text-[#00052e]' : 'text-slate-500'
+                        <CardContent className="p-4 sm:p-6 text-center">
+                          <Clock className={`h-6 w-6 sm:h-8 sm:w-8 mx-auto mb-2 sm:mb-3 ${selectedDuration === duration.id ? 'text-[#00052e]' : 'text-slate-500'
                             }`} />
-                          <h4 className="font-semibold text-[#00052e] mb-1">
+                          <h4 className="font-semibold text-[#00052e] mb-1 text-sm sm:text-base">
                             {duration.label}
                           </h4>
-                          <p className="text-sm text-slate-500">
+                          <p className="text-xs sm:text-sm text-slate-500">
                             {duration.description}
                           </p>
                         </CardContent>
@@ -613,21 +614,21 @@ export default function Home() {
                     ))}
                   </div>
 
-                  <div className="flex justify-center gap-4">
+                  <div className="flex justify-center gap-3 sm:gap-4">
                     <Button
                       onClick={() => setFinderStep(0)}
                       variant="outline"
-                      className="border-[#00052e] text-[#00052e] px-6 py-3 rounded-full"
+                      className="border-[#00052e] text-[#00052e] px-4 sm:px-6 py-2 sm:py-3 rounded-full text-sm sm:text-base"
                     >
                       Kembali
                     </Button>
                     <Button
                       onClick={nextStep}
                       disabled={!selectedDuration}
-                      className="bg-[#00052e] hover:bg-[#00052e]/90 text-white px-8 py-3 rounded-full"
+                      className="bg-[#00052e] hover:bg-[#00052e]/90 text-white px-6 sm:px-8 py-2 sm:py-3 rounded-full text-sm sm:text-base"
                     >
                       Lanjut
-                      <ChevronRight className="h-5 w-5 ml-2" />
+                      <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 ml-1 sm:ml-2" />
                     </Button>
                   </div>
                 </motion.div>
@@ -643,14 +644,14 @@ export default function Home() {
                   transition={{ duration: 0.5 }}
                   className="text-center"
                 >
-                  <h3 className="text-2xl font-bold text-[#00052e] mb-4">
+                  <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-[#00052e] mb-3 sm:mb-4">
                     Budget range?
                   </h3>
-                  <p className="text-slate-600 mb-8">
+                  <p className="text-slate-600 mb-6 sm:mb-8 text-sm sm:text-base">
                     Pilih range budget yang sesuai untuk Anda
                   </p>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-3xl mx-auto mb-8">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 max-w-3xl mx-auto mb-6 sm:mb-8">
                     {budgets.map((budget) => (
                       <Card
                         key={budget.id}
@@ -660,13 +661,13 @@ export default function Home() {
                           }`}
                         onClick={() => setSelectedBudget(budget.id)}
                       >
-                        <CardContent className="p-6 text-center">
-                          <Sparkles className={`h-8 w-8 mx-auto mb-3 ${selectedBudget === budget.id ? 'text-[#00052e]' : 'text-slate-500'
+                        <CardContent className="p-4 sm:p-6 text-center">
+                          <Sparkles className={`h-6 w-6 sm:h-8 sm:w-8 mx-auto mb-2 sm:mb-3 ${selectedBudget === budget.id ? 'text-[#00052e]' : 'text-slate-500'
                             }`} />
-                          <h4 className="font-semibold text-[#00052e] mb-1">
+                          <h4 className="font-semibold text-[#00052e] mb-1 text-sm sm:text-base">
                             {budget.label}
                           </h4>
-                          <p className="text-sm text-slate-500">
+                          <p className="text-xs sm:text-sm text-slate-500">
                             {budget.description}
                           </p>
                         </CardContent>
@@ -674,21 +675,22 @@ export default function Home() {
                     ))}
                   </div>
 
-                  <div className="flex justify-center gap-4">
+                  <div className="flex justify-center gap-3 sm:gap-4">
                     <Button
                       onClick={() => setFinderStep(1)}
                       variant="outline"
-                      className="border-[#00052e] text-[#00052e] px-6 py-3 rounded-full"
+                      className="border-[#00052e] text-[#00052e] px-4 sm:px-6 py-2 sm:py-3 rounded-full text-sm sm:text-base"
                     >
                       Kembali
                     </Button>
                     <Button
                       onClick={nextStep}
                       disabled={!selectedBudget}
-                      className="bg-[#00052e] hover:bg-[#00052e]/90 text-white px-8 py-3 rounded-full"
+                      className="bg-[#00052e] hover:bg-[#00052e]/90 text-white px-6 sm:px-8 py-2 sm:py-3 rounded-full text-sm sm:text-base"
                     >
-                      Lihat Rekomendasi
-                      <Camera className="h-5 w-5 ml-2" />
+                      <span className="hidden sm:inline">Lihat Rekomendasi</span>
+                      <span className="sm:hidden">Rekomendasi</span>
+                      <Camera className="h-4 w-4 sm:h-5 sm:w-5 ml-1 sm:ml-2" />
                     </Button>
                   </div>
                 </motion.div>
@@ -697,25 +699,25 @@ export default function Home() {
           ) : (
             /* Results Section */
             <>
-              <div className="text-center mb-8">
-                <h3 className="text-2xl font-bold text-[#00052e] mb-4">
+              <div className="text-center mb-6 sm:mb-8">
+                <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-[#00052e] mb-3 sm:mb-4">
                   Rekomendasi Paket Untuk Anda
                 </h3>
-                <p className="text-slate-600 mb-6">
+                <p className="text-slate-600 mb-4 sm:mb-6 text-sm sm:text-base">
                   Berdasarkan pilihan Anda, berikut adalah paket foto yang cocok
                 </p>
                 <Button
                   onClick={resetFinder}
                   variant="outline"
-                  className="border-[#00052e] text-[#00052e] hover:bg-[#00052e] hover:text-white rounded-full"
+                  className="border-[#00052e] text-[#00052e] hover:bg-[#00052e] hover:text-white rounded-full px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base"
                 >
-                  <RefreshCw className="h-4 w-4 mr-2" />
+                  <RefreshCw className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                   Cari Lagi
                 </Button>
               </div>
 
               {recommendedPackages.length > 0 ? (
-                <div className="grid md:grid-cols-3 gap-8">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
                   {recommendedPackages.map((pkg, index) => (
                     <PackageCard
                       key={pkg.id}
@@ -851,65 +853,65 @@ export default function Home() {
       </section>
 
       {/* Contact Section */}
-      <section id="contact" className="py-20 bg-white">
+      <section id="contact" className="py-12 sm:py-16 lg:py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="text-center mb-16"
+            className="text-center mb-8 sm:mb-12 lg:mb-16"
             viewport={{ once: true }}
           >
-            <Badge className="mb-4 bg-[#b0834d]/10 text-[#b0834d] px-4 py-2 rounded-full">
+            <Badge className="mb-3 sm:mb-4 bg-[#b0834d]/10 text-[#b0834d] px-3 sm:px-4 py-1 sm:py-2 rounded-full text-xs sm:text-sm">
               Kontak
             </Badge>
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#00052e] mb-6">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-[#00052e] mb-4 sm:mb-6">
               Hubungi Kami
             </h2>
-            <p className="text-lg md:text-xl text-slate-600 max-w-2xl mx-auto">
+            <p className="text-sm sm:text-base md:text-lg lg:text-xl text-slate-600 max-w-2xl mx-auto">
               Punya pertanyaan? Tim kami siap membantu Anda kapan saja
             </p>
           </motion.div>
 
-          <div className="grid md:grid-cols-2 gap-12 items-center">
+          <div className="grid md:grid-cols-2 gap-8 sm:gap-10 lg:gap-12 items-start md:items-center">
             <motion.div
               initial={{ opacity: 0, x: -30 }}
               whileInView={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.6 }}
               viewport={{ once: true }}
             >
-              <div className="space-y-8">
+              <div className="space-y-6 sm:space-y-8">
                 <div className="flex items-start">
-                  <div className="w-12 h-12 bg-[#00052e] rounded-full flex items-center justify-center flex-shrink-0">
-                    <MapPin className="h-6 w-6 text-white" />
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-[#00052e] rounded-full flex items-center justify-center flex-shrink-0">
+                    <MapPin className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                   </div>
-                  <div className="ml-4">
-                    <h3 className="text-xl font-bold text-[#00052e] mb-1">Alamat</h3>
-                    <p className="text-slate-600">
+                  <div className="ml-3 sm:ml-4">
+                    <h3 className="text-lg sm:text-xl font-bold text-[#00052e] mb-1">Alamat</h3>
+                    <p className="text-slate-600 text-sm sm:text-base">
                       {firstStudio?.address || 'Jl. Fotografi No. 123, Karawang, Jawa Barat 41311'}
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-start">
-                  <div className="w-12 h-12 bg-[#b0834d] rounded-full flex items-center justify-center flex-shrink-0">
-                    <Phone className="h-6 w-6 text-white" />
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-[#b0834d] rounded-full flex items-center justify-center flex-shrink-0">
+                    <Phone className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                   </div>
-                  <div className="ml-4">
-                    <h3 className="text-xl font-bold text-[#00052e] mb-1">Telepon</h3>
-                    <p className="text-slate-600">
+                  <div className="ml-3 sm:ml-4">
+                    <h3 className="text-lg sm:text-xl font-bold text-[#00052e] mb-1">Telepon</h3>
+                    <p className="text-slate-600 text-sm sm:text-base">
                       {firstStudio?.phone || '+62 812-3456-7890'}
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-start">
-                  <div className="w-12 h-12 bg-[#00052e] rounded-full flex items-center justify-center flex-shrink-0">
-                    <Mail className="h-6 w-6 text-white" />
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-[#00052e] rounded-full flex items-center justify-center flex-shrink-0">
+                    <Mail className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                   </div>
-                  <div className="ml-4">
-                    <h3 className="text-xl font-bold text-[#00052e] mb-1">Email</h3>
-                    <p className="text-slate-600">
+                  <div className="ml-3 sm:ml-4">
+                    <h3 className="text-lg sm:text-xl font-bold text-[#00052e] mb-1">Email</h3>
+                    <p className="text-slate-600 text-sm sm:text-base">
                       {firstStudio?.email || 'info@kalarasastudio.com'}
                     </p>
                   </div>
@@ -923,60 +925,60 @@ export default function Home() {
               transition={{ duration: 0.6 }}
               viewport={{ once: true }}
             >
-              <Card className="p-8 border-0 shadow-lg rounded-2xl">
-                <h3 className="text-2xl font-bold text-[#00052e] mb-6 text-center">
+              <Card className="p-4 sm:p-6 lg:p-8 border-0 shadow-lg rounded-xl sm:rounded-2xl">
+                <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-[#00052e] mb-4 sm:mb-6 text-center">
                   Kirim Pesan
                 </h3>
-                <form className="space-y-6">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <form className="space-y-4 sm:space-y-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     <div>
-                      <label htmlFor="name" className="block text-sm font-medium text-slate-700 mb-1">
+                      <label htmlFor="name" className="block text-xs sm:text-sm font-medium text-slate-700 mb-1">
                         Nama Lengkap
                       </label>
                       <input
                         type="text"
                         id="name"
-                        className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#00052e] focus:border-transparent"
+                        className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#00052e] focus:border-transparent text-sm sm:text-base"
                         placeholder="Nama Anda"
                       />
                     </div>
                     <div>
-                      <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1">
+                      <label htmlFor="email" className="block text-xs sm:text-sm font-medium text-slate-700 mb-1">
                         Email
                       </label>
                       <input
                         type="email"
                         id="email"
-                        className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#00052e] focus:border-transparent"
+                        className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#00052e] focus:border-transparent text-sm sm:text-base"
                         placeholder="email@contoh.com"
                       />
                     </div>
                   </div>
                   <div>
-                    <label htmlFor="subject" className="block text-sm font-medium text-slate-700 mb-1">
+                    <label htmlFor="subject" className="block text-xs sm:text-sm font-medium text-slate-700 mb-1">
                       Subjek
                     </label>
                     <input
                       type="text"
                       id="subject"
-                      className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#00052e] focus:border-transparent"
+                      className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#00052e] focus:border-transparent text-sm sm:text-base"
                       placeholder="Subjek pesan"
                     />
                   </div>
                   <div>
-                    <label htmlFor="message" className="block text-sm font-medium text-slate-700 mb-1">
+                    <label htmlFor="message" className="block text-xs sm:text-sm font-medium text-slate-700 mb-1">
                       Pesan
                     </label>
                     <textarea
                       id="message"
                       rows={4}
-                      className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#00052e] focus:border-transparent"
+                      className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#00052e] focus:border-transparent text-sm sm:text-base"
                       placeholder="Tulis pesan Anda di sini..."
                     ></textarea>
                   </div>
                   <Button
                     type="submit"
-                    className="w-full bg-[#00052e] hover:bg-[#00052e]/90 text-white py-6 text-base rounded-lg transition-all duration-300 shadow-md hover:shadow-lg"
+                    className="w-full bg-[#00052e] hover:bg-[#00052e]/90 text-white py-3 sm:py-4 lg:py-6 text-sm sm:text-base rounded-lg transition-all duration-300 shadow-md hover:shadow-lg"
                     onClick={(e) => {
                       e.preventDefault();
                       // Simple form submission handling
@@ -994,94 +996,10 @@ export default function Home() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-[#00052e] text-white py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
-            <div>
-              <div className="flex items-center space-x-3 mb-6">
-                <Image
-                  src="/icons/logo_white.svg"
-                  alt="Kalarasa Studio"
-                  width={40}
-                  height={40}
-                />
-                <span className="text-xl font-bold">Kalarasa Studio</span>
-              </div>
-              <p className="text-white/80 mb-6">
-                {firstStudio?.description || 'Studio foto profesional di Karawang yang mengabadikan setiap momen spesial dengan kualitas terbaik.'}
-              </p>
-              <div className="flex space-x-4">
-                <Button size="sm" variant="outline" className="border-pink-500 text-pink-500 hover:bg-white/10 hover:border-white/20 hover:text-white rounded-full transition-all duration-300">
-                  <Instagram className="h-4 w-4" />
-                </Button>
-                <Button size="sm" variant="outline" className="border-blue-600 text-blue-600 hover:bg-white/10 hover:border-white/20 hover:text-white rounded-full transition-all duration-300">
-                  <Facebook className="h-4 w-4" />
-                </Button>
-                <Button size="sm" variant="outline" className="border-sky-500 text-sky-500 hover:bg-white/10 hover:border-white/20 hover:text-white rounded-full transition-all duration-300">
-                  <Twitter className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
+      <Footer />
 
-            <div>
-              <h3 className="text-lg font-bold mb-6">Layanan</h3>
-              <div className="space-y-3 text-white/80">
-                {packageCategoriesData.map((category) => (
-                  <Link
-                    key={category.id}
-                    href={`/packages?category=${encodeURIComponent(category.name.toLowerCase())}`}
-                    className="block hover:text-white transition-colors"
-                  >
-                    {category.name}
-                  </Link>
-                ))}
-                {packageCategoriesData.length === 0 && (
-                  <>
-                    <Link href="/packages" className="block hover:text-white transition-colors">Wedding Photography</Link>
-                    <Link href="/packages" className="block hover:text-white transition-colors">Portrait Session</Link>
-                    <Link href="/packages" className="block hover:text-white transition-colors">Family Photo</Link>
-                    <Link href="/packages" className="block hover:text-white transition-colors">Corporate Event</Link>
-                    <Link href="/packages" className="block hover:text-white transition-colors">Product Photography</Link>
-                  </>
-                )}
-              </div>
-            </div>
-
-            <div>
-              <h3 className="text-lg font-bold mb-6">Informasi</h3>
-              <div className="space-y-3 text-white/80">
-                <Link href="/portfolio" className="block hover:text-white transition-colors">Portfolio</Link>
-                <Link href="/packages" className="block hover:text-white transition-colors">Paket Harga</Link>
-                <Link href="/faq" className="block hover:text-white transition-colors">FAQ</Link>
-                <Link href="/terms" className="block hover:text-white transition-colors">Syarat & Ketentuan</Link>
-                <Link href="/privacy" className="block hover:text-white transition-colors">Kebijakan Privasi</Link>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="text-lg font-bold mb-6">Kontak</h3>
-              <div className="space-y-4 text-white/80">
-                <div className="flex items-start">
-                  <MapPin className="h-5 w-5 mr-3 flex-shrink-0 mt-0.5" />
-                  <span>{firstStudio?.address || 'Jl. Fotografi No. 123, Karawang, Jawa Barat 41311'}</span>
-                </div>
-                <div className="flex items-center">
-                  <Phone className="h-5 w-5 mr-3 flex-shrink-0" />
-                  <span>{firstStudio?.phone || '+62 812-3456-7890'}</span>
-                </div>
-                <div className="flex items-center">
-                  <Mail className="h-5 w-5 mr-3 flex-shrink-0" />
-                  <span>{firstStudio?.email || 'info@kalarasastudio.com'}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="border-t border-white/10 pt-8 text-center text-white/60">
-            <p>&copy; {new Date().getFullYear()} Kalarasa Studio. Semua hak dilindungi.</p>
-          </div>
-        </div>
-      </footer>
+      {/* Bottom Navigation for Mobile */}
+      <BottomNav />
     </div>
   )
 }

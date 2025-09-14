@@ -11,9 +11,10 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { MobileNav } from '@/components/navigation/mobile-nav'
+import { BottomNav } from '@/components/navigation/bottom-nav'
 import { usePublicPortfolios, usePublicPortfolioCategories } from '@/hooks/use-customer-portfolios'
 import type { Portfolio } from '@/actions/customer-portfolios'
+import { Footer } from '@/components/footer'
 
 export default function PortfolioPage() {
   const searchParams = useSearchParams()
@@ -157,8 +158,6 @@ export default function PortfolioPage() {
                 Booking Sekarang
               </Button>
             </div>
-
-            <MobileNav currentPath="/portfolio" />
           </div>
         </div>
       </nav>
@@ -178,12 +177,12 @@ export default function PortfolioPage() {
               Portfolio Kami
             </Badge>
 
-            <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold text-[#00052e] mb-6 leading-tight">
+            <h1 className="text-xl sm:text-3xl md:text-5xl lg:text-6xl font-bold text-[#00052e] mb-4 sm:mb-6 leading-tight">
               Galeri Karya
               <span className="text-[#b0834d] block">Terbaik</span>
             </h1>
 
-            <p className="text-lg md:text-xl text-slate-600 max-w-2xl mx-auto">
+            <p className="text-sm sm:text-lg md:text-xl text-slate-600 max-w-2xl mx-auto">
               Jelajahi koleksi foto profesional kami yang telah mengabadikan berbagai momen spesial dan berkesan di Karawang
             </p>
           </motion.div>
@@ -202,11 +201,11 @@ export default function PortfolioPage() {
                   placeholder="Cari portfolio..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 w-full sm:w-64 border-[#00052e]/30 focus:ring-[#00052e]"
+                  className="pl-10 w-full sm:w-64 border-[#00052e]/30 focus:ring-[#00052e] text-sm"
                 />
               </div>
               <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="w-full sm:w-48 border-[#00052e]/30">
+                <SelectTrigger className="w-full sm:w-48 border-[#00052e]/30 text-sm">
                   <SelectValue placeholder="Urutkan berdasarkan" />
                 </SelectTrigger>
                 <SelectContent>
@@ -275,18 +274,18 @@ export default function PortfolioPage() {
               animate={{ opacity: 1 }}
               className="text-center py-16"
             >
-              <Camera className="h-20 w-20 text-slate-400 mx-auto mb-4" />
-              <h3 className="text-2xl font-semibold text-slate-600 mb-2">
+              <Camera className="h-12 w-12 sm:h-20 sm:w-20 text-slate-400 mx-auto mb-3 sm:mb-4" />
+              <h3 className="text-lg sm:text-2xl font-semibold text-slate-600 mb-1 sm:mb-2">
                 Tidak Ada Hasil
               </h3>
-              <p className="text-slate-500">
+              <p className="text-sm sm:text-base text-slate-500">
                 Coba ubah filter atau kata kunci pencarian
               </p>
             </motion.div>
           ) : (
             <>
               {viewMode === 'grid' ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6">
                   {filteredPortfolios.map((portfolio, index) => (
                     <motion.div
                       key={portfolio.id}
@@ -295,8 +294,9 @@ export default function PortfolioPage() {
                       transition={{ duration: 0.6, delay: index * 0.1 }}
                       className="group cursor-pointer"
                     >
-                      <Card className="overflow-hidden border-0 shadow-lg hover:shadow-2xl transition-all duration-300 group-hover:scale-[1.02] rounded-2xl">
-                        <div className="relative aspect-[4/5] overflow-hidden">
+                      <Card className="overflow-hidden border-0 shadow-lg hover:shadow-2xl transition-all duration-300 group-hover:scale-[1.02] rounded-lg sm:rounded-2xl">
+                        <div className="relative aspect-[4/5] overflow-hidden"
+                          onClick={() => openLightbox(portfolio, 0)}>
                           <Image
                             src={portfolio.image_url || '/api/placeholder/400/500'}
                             alt={portfolio.title}
@@ -306,21 +306,21 @@ export default function PortfolioPage() {
                           />
 
                           {portfolio.is_featured && (
-                            <Badge className="absolute top-3 left-3 bg-[#b0834d] text-white">
+                            <Badge className="absolute top-2 left-2 sm:top-3 sm:left-3 bg-[#b0834d] text-white text-xs">
                               Featured
                             </Badge>
                           )}
 
                           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
-                          <div className="absolute bottom-0 left-0 right-0 p-4 text-white transform translate-y-full group-hover:translate-y-0 transition-transform duration-300">
-                            <div className="flex items-center justify-between mb-2">
+                          <div className="absolute bottom-0 left-0 right-0 p-2 sm:p-4 text-white transform translate-y-full group-hover:translate-y-0 transition-transform duration-300">
+                            <div className="flex items-center justify-between mb-1 sm:mb-2">
                               <Badge variant="secondary" className="text-xs bg-white/20 text-white">
                                 {portfolio.category?.name || 'Uncategorized'}
                               </Badge>
                             </div>
-                            <h3 className="font-bold text-sm mb-1">{portfolio.title}</h3>
-                            <p className="text-xs text-white/80 line-clamp-2">
+                            <h3 className="font-bold text-xs sm:text-sm mb-0.5 sm:mb-1 line-clamp-1">{portfolio.title}</h3>
+                            <p className="text-xs text-white/80 line-clamp-1 sm:line-clamp-2 hidden sm:block">
                               {portfolio.description || 'No description available'}
                             </p>
                           </div>
@@ -498,15 +498,15 @@ export default function PortfolioPage() {
             className="text-center mb-16"
             viewport={{ once: true }}
           >
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-6">
+            <h2 className="text-xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4 sm:mb-6">
               Mengapa Memilih Kalarasa Studio?
             </h2>
-            <p className="text-xl text-white/90 max-w-2xl mx-auto">
+            <p className="text-sm sm:text-xl text-white/90 max-w-2xl mx-auto">
               Kami berkomitmen memberikan pengalaman fotografi terbaik dengan kualitas premium
             </p>
           </motion.div>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
             {[
               {
                 icon: Award,
@@ -533,12 +533,12 @@ export default function PortfolioPage() {
                   transition={{ duration: 0.6, delay: index * 0.1 }}
                   viewport={{ once: true }}
                 >
-                  <Card className="text-center p-8 border-0 shadow-lg bg-white/10 backdrop-blur-sm rounded-2xl">
-                    <div className="w-16 h-16 mx-auto mb-6 bg-white/20 rounded-full flex items-center justify-center">
-                      <Icon className="h-8 w-8 text-white" />
+                  <Card className="text-center p-4 sm:p-8 border-0 shadow-lg bg-white/10 backdrop-blur-sm rounded-xl sm:rounded-2xl">
+                    <div className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 sm:mb-6 bg-white/20 rounded-full flex items-center justify-center">
+                      <Icon className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
                     </div>
-                    <h3 className="text-xl font-bold text-white mb-4">{feature.title}</h3>
-                    <p className="text-white/80">{feature.description}</p>
+                    <h3 className="text-lg sm:text-xl font-bold text-white mb-2 sm:mb-4">{feature.title}</h3>
+                    <p className="text-sm sm:text-base text-white/80">{feature.description}</p>
                   </Card>
                 </motion.div>
               )
@@ -556,26 +556,26 @@ export default function PortfolioPage() {
             transition={{ duration: 0.6 }}
             viewport={{ once: true }}
           >
-            <Sparkles className="h-16 w-16 text-[#b0834d] mx-auto mb-6" />
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#00052e] mb-6">
+            <Sparkles className="h-12 w-12 sm:h-16 sm:w-16 text-[#b0834d] mx-auto mb-4 sm:mb-6" />
+            <h2 className="text-xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-[#00052e] mb-4 sm:mb-6">
               Tertarik Dengan Karya Kami?
             </h2>
-            <p className="text-lg md:text-xl text-slate-600 mb-8 max-w-2xl mx-auto">
+            <p className="text-sm sm:text-lg md:text-xl text-slate-600 mb-6 sm:mb-8 max-w-2xl mx-auto">
               Mari wujudkan visi kreatif Anda bersama tim profesional kami di Karawang
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button size="lg" className="bg-[#00052e] hover:bg-[#00052e]/90 text-white px-8 py-6 rounded-full transition-all duration-300 shadow-lg hover:shadow-xl">
-                <Camera className="h-5 w-5 mr-2" />
-                Mulai Proyek Anda
-              </Button>
-              <Button size="lg" variant="outline" className="border-[#00052e] text-[#00052e] hover:bg-[#00052e] hover:text-white px-8 py-6 rounded-full transition-all duration-300">
-                <Calendar className="h-5 w-5 mr-2" />
+              <Button size="lg" variant="outline" className="border-[#00052e] text-[#00052e] hover:bg-[#00052e] hover:text-white px-6 sm:px-8 py-4 sm:py-6 rounded-full transition-all duration-300 text-sm sm:text-base">
+                <Calendar className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
                 Lihat Paket Harga
               </Button>
             </div>
           </motion.div>
         </div>
       </section>
+      <Footer />
+
+      {/* Bottom Navigation */}
+      <BottomNav />
     </div>
   )
 }
