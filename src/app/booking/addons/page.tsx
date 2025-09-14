@@ -9,25 +9,21 @@ import {
   ArrowLeft,
   ArrowRight,
   Camera,
-  Clock,
-  Users,
   Image as ImageIcon,
   Sparkles,
   Plus,
   Minus,
   CheckCircle,
   Gift,
-  Palette,
-  Shirt,
   Lightbulb
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
 import { usePublicPackage } from '@/hooks/use-customer-packages'
 import { usePackageAddonsGrouped } from '@/hooks/use-addons'
-import type { Addon } from '@/actions/addons'
 import Link from 'next/link'
+import { BottomNav } from '@/components/navigation/bottom-nav'
 
 interface BookingData {
   packageId: string
@@ -107,7 +103,7 @@ export default function AddonsPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00052e] mx-auto mb-4"></div>
           <p className="text-slate-600">Memuat add-ons...</p>
         </div>
       </div>
@@ -193,21 +189,21 @@ export default function AddonsPage() {
                 Kembali
               </Button>
               <div className="text-sm text-slate-600">
-                <Link href="/packages" className="hover:text-blue-600">Paket</Link> /
-                <Link href={`/packages/${packageId}`} className="hover:text-blue-600 mx-1">{packageData.name}</Link> /
+                <Link href="/packages" className="hover:text-[#00052e]">Paket</Link> /
+                <Link href={`/packages/${packageId}`} className="hover:text-[#00052e] mx-1">{packageData.name}</Link> /
                 Add-ons
               </div>
             </div>
 
-            {/* Progress Indicator */}
-            <div className="flex items-center gap-2 text-sm text-slate-600">
+            {/* Progress Indicator - Hidden on mobile */}
+            <div className="hidden sm:flex items-center gap-2 text-sm text-slate-600">
               <div className="flex items-center gap-2">
                 <CheckCircle className="h-4 w-4 text-green-500" />
                 <span>Paket</span>
               </div>
               <div className="w-8 h-px bg-slate-300"></div>
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-blue-600 rounded-full flex items-center justify-center">
+                <div className="w-4 h-4 bg-[#00052e] rounded-full flex items-center justify-center">
                   <div className="w-2 h-2 bg-white rounded-full"></div>
                 </div>
                 <span className="font-medium">Add-ons</span>
@@ -222,18 +218,18 @@ export default function AddonsPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-8">
           {/* Add-ons Selection - Left Side */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-4 sm:space-y-6">
             {/* Title */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
             >
-              <h1 className="text-3xl font-bold text-slate-900 mb-2">Pilih Add-ons</h1>
-              <p className="text-slate-600">
+              <h1 className="text-lg sm:text-3xl font-bold text-[#00052e] mb-1 sm:mb-2">Pilih Add-ons</h1>
+              <p className="text-xs sm:text-base text-slate-600">
                 Tingkatkan pengalaman foto Anda dengan add-ons premium kami (opsional)
               </p>
             </motion.div>
@@ -244,7 +240,7 @@ export default function AddonsPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.1 }}
             >
-              <div className="flex flex-wrap gap-2 mb-6">
+              <div className="flex flex-wrap gap-1 sm:gap-2 mb-4 sm:mb-6">
                 {availableCategories.map((category) => {
                   const Icon = category.icon
                   const isActive = activeCategory === category.id
@@ -254,12 +250,12 @@ export default function AddonsPage() {
                     <button
                       key={category.id}
                       onClick={() => setActiveCategory(category.id)}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 ${isActive
-                        ? `bg-${category.color}-600 text-white shadow-lg`
+                      className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg font-medium transition-all duration-200 text-xs sm:text-sm ${isActive
+                        ? 'bg-[#00052e] text-white shadow-lg'
                         : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
                         }`}
                     >
-                      <Icon className="h-4 w-4" />
+                      <Icon className="h-3 w-3 sm:h-4 sm:w-4" />
                       {category.name} ({addonsInCat.length})
                       {addonsInCat.length > 0 && Object.entries(selectedAddons).some(([id, qty]) => {
                         const addon = addonsInCat.find(a => a.id === id)
@@ -283,7 +279,7 @@ export default function AddonsPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.2 }}
-              className="grid grid-cols-1 md:grid-cols-2 gap-4"
+              className="grid grid-cols-2 lg:grid-cols-2 gap-2 sm:gap-4"
             >
               {addonsInCategory.map((addon) => {
                 // Map addon names to icons for display
@@ -300,83 +296,94 @@ export default function AddonsPage() {
                 const isSelected = quantity > 0
 
                 return (
-                  <Card key={addon.id} className={`transition-all duration-200 ${isSelected ? 'ring-2 ring-blue-500 bg-blue-50/50' : 'hover:shadow-lg bg-white'
+                  <Card key={addon.id} className={`h-full flex flex-col transition-all duration-200 ${isSelected ? 'ring-2 ring-[#00052e] bg-[#00052e]/5' : 'hover:shadow-lg bg-white'
                     }`}>
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${isSelected ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'
+                    <CardHeader className="pb-2 sm:pb-3 flex-grow">
+                      <div className="flex flex-col space-y-2">
+                        {/* Header with icon and status */}
+                        <div className="flex items-start justify-between">
+                          <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${isSelected ? 'bg-[#00052e] text-white' : 'bg-slate-100 text-slate-600'
                             }`}>
-                            <Icon className="h-6 w-6" />
+                            <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
                           </div>
-                          <div>
-                            <CardTitle className="text-lg flex items-center gap-2">
-                              {addon.name}
-                              {addon.package_addon?.is_recommended && (
-                                <Badge className="bg-yellow-100 text-yellow-800 text-xs">
-                                  Rekomendasi
-                                </Badge>
-                              )}
-                              {addon.package_addon?.is_included && (
-                                <Badge className="bg-green-100 text-green-800 text-xs">
-                                  Termasuk Paket
-                                </Badge>
-                              )}
-                            </CardTitle>
-                            <div className="flex items-center gap-2">
-                              {addon.package_addon?.discount_percentage && addon.package_addon.discount_percentage > 0 ? (
-                                <>
-                                  <p className="text-slate-400 line-through text-sm">{formatPrice(addon.price)}</p>
-                                  <p className="text-blue-600 font-bold">{formatPrice(addon.package_addon.final_price || addon.price)}</p>
-                                  <Badge className="bg-red-100 text-red-800 text-xs">
-                                    -{addon.package_addon.discount_percentage}%
-                                  </Badge>
-                                </>
-                              ) : (
-                                <p className="text-blue-600 font-bold">
-                                  {addon.package_addon?.is_included ? 'GRATIS' : formatPrice(addon.package_addon?.final_price || addon.price)}
-                                </p>
-                              )}
-                            </div>
+                          {isSelected && (
+                            <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 text-green-500 flex-shrink-0" />
+                          )}
+                        </div>
+                        
+                        {/* Title and badges */}
+                        <div className="space-y-1">
+                          <CardTitle className="text-xs sm:text-sm text-[#00052e] leading-tight line-clamp-2">
+                            {addon.name}
+                          </CardTitle>
+                          <div className="flex flex-wrap gap-1">
+                            {addon.package_addon?.is_recommended && (
+                              <Badge className="bg-[#b0834d]/10 text-[#b0834d] text-xs px-1 py-0.5">
+                                Top
+                              </Badge>
+                            )}
+                            {addon.package_addon?.is_included && (
+                              <Badge className="bg-green-100 text-green-800 text-xs px-1 py-0.5">
+                                Gratis
+                              </Badge>
+                            )}
                           </div>
                         </div>
-                        {isSelected && (
-                          <CheckCircle className="h-6 w-6 text-green-500" />
-                        )}
+                        
+                        {/* Description - hidden on mobile for space */}
+                        <p className="text-slate-600 text-xs leading-tight line-clamp-1 hidden sm:block">
+                          {addon.description}
+                        </p>
+                        
+                        {/* Price */}
+                        <div className="flex flex-col space-y-1">
+                          {addon.package_addon?.discount_percentage && addon.package_addon.discount_percentage > 0 ? (
+                            <div className="flex items-center gap-1 flex-wrap">
+                              <p className="text-slate-400 line-through text-xs">{formatPrice(addon.price)}</p>
+                              <p className="text-[#b0834d] font-bold text-xs sm:text-sm">{formatPrice(addon.package_addon.final_price || addon.price)}</p>
+                              <Badge className="bg-red-100 text-red-800 text-xs px-1 py-0.5">
+                                -{addon.package_addon.discount_percentage}%
+                              </Badge>
+                            </div>
+                          ) : (
+                            <p className="text-[#b0834d] font-bold text-xs sm:text-sm">
+                              {addon.package_addon?.is_included ? 'GRATIS' : formatPrice(addon.package_addon?.final_price || addon.price)}
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </CardHeader>
 
-                    <CardContent className="pt-0">
-                      <p className="text-slate-600 text-sm mb-4">{addon.description}</p>
-
+                    <CardContent className="pt-0 px-3 sm:px-6 pb-3 sm:pb-4 mt-auto">
+                      {/* Quantity Controls */}
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1 sm:gap-2">
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => handleQuantityChange(addon.id, -1)}
                             disabled={quantity === 0}
-                            className="h-8 w-8 p-0"
+                            className="h-6 w-6 sm:h-8 sm:w-8 p-0 rounded-full"
                           >
-                            <Minus className="h-4 w-4" />
+                            <Minus className="h-3 w-3 sm:h-4 sm:w-4" />
                           </Button>
 
-                          <span className="w-8 text-center font-medium">{quantity}</span>
+                          <span className="w-6 sm:w-8 text-center font-bold text-xs sm:text-sm text-[#00052e]">{quantity}</span>
 
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => handleQuantityChange(addon.id, 1)}
                             disabled={quantity >= (addon.max_quantity || 99)}
-                            className="h-8 w-8 p-0"
+                            className="h-6 w-6 sm:h-8 sm:w-8 p-0 rounded-full"
                           >
-                            <Plus className="h-4 w-4" />
+                            <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
                           </Button>
                         </div>
 
                         {addon.max_quantity && (
-                          <span className="text-xs text-slate-500">
-                            Maks: {addon.max_quantity}
+                          <span className="text-xs text-slate-500 hidden lg:inline">
+                            Max: {addon.max_quantity}
                           </span>
                         )}
                       </div>
@@ -387,9 +394,9 @@ export default function AddonsPage() {
             </motion.div>
 
             {addonsInCategory.length === 0 && (
-              <div className="text-center py-12">
-                <Gift className="h-16 w-16 text-slate-400 mx-auto mb-4" />
-                <p className="text-slate-500">Tidak ada add-ons di kategori ini</p>
+              <div className="text-center py-8 sm:py-12">
+                <Gift className="h-12 w-12 sm:h-16 sm:w-16 text-slate-400 mx-auto mb-3 sm:mb-4" />
+                <p className="text-sm sm:text-base text-slate-500">Tidak ada add-ons di kategori ini</p>
               </div>
             )}
           </div>
@@ -404,26 +411,26 @@ export default function AddonsPage() {
             >
               <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-xl">
                 <CardHeader>
-                  <CardTitle>Ringkasan Booking</CardTitle>
+                  <CardTitle className="text-sm sm:text-xl text-[#00052e]">Ringkasan Booking</CardTitle>
                 </CardHeader>
 
                 <CardContent className="space-y-4">
                   {/* Package Details */}
-                  <div className="space-y-3">
+                  <div className="space-y-2 sm:space-y-3">
                     <div className="flex justify-between">
-                      <span className="text-slate-600">Paket</span>
-                      <span className="font-medium">{packageData.name}</span>
+                      <span className="text-slate-600 text-xs sm:text-sm">Paket</span>
+                      <span className="font-medium text-xs sm:text-sm">{packageData.name}</span>
                     </div>
 
                     <div className="flex justify-between">
-                      <span className="text-slate-600">Durasi</span>
-                      <span className="font-medium">{formatDuration(packageData.duration_minutes)}</span>
+                      <span className="text-slate-600 text-xs sm:text-sm">Durasi</span>
+                      <span className="font-medium text-xs sm:text-sm">{formatDuration(packageData.duration_minutes)}</span>
                     </div>
 
                     {selectedDate && (
                       <div className="flex justify-between">
-                        <span className="text-slate-600">Tanggal</span>
-                        <span className="font-medium">
+                        <span className="text-slate-600 text-xs sm:text-sm">Tanggal</span>
+                        <span className="font-medium text-xs sm:text-sm">
                           {format(selectedDate, 'dd MMM yyyy', { locale: idLocale })}
                         </span>
                       </div>
@@ -431,21 +438,21 @@ export default function AddonsPage() {
 
                     {selectedTimeSlotData && (
                       <div className="flex justify-between">
-                        <span className="text-slate-600">Jam</span>
-                        <span className="font-medium">{selectedTimeSlotData}</span>
+                        <span className="text-slate-600 text-xs sm:text-sm">Jam</span>
+                        <span className="font-medium text-xs sm:text-sm">{selectedTimeSlotData}</span>
                       </div>
                     )}
 
                     <div className="flex justify-between">
-                      <span className="text-slate-600">Harga Paket</span>
-                      <span className="font-medium">{formatPrice(packageData.price)}</span>
+                      <span className="text-slate-600 text-xs sm:text-sm">Harga Paket</span>
+                      <span className="font-medium text-xs sm:text-sm">{formatPrice(packageData.price)}</span>
                     </div>
                   </div>
 
                   {/* Selected Add-ons */}
                   {getSelectedAddonsCount() > 0 && (
                     <div className="border-t pt-4 space-y-2">
-                      <h4 className="font-semibold text-slate-900 mb-3">Add-ons Terpilih</h4>
+                      <h4 className="font-semibold text-[#00052e] mb-2 sm:mb-3 text-xs sm:text-base">Add-ons Terpilih</h4>
                       {Object.entries(selectedAddons).map(([addonId, quantity]) => {
                         const addon = Object.values(addonsGrouped).flat().find(a => a.id === addonId)
                         if (!addon || quantity === 0) return null
@@ -454,16 +461,16 @@ export default function AddonsPage() {
                         const isIncluded = addon.package_addon?.is_included
 
                         return (
-                          <div key={addonId} className="flex justify-between text-sm">
-                            <span className="text-slate-600 flex items-center gap-2">
-                              {addon.name} {quantity > 1 && `(${quantity}x)`}
+                          <div key={addonId} className="flex justify-between text-xs sm:text-sm">
+                            <span className="text-slate-600 flex items-center gap-1 sm:gap-2">
+                              <span className="line-clamp-1">{addon.name} {quantity > 1 && `(${quantity}x)`}</span>
                               {isIncluded && (
                                 <Badge className="bg-green-100 text-green-800 text-xs">
                                   Gratis
                                 </Badge>
                               )}
                             </span>
-                            <span className="font-medium">
+                            <span className="font-medium text-xs sm:text-sm">
                               {isIncluded ? 'Rp 0' : formatPrice(price * quantity)}
                             </span>
                           </div>
@@ -474,32 +481,32 @@ export default function AddonsPage() {
 
                   {/* Total */}
                   <div className="border-t pt-4 space-y-2">
-                    <div className="flex justify-between text-lg font-bold">
+                    <div className="flex justify-between text-sm sm:text-lg font-bold">
                       <span>Total</span>
-                      <span className="text-blue-600">
+                      <span className="text-[#b0834d]">
                         {formatPrice(packageData.price + getTotalAddonsPrice())}
                       </span>
                     </div>
-                    <div className="text-sm text-slate-600">
+                    <div className="text-xs sm:text-sm text-slate-600">
                       DP: {formatPrice((packageData.price + getTotalAddonsPrice()) * packageData.dp_percentage / 100)} ({packageData.dp_percentage}%)
                     </div>
                   </div>
                 </CardContent>
 
-                <CardFooter className="flex gap-3">
+                <CardFooter className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                   <Button
                     variant="outline"
                     onClick={() => router.push('/booking/summary')}
-                    className="flex-1"
+                    className="flex-1 text-xs sm:text-base py-2 sm:py-3"
                   >
                     Lewati Add-ons
                   </Button>
                   <Button
                     onClick={handleContinueBooking}
-                    className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
+                    className="flex-1 bg-gradient-to-r from-[#00052e] to-[#b0834d] hover:from-[#00052e]/90 hover:to-[#b0834d]/90 text-xs sm:text-base py-2 sm:py-3"
                   >
                     Lanjutkan
-                    <ArrowRight className="h-4 w-4 ml-2" />
+                    <ArrowRight className="h-3 w-3 sm:h-4 sm:w-4 ml-1 sm:ml-2" />
                   </Button>
                 </CardFooter>
               </Card>
@@ -507,6 +514,9 @@ export default function AddonsPage() {
           </div>
         </div>
       </div>
+      
+      {/* Bottom Navigation */}
+      <BottomNav />
     </div>
   )
 }
