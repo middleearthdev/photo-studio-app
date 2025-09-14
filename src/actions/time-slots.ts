@@ -235,7 +235,7 @@ export async function generateTimeSlotsForDate(
     const endDateTime = new Date(targetDate)
     endDateTime.setHours(endHour, endMinute, 0, 0)
 
-    let currentTime = new Date(startDateTime)
+    const currentTime = new Date(startDateTime)
     let slotId = 1
 
     while (currentTime < endDateTime) {

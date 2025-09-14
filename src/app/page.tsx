@@ -4,23 +4,33 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Camera, Star, Users, Clock, MapPin, Phone, Mail, Instagram, Facebook, Twitter, Play, ArrowRight, CheckCircle, Award, Heart, Sparkles, Calendar, Image as ImageIcon, Video } from 'lucide-react'
+import { Camera, Star, Users, Clock, MapPin, Phone, Mail, Instagram, Facebook, Twitter, Play, ArrowRight, CheckCircle, Award, Heart, Sparkles, Calendar, Image as ImageIcon, Video, ChevronRight, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { MobileNav } from '@/components/navigation/mobile-nav'
 import { usePublicPortfolioCategoriesWithCovers } from '@/hooks/use-customer-portfolios'
 import { usePublicStudios } from '@/hooks/use-studios'
-import { usePublicPackageCategories } from '@/hooks/use-customer-packages'
+import { usePublicPackageCategories, usePublicPackages } from '@/hooks/use-customer-packages'
 import type { PortfolioCategoryWithCover } from '@/hooks/use-customer-portfolios'
+import type { Package } from '@/actions/customer-packages'
+import { PackageCard } from '@/components/package-card'
 
 export default function Home() {
   const [currentSlide, setCurrentSlide] = useState(0)
+
+  // Quick Package Finder state
+  const [finderStep, setFinderStep] = useState(0)
+  const [selectedPurpose, setSelectedPurpose] = useState<string>('')
+  const [selectedDuration, setSelectedDuration] = useState<string>('')
+  const [selectedBudget, setSelectedBudget] = useState<string>('')
+  const [showResults, setShowResults] = useState(false)
 
   // Fetch data from database
   const { data: portfolioCategoriesData = [], isLoading: portfolioCategoriesLoading } = usePublicPortfolioCategoriesWithCovers()
   const { data: studiosData = [], isLoading: studiosLoading } = usePublicStudios()
   const { data: packageCategoriesData = [], isLoading: packageCategoriesLoading } = usePublicPackageCategories()
+  const { data: packagesData = [], isLoading: packagesLoading } = usePublicPackages()
 
   // Updated hero images with Unsplash photos
   const heroImages = [
@@ -64,27 +74,99 @@ export default function Home() {
     }
   ]
 
-  // Packages with clear benefits
-  const packages = [
-    {
-      name: "Basic",
-      price: "Rp 499.000",
-      features: ["1 jam sesi foto", "10 foto diedit", "1 latar belakang", "Soft file"],
-      popular: false
-    },
-    {
-      name: "Standard",
-      price: "Rp 899.000",
-      features: ["2 jam sesi foto", "20 foto diedit", "2 latar belakang", "Soft file + cetak 4R"],
-      popular: true
-    },
-    {
-      name: "Premium",
-      price: "Rp 1.499.000",
-      features: ["3 jam sesi foto", "30 foto diedit", "3 latar belakang", "Soft file + cetak 4R + 8R", "Album eksklusif"],
-      popular: false
-    }
+
+
+  // Quick Package Finder data and logic
+  const purposes = [
+    { id: 'wedding', label: 'Pernikahan', icon: Heart, description: 'Foto pre-wedding & pernikahan' },
+    { id: 'portrait', label: 'Portrait', icon: Users, description: 'Foto individual & keluarga' },
+    { id: 'family', label: 'Keluarga', icon: Users, description: 'Foto keluarga & gathering' },
+    { id: 'corporate', label: 'Corporate', icon: Award, description: 'Foto event & profil perusahaan' },
+    { id: 'product', label: 'Product', icon: ImageIcon, description: 'Foto produk & komersial' }
   ]
+
+  const durations = [
+    { id: '60', label: '1 Jam', description: 'Sesi singkat & efisien' },
+    { id: '120', label: '2 Jam', description: 'Sesi standar' },
+    { id: '180', label: '3+ Jam', description: 'Sesi lengkap & detail' }
+  ]
+
+  const budgets = [
+    { id: '0-500000', label: 'Di bawah Rp 500K', description: 'Paket hemat' },
+    { id: '500000-1000000', label: 'Rp 500K - 1Jt', description: 'Paket standar' },
+    { id: '1000000-2000000', label: 'Rp 1Jt - 2Jt', description: 'Paket premium' },
+    { id: '2000000+', label: 'Di atas Rp 2Jt', description: 'Paket eksklusif' }
+  ]
+
+  // Filter packages based on finder selections
+  const getRecommendedPackages = (): Package[] => {
+    if (!packagesData.length || (!selectedPurpose && !selectedDuration && !selectedBudget)) {
+      return packagesData.slice(0, 3)
+    }
+
+    let filtered = [...packagesData]
+
+    // Filter by purpose (category)
+    if (selectedPurpose) {
+      filtered = filtered.filter(pkg =>
+        pkg.category?.name.toLowerCase().includes(selectedPurpose.toLowerCase()) ||
+        pkg.name.toLowerCase().includes(selectedPurpose.toLowerCase()) ||
+        pkg.description?.toLowerCase().includes(selectedPurpose.toLowerCase())
+      )
+    }
+
+    // Filter by duration
+    if (selectedDuration) {
+      const targetMinutes = parseInt(selectedDuration)
+      if (selectedDuration === '180') { // 3+ hours
+        filtered = filtered.filter(pkg => pkg.duration_minutes >= 180)
+      } else {
+        filtered = filtered.filter(pkg =>
+          Math.abs(pkg.duration_minutes - targetMinutes) <= 30 // ±30 minutes tolerance
+        )
+      }
+    }
+
+    // Filter by budget
+    if (selectedBudget) {
+      const [min, max] = selectedBudget.includes('+')
+        ? [2000000, Infinity]
+        : selectedBudget.split('-').map(b => parseInt(b.replace(/[^\d]/g, '')))
+
+      filtered = filtered.filter(pkg =>
+        pkg.price >= min && (max === Infinity || pkg.price <= max)
+      )
+    }
+
+    // Sort by popularity and price
+    filtered.sort((a, b) => {
+      if (a.is_popular && !b.is_popular) return -1
+      if (!a.is_popular && b.is_popular) return 1
+      return a.price - b.price
+    })
+
+    return filtered.slice(0, 3)
+  }
+
+  const recommendedPackages = getRecommendedPackages()
+
+  // Reset finder
+  const resetFinder = () => {
+    setFinderStep(0)
+    setSelectedPurpose('')
+    setSelectedDuration('')
+    setSelectedBudget('')
+    setShowResults(false)
+  }
+
+  // Next step handler
+  const nextStep = () => {
+    if (finderStep < 2) {
+      setFinderStep(finderStep + 1)
+    } else {
+      setShowResults(true)
+    }
+  }
 
   // Updated testimonials with Unsplash images
   const testimonials = [
@@ -385,7 +467,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Packages Section */}
+      {/* Quick Package Finder Section */}
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
@@ -396,76 +478,287 @@ export default function Home() {
             viewport={{ once: true }}
           >
             <Badge className="mb-4 bg-[#00052e]/10 text-[#00052e] px-4 py-2 rounded-full">
-              Paket
+              Temukan Paket
             </Badge>
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#00052e] mb-6">
-              Pilihan Paket Foto
+              Paket Foto Yang Tepat Untuk Anda
             </h2>
             <p className="text-lg md:text-xl text-slate-600 max-w-2xl mx-auto">
-              Temukan paket foto yang sesuai dengan kebutuhan dan budget Anda
+              Jawab beberapa pertanyaan singkat dan kami akan merekomendasikan paket foto terbaik sesuai kebutuhan Anda
             </p>
           </motion.div>
 
-          <div className="grid md:grid-cols-3 gap-8">
-            {packages.map((pkg, index) => (
-              <motion.div
-                key={pkg.name}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: index * 0.1 }}
-                viewport={{ once: true }}
-              >
-                <Card className={`relative h-full overflow-hidden border-0 shadow-lg transition-all duration-300 rounded-2xl ${pkg.popular
-                  ? 'ring-2 ring-[#b0834d] bg-gradient-to-br from-[#00052e]/5 to-[#b0834d]/5 scale-105'
-                  : 'hover:shadow-xl'
-                  }`}>
-                  {pkg.popular && (
-                    <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 z-10">
-                      <Badge className="bg-gradient-to-r from-[#b0834d] to-[#00052e] text-white px-4 py-2 rounded-full shadow-lg">
-                        <Star className="h-4 w-4 mr-1 fill-current" />
-                        TERPOPULER
-                      </Badge>
-                    </div>
-                  )}
-
-                  <CardHeader className="text-center pb-4 pt-8">
-                    <CardTitle className="text-2xl font-bold text-[#00052e] mb-2">
-                      {pkg.name}
-                    </CardTitle>
-                    <div className="text-center">
-                      <div className="text-3xl font-bold text-[#b0834d] mb-2">
-                        {pkg.price}
+          {packagesLoading ? (
+            <div className="flex justify-center items-center py-20">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00052e] mx-auto mb-4"></div>
+                <p className="text-slate-600">Memuat paket...</p>
+              </div>
+            </div>
+          ) : !showResults ? (
+            <div className="max-w-4xl mx-auto">
+              {/* Progress Indicator */}
+              <div className="flex justify-center mb-12">
+                <div className="flex items-center space-x-4">
+                  {[0, 1, 2].map((step) => (
+                    <div key={step} className="flex items-center">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-300 ${step <= finderStep
+                        ? 'bg-[#00052e] text-white'
+                        : 'bg-slate-200 text-slate-500'
+                        }`}>
+                        {step + 1}
                       </div>
+                      {step < 2 && (
+                        <div className={`w-12 h-1 mx-2 transition-all duration-300 ${step < finderStep ? 'bg-[#00052e]' : 'bg-slate-200'
+                          }`} />
+                      )}
                     </div>
-                  </CardHeader>
+                  ))}
+                </div>
+              </div>
 
-                  <CardContent className="pt-4 pb-8">
-                    <ul className="space-y-3 mb-8">
-                      {pkg.features.map((feature, idx) => (
-                        <li key={idx} className="text-slate-600 flex items-start gap-3">
-                          <CheckCircle className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
-                          <span>{feature}</span>
-                        </li>
-                      ))}
-                    </ul>
+              {/* Step 1: Purpose */}
+              {finderStep === 0 && (
+                <motion.div
+                  key="step-0"
+                  initial={{ opacity: 0, x: 50 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -50 }}
+                  transition={{ duration: 0.5 }}
+                  className="text-center"
+                >
+                  <h3 className="text-2xl font-bold text-[#00052e] mb-4">
+                    Untuk keperluan apa?
+                  </h3>
+                  <p className="text-slate-600 mb-8">
+                    Pilih jenis foto yang Anda butuhkan
+                  </p>
 
-                    <Link href="/packages">
-                      <Button
-                        className={`w-full py-6 text-base rounded-full transition-all duration-300 ${pkg.popular
-                          ? 'bg-gradient-to-r from-[#00052e] to-[#b0834d] hover:from-[#00052e]/90 hover:to-[#b0834d]/90 text-white shadow-lg hover:shadow-xl'
-                          : 'border-2 border-[#00052e] text-[#00052e] hover:bg-[#00052e] hover:text-white'
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto mb-8">
+                    {purposes.map((purpose) => {
+                      const Icon = purpose.icon
+                      return (
+                        <Card
+                          key={purpose.id}
+                          className={`cursor-pointer transition-all duration-300 hover:shadow-lg border-2 ${selectedPurpose === purpose.id
+                            ? 'border-[#00052e] bg-[#00052e]/5 shadow-lg'
+                            : 'border-slate-200 hover:border-[#00052e]/50'
+                            }`}
+                          onClick={() => setSelectedPurpose(purpose.id)}
+                        >
+                          <CardContent className="p-6 text-center">
+                            <Icon className={`h-8 w-8 mx-auto mb-3 ${selectedPurpose === purpose.id ? 'text-[#00052e]' : 'text-slate-500'
+                              }`} />
+                            <h4 className="font-semibold text-[#00052e] mb-1">
+                              {purpose.label}
+                            </h4>
+                            <p className="text-sm text-slate-500">
+                              {purpose.description}
+                            </p>
+                          </CardContent>
+                        </Card>
+                      )
+                    })}
+                  </div>
+
+                  <Button
+                    onClick={nextStep}
+                    disabled={!selectedPurpose}
+                    className="bg-[#00052e] hover:bg-[#00052e]/90 text-white px-8 py-3 rounded-full"
+                  >
+                    Lanjut
+                    <ChevronRight className="h-5 w-5 ml-2" />
+                  </Button>
+                </motion.div>
+              )}
+
+              {/* Step 2: Duration */}
+              {finderStep === 1 && (
+                <motion.div
+                  key="step-1"
+                  initial={{ opacity: 0, x: 50 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -50 }}
+                  transition={{ duration: 0.5 }}
+                  className="text-center"
+                >
+                  <h3 className="text-2xl font-bold text-[#00052e] mb-4">
+                    Berapa lama sesi foto?
+                  </h3>
+                  <p className="text-slate-600 mb-8">
+                    Pilih durasi yang sesuai dengan kebutuhan Anda
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl mx-auto mb-8">
+                    {durations.map((duration) => (
+                      <Card
+                        key={duration.id}
+                        className={`cursor-pointer transition-all duration-300 hover:shadow-lg border-2 ${selectedDuration === duration.id
+                          ? 'border-[#00052e] bg-[#00052e]/5 shadow-lg'
+                          : 'border-slate-200 hover:border-[#00052e]/50'
                           }`}
-                        size="lg"
+                        onClick={() => setSelectedDuration(duration.id)}
                       >
-                        <Camera className="h-5 w-5 mr-2" />
-                        Pilih Paket
+                        <CardContent className="p-6 text-center">
+                          <Clock className={`h-8 w-8 mx-auto mb-3 ${selectedDuration === duration.id ? 'text-[#00052e]' : 'text-slate-500'
+                            }`} />
+                          <h4 className="font-semibold text-[#00052e] mb-1">
+                            {duration.label}
+                          </h4>
+                          <p className="text-sm text-slate-500">
+                            {duration.description}
+                          </p>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+
+                  <div className="flex justify-center gap-4">
+                    <Button
+                      onClick={() => setFinderStep(0)}
+                      variant="outline"
+                      className="border-[#00052e] text-[#00052e] px-6 py-3 rounded-full"
+                    >
+                      Kembali
+                    </Button>
+                    <Button
+                      onClick={nextStep}
+                      disabled={!selectedDuration}
+                      className="bg-[#00052e] hover:bg-[#00052e]/90 text-white px-8 py-3 rounded-full"
+                    >
+                      Lanjut
+                      <ChevronRight className="h-5 w-5 ml-2" />
+                    </Button>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Step 3: Budget */}
+              {finderStep === 2 && (
+                <motion.div
+                  key="step-2"
+                  initial={{ opacity: 0, x: 50 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -50 }}
+                  transition={{ duration: 0.5 }}
+                  className="text-center"
+                >
+                  <h3 className="text-2xl font-bold text-[#00052e] mb-4">
+                    Budget range?
+                  </h3>
+                  <p className="text-slate-600 mb-8">
+                    Pilih range budget yang sesuai untuk Anda
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-3xl mx-auto mb-8">
+                    {budgets.map((budget) => (
+                      <Card
+                        key={budget.id}
+                        className={`cursor-pointer transition-all duration-300 hover:shadow-lg border-2 ${selectedBudget === budget.id
+                          ? 'border-[#00052e] bg-[#00052e]/5 shadow-lg'
+                          : 'border-slate-200 hover:border-[#00052e]/50'
+                          }`}
+                        onClick={() => setSelectedBudget(budget.id)}
+                      >
+                        <CardContent className="p-6 text-center">
+                          <Sparkles className={`h-8 w-8 mx-auto mb-3 ${selectedBudget === budget.id ? 'text-[#00052e]' : 'text-slate-500'
+                            }`} />
+                          <h4 className="font-semibold text-[#00052e] mb-1">
+                            {budget.label}
+                          </h4>
+                          <p className="text-sm text-slate-500">
+                            {budget.description}
+                          </p>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+
+                  <div className="flex justify-center gap-4">
+                    <Button
+                      onClick={() => setFinderStep(1)}
+                      variant="outline"
+                      className="border-[#00052e] text-[#00052e] px-6 py-3 rounded-full"
+                    >
+                      Kembali
+                    </Button>
+                    <Button
+                      onClick={nextStep}
+                      disabled={!selectedBudget}
+                      className="bg-[#00052e] hover:bg-[#00052e]/90 text-white px-8 py-3 rounded-full"
+                    >
+                      Lihat Rekomendasi
+                      <Camera className="h-5 w-5 ml-2" />
+                    </Button>
+                  </div>
+                </motion.div>
+              )}
+            </div>
+          ) : (
+            /* Results Section */
+            <>
+              <div className="text-center mb-8">
+                <h3 className="text-2xl font-bold text-[#00052e] mb-4">
+                  Rekomendasi Paket Untuk Anda
+                </h3>
+                <p className="text-slate-600 mb-6">
+                  Berdasarkan pilihan Anda, berikut adalah paket foto yang cocok
+                </p>
+                <Button
+                  onClick={resetFinder}
+                  variant="outline"
+                  className="border-[#00052e] text-[#00052e] hover:bg-[#00052e] hover:text-white rounded-full"
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Cari Lagi
+                </Button>
+              </div>
+
+              {recommendedPackages.length > 0 ? (
+                <div className="grid md:grid-cols-3 gap-8">
+                  {recommendedPackages.map((pkg, index) => (
+                    <PackageCard
+                      key={pkg.id}
+                      package={pkg}
+                      index={index}
+                      showAnimation={true}
+                      variant="default"
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-20">
+                  <Camera className="h-16 w-16 text-slate-300 mx-auto mb-4" />
+                  <p className="text-slate-500 text-lg mb-4">
+                    Maaf, tidak ada paket yang sesuai dengan kriteria Anda
+                  </p>
+                  <div className="flex justify-center gap-4">
+                    <Button
+                      onClick={resetFinder}
+                      className="bg-[#00052e] hover:bg-[#00052e]/90 text-white rounded-full"
+                    >
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Coba Lagi
+                    </Button>
+                    <Link href="/packages">
+                      <Button variant="outline" className="border-[#00052e] text-[#00052e] hover:bg-[#00052e] hover:text-white rounded-full">
+                        Lihat Semua Paket
                       </Button>
                     </Link>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="text-center mt-12">
+                <Link href="/packages">
+                  <Button size="lg" variant="outline" className="border-[#00052e] text-[#00052e] hover:bg-[#00052e] hover:text-white px-8 py-6 text-base rounded-full transition-all duration-300">
+                    Lihat Semua Paket
+                    <ArrowRight className="h-5 w-5 ml-2" />
+                  </Button>
+                </Link>
+              </div>
+            </>
+          )}
         </div>
       </section>
 
@@ -618,28 +911,6 @@ export default function Home() {
                     <h3 className="text-xl font-bold text-[#00052e] mb-1">Email</h3>
                     <p className="text-slate-600">
                       {firstStudio?.email || 'info@kalarasastudio.com'}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start">
-                  <div className="w-12 h-12 bg-[#b0834d] rounded-full flex items-center justify-center flex-shrink-0">
-                    <Clock className="h-6 w-6 text-white" />
-                  </div>
-                  <div className="ml-4">
-                    <h3 className="text-xl font-bold text-[#00052e] mb-1">Jam Operasional</h3>
-                    <p className="text-slate-600">
-                      {firstStudio?.operating_hours ? (
-                        <>
-                          Senin - Jumat: {firstStudio.operating_hours?.monday?.open || '09:00'} - {firstStudio.operating_hours?.monday?.close || '21:00'}<br />
-                          Sabtu - Minggu: {firstStudio.operating_hours?.saturday?.open || '08:00'} - {firstStudio.operating_hours?.sunday?.close || '20:00'}
-                        </>
-                      ) : (
-                        <>
-                          Senin - Jumat: 09:00 - 21:00<br />
-                          Sabtu - Minggu: 08:00 - 20:00
-                        </>
-                      )}
                     </p>
                   </div>
                 </div>
@@ -801,16 +1072,6 @@ export default function Home() {
                 <div className="flex items-center">
                   <Mail className="h-5 w-5 mr-3 flex-shrink-0" />
                   <span>{firstStudio?.email || 'info@kalarasastudio.com'}</span>
-                </div>
-                <div className="flex items-center">
-                  <Clock className="h-5 w-5 mr-3 flex-shrink-0" />
-                  <span>
-                    {firstStudio?.operating_hours ? (
-                      `Senin - Minggu: ${firstStudio.operating_hours?.monday?.open || '08:00'} - ${firstStudio.operating_hours?.sunday?.close || '21:00'}`
-                    ) : (
-                      'Senin - Minggu: 08:00 - 21:00'
-                    )}
-                  </span>
                 </div>
               </div>
             </div>

@@ -48,7 +48,7 @@ const log = (level: WebhookConfig['logLevel'], message: string, data?: any) => {
 const verifyWebhookSignature = (signature: string, body: string, secret: string): boolean => {
   try {
     // Clean the provided signature - remove any prefixes and normalize case
-    let providedSignature = signature.replace(/^(sha256=|sha256:)/, '').toLowerCase().trim()
+    const providedSignature = signature.replace(/^(sha256=|sha256:)/, '').toLowerCase().trim()
 
     // Log detailed signature information for debugging
     log('debug', 'Signature verification debug info', {

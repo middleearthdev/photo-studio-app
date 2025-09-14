@@ -62,7 +62,7 @@ export class XenditPaymentService {
 
       // Determine payment method for Xendit
       // This would typically come from the paymentMethodId, but for now we'll use a default
-      let xenditPaymentMethod = 'BANK_TRANSFER'
+      const xenditPaymentMethod = 'BANK_TRANSFER'
 
       // Generate external ID for tracking
       const externalId = `invoice-${reservation.id}-${Date.now()}`

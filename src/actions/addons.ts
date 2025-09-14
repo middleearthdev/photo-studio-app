@@ -419,7 +419,7 @@ export async function removeAddonFromPackageAction(packageId: string, addonId: s
     }
 
     // Build delete query with studio check for CS users
-    let query = supabase
+    const query = supabase
       .from('package_addons')
       .delete()
       .eq('package_id', packageId)
