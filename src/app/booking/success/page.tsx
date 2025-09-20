@@ -7,7 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { format } from 'date-fns'
 import { id as idLocale } from 'date-fns/locale'
-import { 
+import {
   CheckCircle,
   Calendar,
   Clock,
@@ -56,7 +56,7 @@ interface TransactionData {
 function BookingSuccessPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  
+
   const [transactionData, setTransactionData] = useState<TransactionData | null>(null)
   const [isDownloading, setIsDownloading] = useState(false)
   const [isVerifying, setIsVerifying] = useState(true)
@@ -67,53 +67,53 @@ function BookingSuccessPageContent() {
       try {
         setIsVerifying(true)
         setVerificationError(null)
-        
+
         // Get parameters from URL - simplified to just payment and booking
         const paymentStatus = searchParams.get('payment')
         const bookingCode = searchParams.get('booking')
-        
+
         // Validate required parameters
         if (paymentStatus !== 'completed' || !bookingCode) {
           setVerificationError('Parameter tidak valid. Akses tidak sah.')
           return
         }
-        
+
         // Fetch reservation data
         const reservationResult = await getReservationByBookingCodeAction(bookingCode)
         if (!reservationResult.success || !reservationResult.data) {
           setVerificationError('Reservasi tidak ditemukan.')
           return
         }
-        
+
         const reservation = reservationResult.data
-        
+
         // Fetch and verify payment data
         const paymentsResult = await getPaymentsByReservationId(reservation.id)
         if (!paymentsResult.success || !paymentsResult.data) {
           setVerificationError('Data pembayaran tidak ditemukan.')
           return
         }
-        
+
         // Find the most recent completed payment
         const completedPayments = paymentsResult.data.filter(p => p.status === 'completed')
         if (completedPayments.length === 0) {
           setVerificationError('Belum ada pembayaran yang selesai untuk reservasi ini.')
           return
         }
-        
+
         // Get the most recent completed payment
         const latestPayment = completedPayments[0] // Already ordered by created_at desc
-        
+
         // Verify payment was completed recently (within last 24 hours) to prevent old links
         const paymentDate = new Date(latestPayment.paid_at || latestPayment.created_at)
         const now = new Date()
         const hoursDiff = (now.getTime() - paymentDate.getTime()) / (1000 * 60 * 60)
-        
+
         if (hoursDiff > 24) {
           setVerificationError('Link sudah kadaluarsa. Silakan hubungi customer service.')
           return
         }
-        
+
         // Fetch payment method details if available
         let paymentMethodDetails = undefined
         if (latestPayment.payment_method_id) {
@@ -126,7 +126,7 @@ function BookingSuccessPageContent() {
             console.error('Error fetching payment method details:', err)
           }
         }
-        
+
         // All verifications passed - set the data
         setTransactionData({
           reservation,
@@ -136,11 +136,11 @@ function BookingSuccessPageContent() {
           createdAt: latestPayment.created_at,
           paymentMethodDetails
         })
-        
+
         // Clear temporary data
         localStorage.removeItem('finalBookingData')
         localStorage.removeItem('transactionData')
-        
+
       } catch (error) {
         console.error('Error verifying booking:', error)
         setVerificationError('Terjadi kesalahan saat memverifikasi data.')
@@ -148,7 +148,7 @@ function BookingSuccessPageContent() {
         setIsVerifying(false)
       }
     }
-    
+
     verifyBookingAndPayment()
   }, [router, searchParams])
 
@@ -163,7 +163,7 @@ function BookingSuccessPageContent() {
       </div>
     )
   }
-  
+
   // Show error state
   if (verificationError) {
     return (
@@ -194,7 +194,7 @@ function BookingSuccessPageContent() {
       </div>
     )
   }
-  
+
   // Show error if no transaction data after verification
   if (!transactionData) {
     return (
@@ -224,7 +224,7 @@ function BookingSuccessPageContent() {
 
   const getSelectedAddons = () => {
     if (!transactionData?.reservation?.reservation_addons) return []
-    
+
     return transactionData.reservation.reservation_addons.map(addon => ({
       id: addon.id,
       name: addon.addon?.name || 'Unknown',
@@ -235,17 +235,17 @@ function BookingSuccessPageContent() {
 
   const handleDownloadInvoice = async () => {
     setIsDownloading(true)
-    
+
     try {
       const { generateInvoicePDF } = await import('@/lib/utils/pdf-generator')
-      
+
       const pdfBlob = await generateInvoicePDF({
         reservation: transactionData.reservation,
         payment: transactionData.payment,
         paymentMethodDetails: transactionData.paymentMethodDetails,
         feeBreakdown
       })
-      
+
       const url = URL.createObjectURL(pdfBlob)
       const a = document.createElement('a')
       a.href = url
@@ -254,7 +254,7 @@ function BookingSuccessPageContent() {
       a.click()
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
-      
+
       toast.success('Invoice berhasil didownload')
     } catch (error) {
       console.error('Error generating PDF:', error)
@@ -278,7 +278,7 @@ function BookingSuccessPageContent() {
       `⏰ Jam: ${reservation.start_time}\n` +
       `🆔 Booking ID: ${reservation.booking_code}\n\n` +
       `Terima kasih!`
-    
+
     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`
     window.open(whatsappUrl, '_blank')
   }
@@ -299,7 +299,7 @@ function BookingSuccessPageContent() {
 
     const { paymentMethodDetails, payment, reservation } = transactionData
     const dpAmount = reservation.dp_amount
-    
+
     // Calculate fee if it exists
     let feeAmount = 0
     if (paymentMethodDetails.fee_type === 'fixed') {
@@ -342,7 +342,7 @@ function BookingSuccessPageContent() {
             >
               <CheckCircle className="h-8 w-8 sm:h-12 sm:w-12 text-white" />
             </motion.div>
-            
+
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -354,7 +354,7 @@ function BookingSuccessPageContent() {
               <p className="text-base sm:text-xl text-slate-600 mb-4 sm:mb-6">
                 Terima kasih atas kepercayaan Anda. Kami akan segera mengkonfirmasi detail sesi foto.
               </p>
-              
+
               <div className="flex items-center justify-center gap-2 sm:gap-4 flex-wrap">
                 <div className="flex items-center gap-1.5 sm:gap-2 bg-white/80 rounded-full px-3 py-1.5 sm:px-4 sm:py-2 shadow-sm">
                   <span className="text-xs sm:text-sm text-slate-600">Booking ID:</span>
@@ -368,7 +368,7 @@ function BookingSuccessPageContent() {
                     <Copy className="h-3 w-3" />
                   </Button>
                 </div>
-                
+
                 <Badge className="bg-green-100 text-green-800 hover:bg-green-100 text-xs sm:text-sm py-0.5 px-2">
                   <CheckCircle className="h-3 w-3 mr-1" />
                   Pembayaran Berhasil
@@ -390,7 +390,7 @@ function BookingSuccessPageContent() {
                   Detail Booking
                 </CardTitle>
               </CardHeader>
-              
+
               <CardContent className="space-y-4 sm:space-y-6">
                 {/* Package Info */}
                 <div className="flex items-start gap-3 sm:gap-4">
@@ -428,7 +428,7 @@ function BookingSuccessPageContent() {
                       <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-[#00052e]" />
                       Jadwal Sesi Foto
                     </h4>
-                    
+
                     {selectedDate && (
                       <div className="bg-[#00052e]/5 p-3 sm:p-4 rounded-lg">
                         <p className="font-medium text-[#00052e] text-sm sm:text-base">
@@ -446,7 +446,7 @@ function BookingSuccessPageContent() {
                       <User className="h-4 w-4 sm:h-5 sm:w-5 text-[#00052e]" />
                       Informasi Pelanggan
                     </h4>
-                    
+
                     <div className="space-y-1.5 sm:space-y-2">
                       <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
                         <User className="h-3 w-3 sm:h-4 sm:w-4 text-slate-500" />
@@ -498,7 +498,7 @@ function BookingSuccessPageContent() {
                     <CreditCard className="h-4 w-4 sm:h-5 sm:w-5 text-[#00052e]" />
                     Ringkasan Pembayaran
                   </h4>
-                  
+
                   <div className="space-y-2 sm:space-y-3">
                     {/* Payment Method Used */}
                     {feeBreakdown.paymentMethodName && (
@@ -510,18 +510,42 @@ function BookingSuccessPageContent() {
                         <p className="text-sm text-[#00052e] font-medium">{feeBreakdown.paymentMethodName}</p>
                       </div>
                     )}
-                    
-                    {/* Fee Breakdown */}
+
+                    {/* Detailed Fee Breakdown */}
                     <div className="space-y-1.5 sm:space-y-2">
+                      {/* Package Price */}
                       <div className="flex justify-between text-xs sm:text-sm">
-                        <span className="text-slate-600">DP Paket</span>
+                        <span className="text-slate-600">Harga Paket ({transactionData.reservation.package?.name})</span>
+                        <span className="font-medium">{formatPrice(transactionData.reservation.package_price)}</span>
+                      </div>
+
+                      {/* Add-ons (if any) */}
+                      {selectedAddons.length > 0 && selectedAddons.map((addon) => (
+                        <div key={addon.id} className="flex justify-between text-xs sm:text-sm">
+                          <span className="text-slate-600">
+                            {addon.name} {addon.quantity > 1 && `(${addon.quantity}x)`}
+                          </span>
+                          <span className="font-medium">{formatPrice(addon.price * addon.quantity)}</span>
+                        </div>
+                      ))}
+
+                      {/* Subtotal */}
+                      <div className="flex justify-between text-xs sm:text-sm pt-1 border-t border-slate-100">
+                        <span className="text-slate-700 font-medium">Subtotal</span>
+                        <span className="font-medium">{formatPrice(transactionData.reservation.total_amount)}</span>
+                      </div>
+
+                      {/* DP Calculation */}
+                      <div className="flex justify-between text-xs sm:text-sm">
+                        <span className="text-slate-600">DP ({Math.round((transactionData.reservation.dp_amount / transactionData.reservation.total_amount) * 100)}%)</span>
                         <span className="font-medium">{formatPrice(feeBreakdown.subtotal)}</span>
                       </div>
-                      
+
+                      {/* Admin Fee (if applicable) */}
                       {shouldDisplayFeesToCustomers() && feeBreakdown.fee > 0 && (
                         <div className="flex justify-between text-xs sm:text-sm">
                           <span className="text-slate-600 flex items-center gap-1">
-                            Biaya Admin
+                            Biaya Transfer
                             <Badge variant="outline" className="text-xs py-0.5 px-1.5">
                               {feeBreakdown.feeDisplay}
                             </Badge>
@@ -529,24 +553,27 @@ function BookingSuccessPageContent() {
                           <span className="font-medium text-amber-600">+{formatPrice(feeBreakdown.fee)}</span>
                         </div>
                       )}
-                      
+
+                      {/* Total DP Paid */}
                       <div className="flex justify-between text-sm sm:text-base font-bold pt-2 border-t border-slate-200">
                         <span className="text-green-700">DP Dibayar</span>
                         <span className="text-green-600">{formatPrice(feeBreakdown.total)}</span>
                       </div>
-                      
+
+                      {/* Remaining Payment */}
                       <div className="flex justify-between text-xs sm:text-sm">
                         <span className="text-slate-600">Sisa Pembayaran</span>
                         <span className="font-medium text-amber-600">{formatPrice(remainingPayment)}</span>
                       </div>
-                      
+
+                      {/* Grand Total */}
                       <div className="flex justify-between text-base sm:text-lg font-bold pt-2 border-t border-slate-300">
                         <span>Total Keseluruhan</span>
                         <span className="text-[#b0834d]">{formatPrice(transactionData.reservation.total_amount)}</span>
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="mt-3 sm:mt-4 p-2 sm:p-3 bg-amber-50 rounded-lg border border-amber-200">
                     <p className="text-xs sm:text-sm text-amber-800">
                       <strong>Catatan:</strong> Sisa pembayaran sebesar {formatPrice(remainingPayment)} akan dibayar pada hari sesi foto.
@@ -597,7 +624,7 @@ function BookingSuccessPageContent() {
                       </>
                     )}
                   </Button>
-                  
+
                   <Button
                     onClick={handleShareWhatsApp}
                     variant="outline"
@@ -606,7 +633,7 @@ function BookingSuccessPageContent() {
                     <Share2 className="h-3 w-3 sm:h-4 sm:w-4" />
                     Share ke WhatsApp
                   </Button>
-                  
+
                   <Button
                     onClick={() => window.print()}
                     variant="outline"
@@ -627,7 +654,7 @@ function BookingSuccessPageContent() {
                   Booking Lagi
                 </Button>
               </Link>
-              
+
               <Link href="/">
                 <Button className="flex items-center gap-1.5 sm:gap-2 bg-gradient-to-r from-[#00052e] to-[#b0834d] hover:from-[#00052e]/90 hover:to-[#b0834d]/90 text-xs sm:text-sm py-2 sm:py-3">
                   <Home className="h-3 w-3 sm:h-4 sm:w-4" />
