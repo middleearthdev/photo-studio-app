@@ -4,6 +4,7 @@ import { createPayment } from '@/actions/payments'
 import { getReservationByBookingCodeAction } from '@/actions/reservations'
 import { createClient } from '@/lib/supabase/server'
 import { calculatePaymentFee } from '@/lib/utils/fee-calculator'
+import { CreateInvoiceRequest } from 'xendit-node/invoice/models'
 
 
 
@@ -167,7 +168,7 @@ export async function POST(req: NextRequest) {
     const xenditPaymentMethod = paymentMethodDetails.xendit_config.paymentMethod.toUpperCase();
 
     // Create Xendit invoice with the correct amount based on fee configuration
-    const invoiceParams = {
+    const invoiceParams: CreateInvoiceRequest = {
       externalId: `invoice-${reservation.id}-${Date.now()}`,
       amount: amount,
       description: description,
@@ -178,8 +179,8 @@ export async function POST(req: NextRequest) {
         phoneNumber: customerData.phone,
         mobileNumber: customerData.phone,
       },
-      successRedirectURL: `${process.env.NEXT_PUBLIC_APP_URL}/booking/success?payment=completed&booking=${reservation.booking_code}`,
-      failureRedirectURL: `${process.env.NEXT_PUBLIC_APP_URL}/booking/payment-failed`,
+      successRedirectUrl: `${process.env.NEXT_PUBLIC_APP_URL}/booking/success?payment=completed&booking=${reservation.booking_code}`,
+      failureRedirectUrl: `${process.env.NEXT_PUBLIC_APP_URL}/booking/payment-failed`,
       paymentMethods: [xenditPaymentMethod],
       currency: 'IDR',
       items: [
@@ -190,7 +191,6 @@ export async function POST(req: NextRequest) {
           category: 'Service',
         },
       ],
-      callbackUrl: `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/xendit`,
     }
     console.log(invoiceParams)
 

@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState, useEffect, useRef, Suspense } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { format } from 'date-fns'
@@ -26,12 +26,13 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { getReservationByBookingCodeAction } from '@/actions/reservations'
-import { getPaymentsByReservationId } from '@/actions/payments'
+import { getPaymentsByReservationId, getPaymentMethodById } from '@/actions/payments'
 import type { Reservation } from '@/actions/reservations'
 import type { Payment } from '@/actions/payments'
+import { shouldDisplayFeesToCustomers, formatFeeDisplay } from '@/lib/config/fee-config'
 import { toast } from 'sonner'
 import Link from 'next/link'
 
@@ -41,12 +42,20 @@ interface TransactionData {
   transactionId: string
   status: string
   createdAt: string
+  paymentMethodDetails?: {
+    id: string
+    name: string
+    type: string
+    provider: string
+    fee_type?: string
+    fee_percentage: number
+    fee_amount?: number
+  }
 }
 
 function BookingSuccessPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const invoiceRef = useRef<HTMLDivElement>(null)
   
   const [transactionData, setTransactionData] = useState<TransactionData | null>(null)
   const [isDownloading, setIsDownloading] = useState(false)
@@ -105,13 +114,27 @@ function BookingSuccessPageContent() {
           return
         }
         
+        // Fetch payment method details if available
+        let paymentMethodDetails = undefined
+        if (latestPayment.payment_method_id) {
+          try {
+            const paymentMethodResult = await getPaymentMethodById(latestPayment.payment_method_id)
+            if (paymentMethodResult.success) {
+              paymentMethodDetails = paymentMethodResult.data
+            }
+          } catch (err) {
+            console.error('Error fetching payment method details:', err)
+          }
+        }
+        
         // All verifications passed - set the data
         setTransactionData({
           reservation,
           payment: latestPayment,
           transactionId: latestPayment.id,
           status: latestPayment.status,
-          createdAt: latestPayment.created_at
+          createdAt: latestPayment.created_at,
+          paymentMethodDetails
         })
         
         // Clear temporary data
@@ -214,14 +237,16 @@ function BookingSuccessPageContent() {
     setIsDownloading(true)
     
     try {
-      // In a real application, you would call an API to generate PDF
-      // For now, we'll simulate the download
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      const { generateInvoicePDF } = await import('@/lib/utils/pdf-generator')
       
-      // Create a mock PDF download
-      const pdfContent = generateInvoiceContent()
-      const blob = new Blob([pdfContent], { type: 'application/pdf' })
-      const url = URL.createObjectURL(blob)
+      const pdfBlob = await generateInvoicePDF({
+        reservation: transactionData.reservation,
+        payment: transactionData.payment,
+        paymentMethodDetails: transactionData.paymentMethodDetails,
+        feeBreakdown
+      })
+      
+      const url = URL.createObjectURL(pdfBlob)
       const a = document.createElement('a')
       a.href = url
       a.download = `invoice-${transactionData.reservation.booking_code}.pdf`
@@ -232,15 +257,11 @@ function BookingSuccessPageContent() {
       
       toast.success('Invoice berhasil didownload')
     } catch (error) {
+      console.error('Error generating PDF:', error)
       toast.error('Gagal mendownload invoice')
     } finally {
       setIsDownloading(false)
     }
-  }
-
-  const generateInvoiceContent = () => {
-    // This is a mock function. In a real app, you would generate actual PDF content
-    return `Invoice - ${transactionData.reservation.booking_code}\nBooking berhasil untuk ${transactionData.reservation.customer?.full_name}`
   }
 
   const handleCopyBookingId = () => {
@@ -265,6 +286,42 @@ function BookingSuccessPageContent() {
   const selectedDate = transactionData?.reservation ? new Date(transactionData.reservation.reservation_date) : null
   const selectedAddons = getSelectedAddons()
   const remainingPayment = transactionData?.reservation ? transactionData.reservation.remaining_amount : 0
+
+  // Calculate fee breakdown for display
+  const calculateFeeBreakdown = () => {
+    if (!transactionData?.paymentMethodDetails || !transactionData?.payment) {
+      return {
+        subtotal: transactionData?.reservation?.dp_amount || 0,
+        fee: 0,
+        total: transactionData?.reservation?.dp_amount || 0
+      }
+    }
+
+    const { paymentMethodDetails, payment, reservation } = transactionData
+    const dpAmount = reservation.dp_amount
+    
+    // Calculate fee if it exists
+    let feeAmount = 0
+    if (paymentMethodDetails.fee_type === 'fixed') {
+      feeAmount = paymentMethodDetails.fee_amount || 0
+    } else {
+      feeAmount = Math.round(dpAmount * (paymentMethodDetails.fee_percentage || 0) / 100)
+    }
+
+    return {
+      subtotal: dpAmount,
+      fee: feeAmount,
+      total: payment.amount,
+      paymentMethodName: paymentMethodDetails.name,
+      feeDisplay: formatFeeDisplay(
+        paymentMethodDetails.fee_type || 'percentage',
+        paymentMethodDetails.fee_percentage,
+        paymentMethodDetails.fee_amount || 0
+      )
+    }
+  }
+
+  const feeBreakdown = calculateFeeBreakdown()
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50/30 to-slate-100">
@@ -442,18 +499,51 @@ function BookingSuccessPageContent() {
                     Ringkasan Pembayaran
                   </h4>
                   
-                  <div className="space-y-1.5 sm:space-y-2">
-                    <div className="flex justify-between text-xs sm:text-sm">
-                      <span className="text-slate-600">DP Dibayar</span>
-                      <span className="font-medium text-green-600">{formatPrice(transactionData.reservation.dp_amount)}</span>
-                    </div>
-                    <div className="flex justify-between text-xs sm:text-sm">
-                      <span className="text-slate-600">Sisa Pembayaran</span>
-                      <span className="font-medium text-amber-600">{formatPrice(remainingPayment)}</span>
-                    </div>
-                    <div className="flex justify-between text-base sm:text-lg font-bold pt-2 border-t">
-                      <span>Total</span>
-                      <span className="text-[#b0834d]">{formatPrice(transactionData.reservation.total_amount)}</span>
+                  <div className="space-y-2 sm:space-y-3">
+                    {/* Payment Method Used */}
+                    {feeBreakdown.paymentMethodName && (
+                      <div className="bg-slate-50 p-2 sm:p-3 rounded-lg">
+                        <div className="flex items-center gap-2 mb-2">
+                          <CreditCard className="h-4 w-4 text-slate-600" />
+                          <span className="text-sm font-medium text-slate-700">Metode Pembayaran</span>
+                        </div>
+                        <p className="text-sm text-[#00052e] font-medium">{feeBreakdown.paymentMethodName}</p>
+                      </div>
+                    )}
+                    
+                    {/* Fee Breakdown */}
+                    <div className="space-y-1.5 sm:space-y-2">
+                      <div className="flex justify-between text-xs sm:text-sm">
+                        <span className="text-slate-600">DP Paket</span>
+                        <span className="font-medium">{formatPrice(feeBreakdown.subtotal)}</span>
+                      </div>
+                      
+                      {shouldDisplayFeesToCustomers() && feeBreakdown.fee > 0 && (
+                        <div className="flex justify-between text-xs sm:text-sm">
+                          <span className="text-slate-600 flex items-center gap-1">
+                            Biaya Admin
+                            <Badge variant="outline" className="text-xs py-0.5 px-1.5">
+                              {feeBreakdown.feeDisplay}
+                            </Badge>
+                          </span>
+                          <span className="font-medium text-amber-600">+{formatPrice(feeBreakdown.fee)}</span>
+                        </div>
+                      )}
+                      
+                      <div className="flex justify-between text-sm sm:text-base font-bold pt-2 border-t border-slate-200">
+                        <span className="text-green-700">DP Dibayar</span>
+                        <span className="text-green-600">{formatPrice(feeBreakdown.total)}</span>
+                      </div>
+                      
+                      <div className="flex justify-between text-xs sm:text-sm">
+                        <span className="text-slate-600">Sisa Pembayaran</span>
+                        <span className="font-medium text-amber-600">{formatPrice(remainingPayment)}</span>
+                      </div>
+                      
+                      <div className="flex justify-between text-base sm:text-lg font-bold pt-2 border-t border-slate-300">
+                        <span>Total Keseluruhan</span>
+                        <span className="text-[#b0834d]">{formatPrice(transactionData.reservation.total_amount)}</span>
+                      </div>
                     </div>
                   </div>
                   

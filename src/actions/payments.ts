@@ -183,6 +183,37 @@ export async function getPaginatedPayments(
   }
 }
 
+// Get payment method by ID (minimal info for fee calculation)
+export async function getPaymentMethodById(id: string): Promise<ActionResult<{
+  id: string
+  name: string
+  type: string
+  provider: string
+  fee_type?: string
+  fee_percentage: number
+  fee_amount?: number
+}>> {
+  try {
+    const supabase = await createClient()
+    
+    const { data, error } = await supabase
+      .from('payment_methods')
+      .select('id, name, type, provider, fee_type, fee_percentage, fee_amount')
+      .eq('id', id)
+      .single()
+
+    if (error) {
+      console.error('Error fetching payment method:', error)
+      return { success: false, error: 'Metode pembayaran tidak ditemukan' }
+    }
+
+    return { success: true, data }
+  } catch (error) {
+    console.error('Error in getPaymentMethodById:', error)
+    return { success: false, error: 'Terjadi kesalahan saat mengambil data metode pembayaran' }
+  }
+}
+
 // Get payment by ID
 export async function getPaymentById(id: string): Promise<Payment | null> {
   const supabase = await createClient()

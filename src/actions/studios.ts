@@ -76,6 +76,7 @@ export async function getStudiosAction(): Promise<ActionResult<Studio[]>> {
   }
 }
 
+
 export async function getStudioAction(studioId: string): Promise<ActionResult<Studio>> {
   try {
     const supabase = await createClient()

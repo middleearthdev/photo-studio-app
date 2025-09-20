@@ -51,7 +51,7 @@ export default function PaymentFailedPage() {
                     <strong>Penting:</strong> Jika Anda sudah melakukan transfer dana, mohon abaikan pesan ini dan tunggu konfirmasi dari tim kami dalam 1x24 jam.
                   </p>
                 </div>
-                
+
                 <div className="space-y-2 sm:space-y-3">
                   <Button
                     onClick={() => router.push('/packages')}
@@ -60,7 +60,7 @@ export default function PaymentFailedPage() {
                     <Home className="h-4 w-4 sm:h-5 sm:w-5 mr-1.5 sm:mr-2" />
                     Kembali ke Beranda
                   </Button>
-                  
+
                   <Button
                     variant="outline"
                     onClick={() => router.back()}
@@ -74,27 +74,6 @@ export default function PaymentFailedPage() {
             </CardContent>
           </Card>
 
-          {/* Support Information */}
-          <Card className="bg-amber-50 border-amber-200">
-            <CardContent className="pt-4 sm:pt-6">
-              <div className="flex items-start gap-2 sm:gap-3">
-                <div className="bg-amber-100 p-1.5 sm:p-2 rounded-full">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5 text-amber-600" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <div className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm text-amber-800">
-                  <p className="font-medium">Butuh Bantuan?</p>
-                  <p>Hubungi customer service kami:</p>
-                  <ul className="space-y-1 list-disc list-inside">
-                    <li>WhatsApp: +62 812-3456-7890</li>
-                    <li>Email: support@studiofoto.com</li>
-                    <li>Senin - Jumat, 09:00 - 17:00 WIB</li>
-                  </ul>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </motion.div>
       </div>
     </div>
