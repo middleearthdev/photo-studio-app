@@ -10,6 +10,7 @@ interface InvoiceData {
     total_amount: number
     dp_amount: number
     remaining_amount: number
+    package_price: number
     special_requests?: string | null
     customer?: {
       full_name: string
@@ -178,33 +179,64 @@ export const generateInvoicePDF = async (data: InvoiceData): Promise<Blob> => {
 
   pdf.setFontSize(10)
   
+  // Package Price
+  pdf.text(`Harga Paket (${reservation.package?.name || 'Paket Foto'}):`, leftCol, yPos)
+  pdf.text(formatPrice(reservation.package_price), rightCol, yPos)
+  yPos += 6
+
+  // Add-ons (if any)
+  if (reservation.reservation_addons && reservation.reservation_addons.length > 0) {
+    reservation.reservation_addons.forEach((addon) => {
+      const addonText = `${addon.addon?.name} ${addon.quantity > 1 ? `(${addon.quantity}x)` : ''}:`
+      pdf.text(addonText, leftCol, yPos)
+      pdf.text(formatPrice(addon.unit_price * addon.quantity), rightCol, yPos)
+      yPos += 6
+    })
+  }
+
   // Subtotal
-  pdf.text('DP Paket:', leftCol, yPos)
+  pdf.setDrawColor(230, 230, 230)
+  pdf.line(leftCol, yPos, rightCol + 30, yPos)
+  yPos += 4
+  
+  pdf.setFont('helvetica', 'bold')
+  pdf.text('Subtotal:', leftCol, yPos)
+  pdf.text(formatPrice(reservation.total_amount), rightCol, yPos)
+  yPos += 8
+
+  // DP Calculation
+  pdf.setFont('helvetica', 'normal')
+  const dpPercentage = Math.round((reservation.dp_amount / reservation.total_amount) * 100)
+  pdf.text(`DP (${dpPercentage}%):`, leftCol, yPos)
   pdf.text(formatPrice(feeBreakdown.subtotal), rightCol, yPos)
   yPos += 6
 
   // Fee (if applicable)
   if (feeBreakdown.fee > 0) {
-    pdf.text(`Biaya Admin (${feeBreakdown.feeDisplay}):`, leftCol, yPos)
-    pdf.text(formatPrice(feeBreakdown.fee), rightCol, yPos)
+    pdf.text(`Biaya Transfer (${feeBreakdown.feeDisplay}):`, leftCol, yPos)
+    pdf.text(`+${formatPrice(feeBreakdown.fee)}`, rightCol, yPos)
     yPos += 6
   }
 
-  // Total paid
+  // Total DP paid
   pdf.setDrawColor(200, 200, 200)
   pdf.line(leftCol, yPos, rightCol + 30, yPos)
   yPos += 4
 
   pdf.setFont('helvetica', 'bold')
+  pdf.setTextColor(0, 150, 0)
   pdf.text('DP Dibayar:', leftCol, yPos)
   pdf.text(formatPrice(feeBreakdown.total), rightCol, yPos)
   yPos += 8
 
+  // Remaining payment
   pdf.setFont('helvetica', 'normal')
+  pdf.setTextColor(200, 130, 0)
   pdf.text('Sisa Pembayaran:', leftCol, yPos)
   pdf.text(formatPrice(reservation.remaining_amount), rightCol, yPos)
   yPos += 6
 
+  // Grand total
   pdf.line(leftCol, yPos, rightCol + 30, yPos)
   yPos += 4
 
