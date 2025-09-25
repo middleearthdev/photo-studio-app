@@ -155,9 +155,6 @@ export default function CSLayout({ children }: CSLayoutProps) {
                       <span className="truncate font-semibold">
                         {profile?.full_name || "Customer Service"}
                       </span>
-                      <span className="truncate text-xs">
-                        {profile?.email || "cs@studio.com"}
-                      </span>
                     </div>
                     <ChevronDown className="ml-auto size-4" />
                   </SidebarMenuButton>
@@ -179,9 +176,6 @@ export default function CSLayout({ children }: CSLayoutProps) {
                       <div className="grid flex-1 text-left text-sm leading-tight">
                         <span className="truncate font-semibold">
                           {profile?.full_name || "Customer Service"}
-                        </span>
-                        <span className="truncate text-xs">
-                          {profile?.email || "cs@studio.com"}
                         </span>
                       </div>
                     </div>
@@ -207,25 +201,6 @@ export default function CSLayout({ children }: CSLayoutProps) {
               <h1 className="text-lg font-semibold">
                 {menuItems.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))?.title || "Customer Service"}
               </h1>
-            </div>
-
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src={profile?.avatar_url || ""} alt={profile?.full_name || "CS"} />
-                  <AvatarFallback className="bg-orange-100 text-orange-700">
-                    {profile?.full_name?.charAt(0) || "CS"}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="hidden md:block">
-                  <div className="text-sm font-medium">
-                    {profile?.full_name || "Customer Service"}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {profile?.email || "cs@studio.com"}
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         </header>

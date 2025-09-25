@@ -156,122 +156,97 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       <NavigationProgress />
       <SidebarProvider>
         <Sidebar variant="inset">
-        <SidebarHeader>
-          <div className="flex items-center gap-2 px-4 py-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <Shield className="h-4 w-4" />
+          <SidebarHeader>
+            <div className="flex items-center gap-2 px-4 py-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                <Shield className="h-4 w-4" />
+              </div>
+              <div className="grid flex-1 text-left text-sm leading-tight">
+                <span className="truncate font-semibold">Studio Admin</span>
+                <span className="truncate text-xs text-muted-foreground">
+                  Studio Owner/Admin
+                </span>
+              </div>
             </div>
-            <div className="grid flex-1 text-left text-sm leading-tight">
-              <span className="truncate font-semibold">Studio Admin</span>
-              <span className="truncate text-xs text-muted-foreground">
-                Studio Owner/Admin
-              </span>
-            </div>
-          </div>
-        </SidebarHeader>
+          </SidebarHeader>
 
-        <SidebarContent>
-          <SidebarGroup>
-            <SidebarGroupLabel>Studio Management</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {menuItems.slice(0, 7).map((item) => (
-                  <SidebarMenuItem key={item.href}>
+          <SidebarContent>
+            <SidebarGroup>
+              <SidebarGroupLabel>Studio Management</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {menuItems.slice(0, 7).map((item) => (
+                    <SidebarMenuItem key={item.href}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={pathname === item.href || pathname.startsWith(`${item.href}/`)}
+                      >
+                        <ProgressLink href={item.href}>
+                          <item.icon className="h-4 w-4" />
+                          <span>{item.title}</span>
+                        </ProgressLink>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+
+            <SidebarGroup>
+              <SidebarGroupLabel>Business Operations</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {menuItems.slice(7, 11).map((item) => (
+                    <SidebarMenuItem key={item.href}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={pathname === item.href || pathname.startsWith(`${item.href}/`)}
+                      >
+                        <ProgressLink href={item.href}>
+                          <item.icon className="h-4 w-4" />
+                          <span>{item.title}</span>
+                        </ProgressLink>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+
+            <SidebarGroup>
+              <SidebarGroupLabel>Reports & Settings</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {menuItems.slice(11).map((item) => (
+                    <SidebarMenuItem key={item.href}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={pathname === item.href || pathname.startsWith(`${item.href}/`)}
+                      >
+                        <ProgressLink href={item.href}>
+                          <item.icon className="h-4 w-4" />
+                          <span>{item.title}</span>
+                        </ProgressLink>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </SidebarContent>
+
+          <SidebarFooter>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
                     <SidebarMenuButton
-                      asChild
-                      isActive={pathname === item.href || pathname.startsWith(`${item.href}/`)}
+                      size="lg"
+                      className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
                     >
-                      <ProgressLink href={item.href}>
-                        <item.icon className="h-4 w-4" />
-                        <span>{item.title}</span>
-                      </ProgressLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-
-          <SidebarGroup>
-            <SidebarGroupLabel>Business Operations</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {menuItems.slice(7, 11).map((item) => (
-                  <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={pathname === item.href || pathname.startsWith(`${item.href}/`)}
-                    >
-                      <ProgressLink href={item.href}>
-                        <item.icon className="h-4 w-4" />
-                        <span>{item.title}</span>
-                      </ProgressLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-
-          <SidebarGroup>
-            <SidebarGroupLabel>Reports & Settings</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {menuItems.slice(11).map((item) => (
-                  <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={pathname === item.href || pathname.startsWith(`${item.href}/`)}
-                    >
-                      <ProgressLink href={item.href}>
-                        <item.icon className="h-4 w-4" />
-                        <span>{item.title}</span>
-                      </ProgressLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        </SidebarContent>
-
-        <SidebarFooter>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <SidebarMenuButton
-                    size="lg"
-                    className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-                  >
-                    <Avatar className="h-8 w-8 rounded-lg">
-                      <AvatarImage src={profile?.avatar_url || ""} alt={profile?.full_name || "Admin"} />
-                      <AvatarFallback className="rounded-lg">
-                        {profile?.full_name?.charAt(0) || "A"}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="grid flex-1 text-left text-sm leading-tight">
-                      <span className="truncate font-semibold">
-                        {profile?.full_name || "Admin"}
-                      </span>
-                      <span className="truncate text-xs">
-                        {profile?.email || "admin@studio.com"}
-                      </span>
-                    </div>
-                    <ChevronDown className="ml-auto size-4" />
-                  </SidebarMenuButton>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
-                  side="bottom"
-                  align="end"
-                  sideOffset={4}
-                >
-                  <DropdownMenuLabel className="p-0 font-normal">
-                    <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                       <Avatar className="h-8 w-8 rounded-lg">
                         <AvatarImage src={profile?.avatar_url || ""} alt={profile?.full_name || "Admin"} />
-                        <AvatarFallback className="rounded-lg">
+                        <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
                           {profile?.full_name?.charAt(0) || "A"}
                         </AvatarFallback>
                       </Avatar>
@@ -279,89 +254,79 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                         <span className="truncate font-semibold">
                           {profile?.full_name || "Admin"}
                         </span>
-                        <span className="truncate text-xs">
-                          {profile?.email || "admin@studio.com"}
-                        </span>
                       </div>
-                    </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <ProgressLink href="/admin/profile">
-                      <User className="mr-2 h-4 w-4" />
-                      Profile
-                    </ProgressLink>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <ProgressLink href="/admin/settings">
-                      <Settings className="mr-2 h-4 w-4" />
-                      Account Settings
-                    </ProgressLink>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <Bell className="mr-2 h-4 w-4" />
-                    Notifications
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem className="text-red-600" onClick={handleSignOut}>
-                    <LogOut className="mr-2 h-4 w-4" />
-                    Log out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarFooter>
-        <SidebarRail />
-      </Sidebar>
+                      <ChevronDown className="ml-auto size-4" />
+                    </SidebarMenuButton>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
+                    side="bottom"
+                    align="end"
+                    sideOffset={4}
+                  >
+                    <DropdownMenuLabel className="p-0 font-normal">
+                      <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
+                        <Avatar className="h-8 w-8 rounded-lg">
+                          <AvatarImage src={profile?.avatar_url || ""} alt={profile?.full_name || "Admin"} />
+                          <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
+                            {profile?.full_name?.charAt(0) || "A"}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="grid flex-1 text-left text-sm leading-tight">
+                          <span className="truncate font-semibold">
+                            {profile?.full_name || "Admin"}
+                          </span>
+                        </div>
+                      </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <ProgressLink href="/admin/profile">
+                        <User className="mr-2 h-4 w-4" />
+                        Profile
+                      </ProgressLink>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <ProgressLink href="/admin/settings">
+                        <Settings className="mr-2 h-4 w-4" />
+                        Account Settings
+                      </ProgressLink>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem>
+                      <Bell className="mr-2 h-4 w-4" />
+                      Notifications
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem className="text-red-600" onClick={handleSignOut}>
+                      <LogOut className="mr-2 h-4 w-4" />
+                      Log out
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarFooter>
+          <SidebarRail />
+        </Sidebar>
 
-      <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger className="-ml-1" />
-          <div className="flex flex-1 items-center justify-between">
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg font-semibold">
-                {menuItems.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))?.title || "Dashboard"}
-              </h1>
-            </div>
-
-            <div className="flex items-center gap-4">
-              <Button variant="outline" size="icon" className="relative">
-                <Bell className="h-4 w-4" />
-                <Badge
-                  variant="destructive"
-                  className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 text-xs"
-                >
-                  3
-                </Badge>
-              </Button>
-
+        <SidebarInset>
+          <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+            <SidebarTrigger className="-ml-1" />
+            <div className="flex flex-1 items-center justify-between">
               <div className="flex items-center gap-2">
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src={profile?.avatar_url || ""} alt={profile?.full_name || "Admin"} />
-                  <AvatarFallback>
-                    {profile?.full_name?.charAt(0) || "A"}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="hidden md:block">
-                  <div className="text-sm font-medium">
-                    {profile?.full_name || "Admin"}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {profile?.email || "admin@studio.com"}
-                  </div>
-                </div>
+                <h1 className="text-lg font-semibold">
+                  {menuItems.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))?.title || "Dashboard"}
+                </h1>
               </div>
             </div>
-          </div>
-        </header>
+          </header>
 
-        <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-          <div className="min-h-[100vh] flex-1 rounded-xl bg-muted/50 md:min-h-min">
-            {children}
+          <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+            <div className="min-h-[100vh] flex-1 rounded-xl bg-muted/50 md:min-h-min">
+              {children}
+            </div>
           </div>
-        </div>
-      </SidebarInset>
+        </SidebarInset>
       </SidebarProvider>
     </>
   )
