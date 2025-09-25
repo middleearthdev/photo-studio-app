@@ -37,6 +37,7 @@ export const reservationKeys = {
 const getPaginatedReservations = async (
   studioId: string, 
   params: PaginationParams & {
+    search?: string
     status?: string
     payment_status?: string
     date_from?: string
@@ -49,20 +50,84 @@ const getPaginatedReservations = async (
     throw new Error(result.error || 'Failed to fetch reservations')
   }
   
-  // Return mock pagination structure for now
-  // TODO: Implement proper server-side pagination
+  // Filter reservations based on parameters
   const reservations = result.data || []
-  const filteredReservations = reservations.filter((r: Reservation) => 
+  let filteredReservations = reservations.filter((r: Reservation) => 
     r.studio_id === studioId
   )
   
+  // Apply search filter
+  if (params.search) {
+    const searchLower = params.search.toLowerCase()
+    filteredReservations = filteredReservations.filter((r: Reservation) => 
+      r.booking_code?.toLowerCase().includes(searchLower) ||
+      r.customer?.full_name?.toLowerCase().includes(searchLower) ||
+      r.customer?.email?.toLowerCase().includes(searchLower) ||
+      r.customer?.phone?.toLowerCase().includes(searchLower) ||
+      r.guest_email?.toLowerCase().includes(searchLower) ||
+      r.guest_phone?.toLowerCase().includes(searchLower)
+    )
+  }
+  
+  // Apply status filter
+  if (params.status && params.status !== 'all') {
+    filteredReservations = filteredReservations.filter((r: Reservation) => 
+      r.status === params.status
+    )
+  }
+  
+  // Apply payment status filter
+  if (params.payment_status && params.payment_status !== 'all') {
+    filteredReservations = filteredReservations.filter((r: Reservation) => 
+      r.payment_status === params.payment_status
+    )
+  }
+  
+  // Apply booking type filter
+  if (params.booking_type && params.booking_type !== 'all') {
+    if (params.booking_type === 'guest') {
+      filteredReservations = filteredReservations.filter((r: Reservation) => 
+        r.is_guest_booking === true
+      )
+    } else if (params.booking_type === 'user') {
+      filteredReservations = filteredReservations.filter((r: Reservation) => 
+        r.is_guest_booking === false
+      )
+    }
+  }
+  
+  // Apply date filters
+  if (params.date_from) {
+    const fromDate = new Date(params.date_from)
+    filteredReservations = filteredReservations.filter((r: Reservation) => 
+      new Date(r.reservation_date) >= fromDate
+    )
+  }
+  
+  if (params.date_to) {
+    const toDate = new Date(params.date_to)
+    // Set to end of day
+    toDate.setHours(23, 59, 59, 999)
+    filteredReservations = filteredReservations.filter((r: Reservation) => 
+      new Date(r.reservation_date) <= toDate
+    )
+  }
+  
+  // Apply pagination
+  const page = params.page || 1
+  const pageSize = params.pageSize || 10
+  const startIndex = (page - 1) * pageSize
+  const endIndex = startIndex + pageSize
+  
+  const paginatedReservations = filteredReservations.slice(startIndex, endIndex)
+  
   return {
-    data: filteredReservations,
+    data: paginatedReservations,
     pagination: {
-      page: params.page || 1,
-      pageSize: params.pageSize || 10,
+      page,
+      pageSize,
       total: filteredReservations.length,
-      totalPages: Math.ceil(filteredReservations.length / (params.pageSize || 10))
+      totalPages: Math.ceil(filteredReservations.length / pageSize)
     }
   }
 }
@@ -73,6 +138,7 @@ const getPaginatedReservations = async (
 export function usePaginatedReservations(
   studioId: string,
   params: PaginationParams & {
+    search?: string
     status?: string
     payment_status?: string
     date_from?: string
@@ -83,7 +149,7 @@ export function usePaginatedReservations(
   return useQuery({
     queryKey: reservationKeys.paginatedList(studioId, params),
     queryFn: () => getPaginatedReservations(studioId, params),
-    enabled: !!studioId,
+    enabled: !!studioId && studioId !== '',
     staleTime: 30 * 1000, // 30 seconds
   })
 }
@@ -131,9 +197,9 @@ export function useReservation(bookingCode?: string) {
 // Get reservation statistics
 export function useReservationStats(studioId?: string) {
   return useQuery({
-    queryKey: reservationKeys.stats(studioId!),
-    queryFn: () => getReservationStats(studioId!),
-    enabled: !!studioId,
+    queryKey: reservationKeys.stats(studioId || ''),
+    queryFn: () => getReservationStats(studioId || ''),
+    enabled: !!studioId && studioId !== '',
     staleTime: 5 * 60 * 1000, // 5 minutes
   })
 }

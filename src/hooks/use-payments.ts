@@ -35,6 +35,7 @@ export const paymentKeys = {
 export function usePaginatedPayments(
   studioId: string,
   params: PaginationParams & {
+    search?: string
     status?: string
     payment_type?: string
     date_from?: string

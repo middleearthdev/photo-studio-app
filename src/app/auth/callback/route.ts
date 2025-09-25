@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
@@ -68,6 +69,14 @@ export async function GET(request: NextRequest) {
         } else if (profile?.role === 'cs') {
           redirectPath = '/customer-service'
         }
+
+        // Set a cookie to indicate that we need to refresh the auth store
+        const cookieStore = await cookies()
+        cookieStore.set('auth-refresh-needed', 'true', {
+          maxAge: 60, // 1 minute
+          httpOnly: false,
+          path: '/',
+        })
 
         return NextResponse.redirect(`${requestUrl.origin}${redirectPath}`)
       }

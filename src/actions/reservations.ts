@@ -518,6 +518,7 @@ export async function updateReservationStatusOnPayment(
         } else {
           console.log(`Reservation ${reservationId} confirmed automatically due to completed payment`)
         }
+        paymentStatus = 'partial';
       }
     }
 

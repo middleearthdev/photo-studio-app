@@ -1,7 +1,9 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/client'
 import type { User, Session, AuthError } from '@supabase/supabase-js'
+
+const supabase = createClient()
 
 type UserRole = 'customer' | 'admin' | 'cs'
 
@@ -228,6 +230,10 @@ export const useAuthStore = create<AuthState>()(
           user: session?.user || null,
           isAuthenticated: !!session?.user
         })
+        // Refresh profile when session is set
+        if (session?.user) {
+          setTimeout(() => get().refreshProfile(), 0)
+        }
       },
 
       initialize: async () => {

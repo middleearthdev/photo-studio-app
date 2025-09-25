@@ -54,6 +54,7 @@ export async function getStudiosAction(): Promise<ActionResult<Studio[]>> {
       .eq('id', user.id)
       .single()
 
+
     if (!currentProfile || currentProfile.role !== 'admin') {
       return { success: false, error: 'Insufficient permissions' }
     }

@@ -13,6 +13,11 @@ import {
   HeadphonesIcon,
   Settings,
   ChevronDown,
+  DollarSign,
+  CheckSquare,
+  Clock,
+  Star,
+  BarChart3,
 } from "lucide-react"
 
 import {
@@ -42,7 +47,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
-import { useAuthStore } from "@/stores/auth-store"
+import { useProfile } from "@/hooks/use-profile"
 import { signOutAction } from "@/actions/auth"
 import { toast } from "sonner"
 
@@ -53,39 +58,29 @@ interface CSLayoutProps {
 const menuItems = [
   {
     title: "Dashboard",
-    icon: MessageSquare,
-    href: "/cs",
+    icon: BarChart3,
+    href: "/cs/dashboard",
   },
   {
-    title: "Support Tickets",
-    icon: MessageSquare,
-    href: "/cs/tickets",
-  },
-  {
-    title: "Booking Assistance",
-    icon: Calendar,
-    href: "/cs/bookings",
-  },
-  {
-    title: "Customer Database",
+    title: "Customer Management",
     icon: Users,
     href: "/cs/customers",
   },
   {
-    title: "Send Notifications",
-    icon: Bell,
-    href: "/cs/communications",
+    title: "Booking Management",
+    icon: Calendar,
+    href: "/cs/reservations",
   },
   {
-    title: "Message Templates",
-    icon: FileText,
-    href: "/cs/communications/templates",
-  },
+    title: "Payment Approval",
+    icon: DollarSign,
+    href: "/cs/payments",
+  }
 ]
 
 export default function CSLayout({ children }: CSLayoutProps) {
   const pathname = usePathname()
-  const { profile } = useAuthStore()
+  const { data: profile } = useProfile()
 
   const handleSignOut = async () => {
     try {
@@ -117,34 +112,13 @@ export default function CSLayout({ children }: CSLayoutProps) {
             </div>
           </div>
         </SidebarHeader>
-        
+
         <SidebarContent>
           <SidebarGroup>
-            <SidebarGroupLabel>Customer Support</SidebarGroupLabel>
+            <SidebarGroupLabel>Operations & Approvals</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {menuItems.slice(0, 4).map((item) => (
-                  <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={pathname === item.href || pathname.startsWith(`${item.href}/`)}
-                    >
-                      <Link href={item.href}>
-                        <item.icon className="h-4 w-4" />
-                        <span>{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-          
-          <SidebarGroup>
-            <SidebarGroupLabel>Communication</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {menuItems.slice(4).map((item) => (
+                {menuItems.slice(0, 5).map((item) => (
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
                       asChild
@@ -161,7 +135,7 @@ export default function CSLayout({ children }: CSLayoutProps) {
             </SidebarGroupContent>
           </SidebarGroup>
         </SidebarContent>
-        
+
         <SidebarFooter>
           <SidebarMenu>
             <SidebarMenuItem>
@@ -213,17 +187,6 @@ export default function CSLayout({ children }: CSLayoutProps) {
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href="/cs/settings">
-                      <Settings className="mr-2 h-4 w-4" />
-                      Account Settings
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <Bell className="mr-2 h-4 w-4" />
-                    Notifications
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
                   <DropdownMenuItem className="text-red-600" onClick={handleSignOut}>
                     <LogOut className="mr-2 h-4 w-4" />
                     Log out
@@ -235,7 +198,7 @@ export default function CSLayout({ children }: CSLayoutProps) {
         </SidebarFooter>
         <SidebarRail />
       </Sidebar>
-      
+
       <SidebarInset>
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1" />
@@ -245,18 +208,8 @@ export default function CSLayout({ children }: CSLayoutProps) {
                 {menuItems.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))?.title || "Customer Service"}
               </h1>
             </div>
-            
+
             <div className="flex items-center gap-4">
-              <Button variant="outline" size="icon" className="relative">
-                <Bell className="h-4 w-4" />
-                <Badge 
-                  variant="destructive" 
-                  className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 text-xs"
-                >
-                  5
-                </Badge>
-              </Button>
-              
               <div className="flex items-center gap-2">
                 <Avatar className="h-8 w-8">
                   <AvatarImage src={profile?.avatar_url || ""} alt={profile?.full_name || "CS"} />
@@ -276,7 +229,7 @@ export default function CSLayout({ children }: CSLayoutProps) {
             </div>
           </div>
         </header>
-        
+
         <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
           <div className="min-h-[100vh] flex-1 rounded-xl bg-muted/50 md:min-h-min">
             {children}

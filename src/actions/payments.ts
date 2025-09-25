@@ -33,6 +33,11 @@ export interface Payment {
   gateway_fee: number
   net_amount: number | null
   
+  // Additional fields for payment processing
+  gateway_response: string | null
+  processed_at: string | null
+  verification_notes: string | null
+  
   // Timestamps
   paid_at: string | null
   expires_at: string | null
@@ -46,6 +51,9 @@ export interface Payment {
     customer_id: string
     total_amount: number
     reservation_date: string
+    studio_id: string
+    guest_email: string | null
+    guest_phone: string | null
     customer?: {
       full_name: string
       email: string
@@ -125,14 +133,16 @@ export async function getPaginatedPayments(
   
   const { offset, pageSize: validPageSize } = calculatePagination(page, pageSize, 0)
 
-  // Build the query
+  // Build the query with proper studio filtering
   let query = supabase
     .from('payments')
     .select(`
       *,
-      reservation:reservations(
-        id, booking_code, customer_id, total_amount, reservation_date,
-        customer:customers(full_name, email, phone)
+      reservation:reservations!inner(
+        id, booking_code, customer_id, total_amount, reservation_date, studio_id,
+        customer:customers(full_name, email, phone),
+        guest_email,
+        guest_phone
       ),
       payment_method:payment_methods(id, name, type, provider)
     `, { count: 'exact' })
@@ -159,9 +169,19 @@ export async function getPaginatedPayments(
     query = query.lte('created_at', date_to)
   }
 
-  // Apply search - search in booking code and customer info
+  // Apply search - search in payment info, booking code, and customer info
   if (search.trim()) {
-    query = query.or(`external_payment_id.ilike.%${search}%,reservation.booking_code.ilike.%${search}%`)
+    const searchTerm = search.trim()
+    // Search in external_payment_id, booking_code, and customer information
+    query = query.or(
+      `external_payment_id.ilike.%${searchTerm}%,` +
+      `reservation.booking_code.ilike.%${searchTerm}%,` +
+      `reservation.customer.full_name.ilike.%${searchTerm}%,` +
+      `reservation.customer.email.ilike.%${searchTerm}%,` +
+      `reservation.customer.phone.ilike.%${searchTerm}%,` +
+      `reservation.guest_email.ilike.%${searchTerm}%,` +
+      `reservation.guest_phone.ilike.%${searchTerm}%`
+    )
   }
 
   // Apply pagination and ordering
@@ -223,8 +243,10 @@ export async function getPaymentById(id: string): Promise<Payment | null> {
     .select(`
       *,
       reservation:reservations(
-        id, booking_code, customer_id, total_amount, reservation_date,
-        customer:customers(full_name, email, phone)
+        id, booking_code, customer_id, total_amount, reservation_date, studio_id,
+        customer:customers(full_name, email, phone),
+        guest_email,
+        guest_phone
       ),
       payment_method:payment_methods(id, name, type, provider)
     `)
@@ -252,8 +274,10 @@ export async function getPaymentsByReservationId(reservationId: string): Promise
       .select(`
         *,
         reservation:reservations(
-          id, booking_code, customer_id, total_amount, reservation_date,
-          customer:customers(full_name, email, phone)
+          id, booking_code, customer_id, total_amount, reservation_date, studio_id,
+          customer:customers(full_name, email, phone),
+          guest_email,
+          guest_phone
         ),
         payment_method:payment_methods(id, name, type, provider)
       `)
@@ -282,8 +306,10 @@ export async function getPaymentByExternalId(externalId: string): Promise<Paymen
     .select(`
       *,
       reservation:reservations(
-        id, booking_code, customer_id, total_amount, reservation_date,
-        customer:customers(full_name, email, phone)
+        id, booking_code, customer_id, total_amount, reservation_date, studio_id,
+        customer:customers(full_name, email, phone),
+        guest_email,
+        guest_phone
       ),
       payment_method:payment_methods(id, name, type, provider)
     `)
@@ -297,8 +323,10 @@ export async function getPaymentByExternalId(externalId: string): Promise<Paymen
       .select(`
         *,
         reservation:reservations(
-          id, booking_code, customer_id, total_amount, reservation_date,
-          customer:customers(full_name, email, phone)
+          id, booking_code, customer_id, total_amount, reservation_date, studio_id,
+          customer:customers(full_name, email, phone),
+          guest_email,
+          guest_phone
         ),
         payment_method:payment_methods(id, name, type, provider)
       `)
@@ -362,8 +390,10 @@ export async function createPayment(data: CreatePaymentData): Promise<Payment> {
     .select(`
       *,
       reservation:reservations(
-        id, booking_code, customer_id, total_amount, reservation_date,
-        customer:customers(full_name, email, phone)
+        id, booking_code, customer_id, total_amount, reservation_date, studio_id,
+        customer:customers(full_name, email, phone),
+        guest_email,
+        guest_phone
       ),
       payment_method:payment_methods(id, name, type, provider)
     `)
@@ -394,8 +424,10 @@ export async function updatePayment(id: string, data: UpdatePaymentData): Promis
     .select(`
       *,
       reservation:reservations(
-        id, booking_code, customer_id, total_amount, reservation_date,
-        customer:customers(full_name, email, phone)
+        id, booking_code, customer_id, total_amount, reservation_date, studio_id,
+        customer:customers(full_name, email, phone),
+        guest_email,
+        guest_phone
       ),
       payment_method:payment_methods(id, name, type, provider)
     `)
@@ -632,8 +664,10 @@ export async function updatePaymentStatus(id: string, status: PaymentStatus): Pr
     .select(`
       *,
       reservation:reservations(
-        id, booking_code, customer_id, total_amount, reservation_date,
-        customer:customers(full_name, email, phone)
+        id, booking_code, customer_id, total_amount, reservation_date, studio_id,
+        customer:customers(full_name, email, phone),
+        guest_email,
+        guest_phone
       ),
       payment_method:payment_methods(id, name, type, provider)
     `)

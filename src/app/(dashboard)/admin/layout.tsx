@@ -21,6 +21,7 @@ import {
   Image,
   Star,
   FileText,
+  User,
 } from "lucide-react"
 
 import {
@@ -51,7 +52,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
 import { NavigationProgress } from "@/components/ui/navigation-progress"
-import { useAuthStore } from "@/stores/auth-store"
+import { useProfile } from "@/hooks/use-profile"
 import { signOutAction } from "@/actions/auth"
 import { toast } from "sonner"
 
@@ -134,7 +135,7 @@ const menuItems = [
 
 export default function AdminLayout({ children }: AdminLayoutProps) {
   const pathname = usePathname()
-  const { profile } = useAuthStore()
+  const { data: profile } = useProfile()
 
   const handleSignOut = async () => {
     try {
@@ -285,6 +286,12 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <ProgressLink href="/admin/profile">
+                      <User className="mr-2 h-4 w-4" />
+                      Profile
+                    </ProgressLink>
+                  </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <ProgressLink href="/admin/settings">
                       <Settings className="mr-2 h-4 w-4" />
