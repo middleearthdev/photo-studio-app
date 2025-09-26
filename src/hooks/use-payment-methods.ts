@@ -1,18 +1,18 @@
 'use client'
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { 
+import {
   getPaymentMethods,
   getAllPaymentMethods,
-  createPaymentMethod, 
-  updatePaymentMethod, 
+  createPaymentMethod,
+  updatePaymentMethod,
   deletePaymentMethod,
   togglePaymentMethodStatus
 } from '@/actions/payments'
-import type { 
-  PaymentMethod, 
-  CreatePaymentMethodData, 
-  UpdatePaymentMethodData 
+import type {
+  PaymentMethod,
+  CreatePaymentMethodData,
+  UpdatePaymentMethodData
 } from '@/actions/payments'
 import { toast } from 'sonner'
 
@@ -33,8 +33,23 @@ export function useActivePaymentMethods(studioId: string) {
     queryFn: async () => {
       const allMethods = await getPaymentMethods(studioId)
       // Filter for customer booking: only Midtrans and Xendit providers
-      return allMethods.filter(method => 
+      return allMethods.filter(method =>
         method.provider === 'Midtrans' || method.provider === 'Xendit'
+      )
+    },
+    enabled: !!studioId,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  })
+}
+
+export function useActivePaymentManualMethods(studioId: string) {
+  return useQuery({
+    queryKey: ['active-manual-payment-methods', studioId],
+    queryFn: async () => {
+      const allMethods = await getPaymentMethods(studioId)
+      // Filter for customer booking: only Midtrans and Xendit providers
+      return allMethods.filter(method =>
+        method.provider !== 'Midtrans' && method.provider !== 'Xendit'
       )
     },
     enabled: !!studioId,
@@ -45,13 +60,15 @@ export function useActivePaymentMethods(studioId: string) {
 // Hook for creating payment methods
 export function useCreatePaymentMethod() {
   const queryClient = useQueryClient()
-  
+
   return useMutation({
     mutationFn: createPaymentMethod,
     onSuccess: (data) => {
       toast.success('Payment method created successfully')
       queryClient.invalidateQueries({ queryKey: ['payment-methods', data.studio_id] })
       queryClient.invalidateQueries({ queryKey: ['active-payment-methods', data.studio_id] })
+      queryClient.invalidateQueries({ queryKey: ['active-manual-payment-methods', data.studio_id] })
+
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to create payment method')
@@ -62,14 +79,15 @@ export function useCreatePaymentMethod() {
 // Hook for updating payment methods
 export function useUpdatePaymentMethod() {
   const queryClient = useQueryClient()
-  
+
   return useMutation({
-    mutationFn: ({ id, data }: { id: string, data: UpdatePaymentMethodData }) => 
+    mutationFn: ({ id, data }: { id: string, data: UpdatePaymentMethodData }) =>
       updatePaymentMethod(id, data),
     onSuccess: (data) => {
       toast.success('Payment method updated successfully')
       queryClient.invalidateQueries({ queryKey: ['payment-methods', data.studio_id] })
       queryClient.invalidateQueries({ queryKey: ['active-payment-methods', data.studio_id] })
+      queryClient.invalidateQueries({ queryKey: ['active-manual-payment-methods', data.studio_id] })
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to update payment method')
@@ -80,7 +98,7 @@ export function useUpdatePaymentMethod() {
 // Hook for deleting payment methods
 export function useDeletePaymentMethod() {
   const queryClient = useQueryClient()
-  
+
   return useMutation({
     mutationFn: deletePaymentMethod,
     onSuccess: () => {
@@ -97,14 +115,15 @@ export function useDeletePaymentMethod() {
 // Hook for toggling payment method status
 export function useTogglePaymentMethodStatus() {
   const queryClient = useQueryClient()
-  
+
   return useMutation({
-    mutationFn: ({ id, isActive }: { id: string, isActive: boolean }) => 
+    mutationFn: ({ id, isActive }: { id: string, isActive: boolean }) =>
       togglePaymentMethodStatus(id, isActive),
     onSuccess: (data) => {
       toast.success('Payment method status updated successfully')
       queryClient.invalidateQueries({ queryKey: ['payment-methods', data.studio_id] })
       queryClient.invalidateQueries({ queryKey: ['active-payment-methods', data.studio_id] })
+      queryClient.invalidateQueries({ queryKey: ['active-manual-payment-methods', data.studio_id] })
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to update payment method status')
@@ -115,16 +134,16 @@ export function useTogglePaymentMethodStatus() {
 // Helper function to get payment method icon based on type and provider
 export function getPaymentMethodIcon(type: string, _provider: string, name: string) {
   const lowerName = name.toLowerCase()
-  
+
   // E-wallet specific icons
   if (type === 'e_wallet') {
     if (lowerName.includes('gopay')) return '💚'
-    if (lowerName.includes('ovo')) return '🟣' 
+    if (lowerName.includes('ovo')) return '🟣'
     if (lowerName.includes('dana')) return '🔵'
     if (lowerName.includes('shopeepay')) return '🧡'
     return '💳'
   }
-  
+
   // Bank transfer icons (manual)
   if (type === 'bank_transfer') {
     if (lowerName.includes('bca')) return '🔵'
@@ -134,7 +153,7 @@ export function getPaymentMethodIcon(type: string, _provider: string, name: stri
     if (lowerName.includes('cimb')) return '🔴'
     return '🏦'
   }
-  
+
   // Virtual Account icons (Xendit)
   if (type === 'virtual_account') {
     if (lowerName.includes('bca')) return '💳'
@@ -143,16 +162,16 @@ export function getPaymentMethodIcon(type: string, _provider: string, name: stri
     if (lowerName.includes('bri')) return '💳'
     return '🏧'
   }
-  
+
   // QR Code
   if (type === 'qr_code' || type === 'qris') return '📱'
-  
+
   // Virtual Account
   if (type === 'va') return '💳'
-  
+
   // Credit card
   if (type === 'credit_card') return '💳'
-  
+
   return '💳'
 }
 
@@ -184,7 +203,7 @@ export function calculatePaymentFee(method: PaymentMethod, amount: number): numb
 
 function getPaymentMethodDescription(method: PaymentMethod): string {
   const { type, provider, account_details, name } = method
-  
+
   if (type === 'bank_transfer' && account_details) {
     const details = account_details as any
     if (details.account_number) {
@@ -192,7 +211,7 @@ function getPaymentMethodDescription(method: PaymentMethod): string {
     }
     return 'Transfer bank manual'
   }
-  
+
   if (type === 'virtual_account') {
     if (name.toLowerCase().includes('bca')) return 'Virtual Account BCA via Xendit'
     if (name.toLowerCase().includes('mandiri')) return 'Virtual Account Mandiri via Xendit'
@@ -200,26 +219,26 @@ function getPaymentMethodDescription(method: PaymentMethod): string {
     if (name.toLowerCase().includes('bri')) return 'Virtual Account BRI via Xendit'
     return 'Virtual Account via Xendit'
   }
-  
+
   if (type === 'e_wallet') {
     if (name.toLowerCase().includes('gopay')) return 'Pembayaran digital GoPay'
-    if (name.toLowerCase().includes('ovo')) return 'Pembayaran digital OVO'  
+    if (name.toLowerCase().includes('ovo')) return 'Pembayaran digital OVO'
     if (name.toLowerCase().includes('dana')) return 'Pembayaran digital DANA'
     if (name.toLowerCase().includes('shopeepay')) return 'Pembayaran digital ShopeePay'
     return 'Pembayaran e-wallet'
   }
-  
+
   if (type === 'qr_code' || type === 'qris') {
     return 'Scan QR code untuk bayar'
   }
-  
+
   if (type === 'va') {
     return 'Virtual Account'
   }
-  
+
   if (type === 'credit_card') {
     return 'Kartu kredit/debit'
   }
-  
+
   return `Pembayaran via ${provider}`
 }

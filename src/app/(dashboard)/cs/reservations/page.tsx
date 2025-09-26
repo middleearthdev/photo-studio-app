@@ -51,17 +51,19 @@ import { type Reservation } from "@/actions/reservations"
 import { PaginationControls } from "@/components/pagination-controls"
 import { DEFAULT_PAGE_SIZE } from "@/lib/constants/pagination"
 import { useProfile } from "@/hooks/use-profile"
-import { 
-  canCompletePayment, 
-  canRescheduleBooking, 
-  getCancellationInfo, 
-  getDeadlineInfo, 
+import {
+  canCompletePayment,
+  canRescheduleBooking,
+  getCancellationInfo,
+  getDeadlineInfo,
   getBookingPriority,
-  generateWhatsAppMessage, 
-  getWhatsAppURL 
+  generateWhatsAppMessage,
+  getWhatsAppURL
 } from "@/lib/utils/booking-rules"
 import { ManualBookingForm } from "@/components/cs/manual-booking-form"
 import { RescheduleBookingForm } from "@/components/cs/reschedule-booking-form"
+import { EditReservationForm } from "@/components/cs/edit-reservation-form"
+import { CompletePaymentDialog } from "@/components/cs/complete-payment-dialog"
 
 const statusLabels: Record<ReservationStatus, string> = {
   pending: 'Pending',
@@ -109,6 +111,10 @@ export default function ReservationsPage() {
   const [isManualBookingOpen, setIsManualBookingOpen] = useState(false)
   const [isRescheduleOpen, setIsRescheduleOpen] = useState(false)
   const [reservationToReschedule, setReservationToReschedule] = useState<Reservation | null>(null)
+  const [isEditOpen, setIsEditOpen] = useState(false)
+  const [reservationToEdit, setReservationToEdit] = useState<Reservation | null>(null)
+  const [isCompletePaymentOpen, setIsCompletePaymentOpen] = useState(false)
+  const [reservationToComplete, setReservationToComplete] = useState<Reservation | null>(null)
 
   // AlertDialog states
   const [reservationToDelete, setReservationToDelete] = useState<Reservation | null>(null)
@@ -235,8 +241,8 @@ export default function ReservationsPage() {
   }
 
   const handleEdit = (reservation: Reservation) => {
-    // TODO: Implement reservation edit modal or navigate to edit page
-    alert(`Edit reservation: ${reservation.booking_code}`)
+    setReservationToEdit(reservation)
+    setIsEditOpen(true)
   }
 
   const handleWhatsAppReminder = (reservation: Reservation, type: 'payment' | 'reschedule' | 'confirmation') => {
@@ -245,7 +251,7 @@ export default function ReservationsPage() {
       alert('No phone number found for this customer')
       return
     }
-    
+
     const message = generateWhatsAppMessage(reservation, type)
     const whatsappURL = getWhatsAppURL(phone, message)
     window.open(whatsappURL, '_blank')
@@ -254,6 +260,11 @@ export default function ReservationsPage() {
   const handleReschedule = (reservation: Reservation) => {
     setReservationToReschedule(reservation)
     setIsRescheduleOpen(true)
+  }
+
+  const handleCompletePayment = (reservation: Reservation) => {
+    setReservationToComplete(reservation)
+    setIsCompletePaymentOpen(true)
   }
 
   const formatCurrency = (amount: number) => {
@@ -315,10 +326,6 @@ export default function ReservationsPage() {
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
-          <Button variant="outline">
-            <Download className="h-4 w-4 mr-2" />
-            Export
-          </Button>
           <Button onClick={() => setIsManualBookingOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Manual Booking
@@ -329,197 +336,197 @@ export default function ReservationsPage() {
 
       {/* Statistics Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Menunggu Konfirmasi</CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats?.pending || 0}</div>
-              <p className="text-xs text-muted-foreground">
-                Perlu approval
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Booking</CardTitle>
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats?.total || 0}</div>
-              <p className="text-xs text-muted-foreground">
-                {stats?.thisMonth || 0} bulan ini
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Selesai</CardTitle>
-              <CheckCircle className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats?.completed || 0}</div>
-              <p className="text-xs text-muted-foreground">
-                Revenue: {formatCurrency(stats?.totalRevenue || 0)}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pending Payment</CardTitle>
-              <XCircle className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{formatCurrency(stats?.pendingPayments || 0)}</div>
-              <p className="text-xs text-muted-foreground">
-                Belum terbayar
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-      <Card>
-          <CardHeader>
-            <CardTitle>Booking Management</CardTitle>
-            <CardDescription>
-              Kelola dan verifikasi semua booking customer - approval, status tracking, dan management
-            </CardDescription>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Menunggu Konfirmasi</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {/* Filters */}
-            <div className="flex flex-col gap-4 mb-6">
-              <div className="flex items-center gap-4">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                  <Input
-                    placeholder="Cari berdasarkan kode booking, email, atau telepon..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-                <Button variant="outline" size="icon">
-                  <Filter className="h-4 w-4" />
-                </Button>
+            <div className="text-2xl font-bold">{stats?.pending || 0}</div>
+            <p className="text-xs text-muted-foreground">
+              Perlu approval
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Booking</CardTitle>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats?.total || 0}</div>
+            <p className="text-xs text-muted-foreground">
+              {stats?.thisMonth || 0} bulan ini
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Selesai</CardTitle>
+            <CheckCircle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats?.completed || 0}</div>
+            <p className="text-xs text-muted-foreground">
+              Revenue: {formatCurrency(stats?.totalRevenue || 0)}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Pending Payment</CardTitle>
+            <XCircle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(stats?.pendingPayments || 0)}</div>
+            <p className="text-xs text-muted-foreground">
+              Belum terbayar
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Booking Management</CardTitle>
+          <CardDescription>
+            Kelola dan verifikasi semua booking customer - approval, status tracking, dan management
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {/* Filters */}
+          <div className="flex flex-col gap-4 mb-6">
+            <div className="flex items-center gap-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  placeholder="Cari berdasarkan kode booking, email, atau telepon..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
               </div>
-
-              <div className="flex flex-wrap items-center gap-4">
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-[140px]">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Semua Status</SelectItem>
-                    {Object.entries(statusLabels).map(([status, label]) => (
-                      <SelectItem key={status} value={status}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Select value={paymentStatusFilter} onValueChange={setPaymentStatusFilter}>
-                  <SelectTrigger className="w-[140px]">
-                    <SelectValue placeholder="Payment" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Semua Payment</SelectItem>
-                    {Object.entries(paymentStatusLabels).map(([status, label]) => (
-                      <SelectItem key={status} value={status}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Select value={bookingTypeFilter} onValueChange={(value) => setBookingTypeFilter(value as any)}>
-                  <SelectTrigger className="w-[140px]">
-                    <SelectValue placeholder="Tipe Booking" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Semua Tipe</SelectItem>
-                    <SelectItem value="user">User Login</SelectItem>
-                    <SelectItem value="guest">Guest</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <div className="flex gap-2">
-                  <Input
-                    type="date"
-                    value={dateFromFilter}
-                    onChange={(e) => setDateFromFilter(e.target.value)}
-                    className="w-[140px]"
-                    placeholder="Dari tanggal"
-                  />
-                  <Input
-                    type="date"
-                    value={dateToFilter}
-                    onChange={(e) => setDateToFilter(e.target.value)}
-                    className="w-[140px]"
-                    placeholder="Sampai tanggal"
-                  />
-                </div>
-              </div>
+              <Button variant="outline" size="icon">
+                <Filter className="h-4 w-4" />
+              </Button>
             </div>
 
-            {/* Table */}
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Priority</TableHead>
-                    <TableHead>Booking Code</TableHead>
-                    <TableHead>Customer</TableHead>
-                    <TableHead>Package</TableHead>
-                    <TableHead>Tanggal & Waktu</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Payment</TableHead>
-                    <TableHead>Total</TableHead>
-                    <TableHead>Reminders</TableHead>
-                    <TableHead className="w-[70px]">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {loading ? (
-                    Array.from({ length: 5 }).map((_, i) => (
-                      <TableRow key={i}>
-                        <TableCell colSpan={10}>
-                          <div className="flex items-center space-x-4">
-                            <div className="space-y-2 flex-1">
-                              <div className="h-4 w-32 bg-gray-200 rounded animate-pulse" />
-                              <div className="h-3 w-24 bg-gray-200 rounded animate-pulse" />
-                            </div>
+            <div className="flex flex-wrap items-center gap-4">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua Status</SelectItem>
+                  {Object.entries(statusLabels).map(([status, label]) => (
+                    <SelectItem key={status} value={status}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={paymentStatusFilter} onValueChange={setPaymentStatusFilter}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="Payment" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua Payment</SelectItem>
+                  {Object.entries(paymentStatusLabels).map(([status, label]) => (
+                    <SelectItem key={status} value={status}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={bookingTypeFilter} onValueChange={(value) => setBookingTypeFilter(value as any)}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="Tipe Booking" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua Tipe</SelectItem>
+                  <SelectItem value="user">User Login</SelectItem>
+                  <SelectItem value="guest">Guest</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <div className="flex gap-2">
+                <Input
+                  type="date"
+                  value={dateFromFilter}
+                  onChange={(e) => setDateFromFilter(e.target.value)}
+                  className="w-[140px]"
+                  placeholder="Dari tanggal"
+                />
+                <Input
+                  type="date"
+                  value={dateToFilter}
+                  onChange={(e) => setDateToFilter(e.target.value)}
+                  className="w-[140px]"
+                  placeholder="Sampai tanggal"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Table */}
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Priority</TableHead>
+                  <TableHead>Booking Code</TableHead>
+                  <TableHead>Customer</TableHead>
+                  <TableHead>Package</TableHead>
+                  <TableHead>Tanggal & Waktu</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Payment</TableHead>
+                  <TableHead>Total</TableHead>
+                  <TableHead>Reminders</TableHead>
+                  <TableHead className="w-[70px]">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <TableRow key={i}>
+                      <TableCell colSpan={10}>
+                        <div className="flex items-center space-x-4">
+                          <div className="space-y-2 flex-1">
+                            <div className="h-4 w-32 bg-gray-200 rounded animate-pulse" />
+                            <div className="h-3 w-24 bg-gray-200 rounded animate-pulse" />
                           </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  ) : reservations.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={10} className="text-center py-8">
-                        <Calendar className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                        <p className="text-muted-foreground">Tidak ada booking ditemukan</p>
+                        </div>
                       </TableCell>
                     </TableRow>
-                  ) : (
-                    reservations.map((reservation: Reservation) => {
-                      const priority = getBookingPriority(reservation)
-                      const deadline = getDeadlineInfo(reservation)
-                      const paymentRule = canCompletePayment(reservation)
-                      const rescheduleRule = canRescheduleBooking(reservation)
-                      const cancellationInfo = getCancellationInfo(reservation)
-                      
-                      return (
+                  ))
+                ) : reservations.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={10} className="text-center py-8">
+                      <Calendar className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                      <p className="text-muted-foreground">Tidak ada booking ditemukan</p>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  reservations.map((reservation: Reservation) => {
+                    const priority = getBookingPriority(reservation)
+                    const deadline = getDeadlineInfo(reservation)
+                    const paymentRule = canCompletePayment(reservation)
+                    const rescheduleRule = canRescheduleBooking(reservation)
+                    const cancellationInfo = getCancellationInfo(reservation)
+
+                    return (
                       <TableRow key={reservation.id}>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <Badge 
-                              variant={priority.priority === 'urgent' ? 'destructive' : 
-                                     priority.priority === 'high' ? 'default' :
-                                     priority.priority === 'medium' ? 'secondary' : 'outline'}
+                            <Badge
+                              variant={priority.priority === 'urgent' ? 'destructive' :
+                                priority.priority === 'high' ? 'default' :
+                                  priority.priority === 'medium' ? 'secondary' : 'outline'}
                               className="text-xs"
                             >
                               {priority.priority === 'urgent' && <AlertTriangle className="h-3 w-3 mr-1" />}
@@ -611,7 +618,7 @@ export default function ReservationsPage() {
                                     <DollarSign className="h-3 w-3" />
                                   </Button>
                                 )}
-                                
+
                                 {rescheduleRule.allowed && (
                                   <Button
                                     size="sm"
@@ -623,7 +630,7 @@ export default function ReservationsPage() {
                                     <Calendar className="h-3 w-3" />
                                   </Button>
                                 )}
-                                
+
                                 {reservation.status === 'confirmed' && (
                                   <Button
                                     size="sm"
@@ -656,6 +663,12 @@ export default function ReservationsPage() {
                                 <Edit className="mr-2 h-4 w-4" />
                                 Edit
                               </DropdownMenuItem>
+                              {reservation.payment_status !== 'completed' && reservation.remaining_amount > 0 && (
+                                <DropdownMenuItem onClick={() => handleCompletePayment(reservation)}>
+                                  <DollarSign className="mr-2 h-4 w-4" />
+                                  Konfirmasi Pelunasan
+                                </DropdownMenuItem>
+                              )}
                               {canRescheduleBooking(reservation).allowed && (
                                 <DropdownMenuItem onClick={() => handleReschedule(reservation)}>
                                   <Calendar className="mr-2 h-4 w-4" />
@@ -730,27 +743,27 @@ export default function ReservationsPage() {
                           </DropdownMenu>
                         </TableCell>
                       </TableRow>
-                      )
-                    })
-                  )}
-                </TableBody>
-              </Table>
+                    )
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
+          {/* Pagination */}
+          {pagination && pagination.totalPages > 1 && (
+            <div className="mt-8">
+              <PaginationControls
+                currentPage={pagination.page}
+                totalPages={pagination.totalPages}
+                pageSize={pagination.pageSize}
+                total={pagination.total}
+                onPageChange={handlePageChange}
+                onPageSizeChange={handlePageSizeChange}
+              />
             </div>
-            {/* Pagination */}
-            {pagination && pagination.totalPages > 1 && (
-              <div className="mt-8">
-                <PaginationControls
-                  currentPage={pagination.page}
-                  totalPages={pagination.totalPages}
-                  pageSize={pagination.pageSize}
-                  total={pagination.total}
-                  onPageChange={handlePageChange}
-                  onPageSizeChange={handlePageSizeChange}
-                />
-              </div>
-            )}
-          </CardContent>
-        </Card>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Reservation Detail Modal */}
       <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
@@ -771,7 +784,7 @@ export default function ReservationsPage() {
                 const paymentRule = canCompletePayment(selectedReservation)
                 const rescheduleRule = canRescheduleBooking(selectedReservation)
                 const cancellationInfo = getCancellationInfo(selectedReservation)
-                
+
                 return (
                   <Card>
                     <CardHeader>
@@ -783,10 +796,10 @@ export default function ReservationsPage() {
                     <CardContent>
                       <div className="space-y-4">
                         <div className="flex items-center gap-4">
-                          <Badge 
-                            variant={priority.priority === 'urgent' ? 'destructive' : 
-                                   priority.priority === 'high' ? 'default' :
-                                   priority.priority === 'medium' ? 'secondary' : 'outline'}
+                          <Badge
+                            variant={priority.priority === 'urgent' ? 'destructive' :
+                              priority.priority === 'high' ? 'default' :
+                                priority.priority === 'medium' ? 'secondary' : 'outline'}
                           >
                             {priority.priority === 'urgent' && <AlertTriangle className="h-4 w-4 mr-1" />}
                             {priority.priority === 'high' && <Zap className="h-4 w-4 mr-1" />}
@@ -794,7 +807,7 @@ export default function ReservationsPage() {
                           </Badge>
                           <span className="text-sm text-muted-foreground">{deadline.message}</span>
                         </div>
-                        
+
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                           <div className={`p-3 rounded-lg ${paymentRule.allowed ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
                             <div className="font-medium text-sm">💰 Payment Rule</div>
@@ -802,14 +815,14 @@ export default function ReservationsPage() {
                               {paymentRule.reason}
                             </div>
                           </div>
-                          
+
                           <div className={`p-3 rounded-lg ${rescheduleRule.allowed ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
                             <div className="font-medium text-sm">📅 Reschedule Rule</div>
                             <div className="text-xs mt-1">
                               {rescheduleRule.reason}
                             </div>
                           </div>
-                          
+
                           <div className={`p-3 rounded-lg ${cancellationInfo.dpPolicy === 'hangus' ? 'bg-yellow-50 border border-yellow-200' : 'bg-green-50 border border-green-200'}`}>
                             <div className="font-medium text-sm">❌ Cancellation Policy</div>
                             <div className="text-xs mt-1">
@@ -833,7 +846,7 @@ export default function ReservationsPage() {
                                   Payment Reminder
                                 </Button>
                               )}
-                              
+
                               {rescheduleRule.allowed && (
                                 <>
                                   <Button
@@ -857,7 +870,7 @@ export default function ReservationsPage() {
                                   </Button>
                                 </>
                               )}
-                              
+
                               {selectedReservation.status === 'confirmed' && (
                                 <Button
                                   size="sm"
@@ -1006,7 +1019,7 @@ export default function ReservationsPage() {
                           </div>
                         </div>
                       ))}
-                      
+
                       <div className="pt-3 border-t">
                         <div className="flex justify-between items-center">
                           <span className="font-medium text-sm">Total Add-ons:</span>
@@ -1368,6 +1381,28 @@ export default function ReservationsPage() {
         }}
         onSuccess={() => refetch()}
         reservation={reservationToReschedule}
+      />
+
+      {/* Edit Reservation Form */}
+      <EditReservationForm
+        isOpen={isEditOpen}
+        onClose={() => {
+          setIsEditOpen(false)
+          setReservationToEdit(null)
+        }}
+        onSuccess={() => refetch()}
+        reservation={reservationToEdit}
+      />
+
+      {/* Complete Payment Dialog */}
+      <CompletePaymentDialog
+        isOpen={isCompletePaymentOpen}
+        onClose={() => {
+          setIsCompletePaymentOpen(false)
+          setReservationToComplete(null)
+        }}
+        onSuccess={() => refetch()}
+        reservation={reservationToComplete}
       />
     </div>
   )

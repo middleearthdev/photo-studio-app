@@ -123,6 +123,14 @@ export interface CreateReservationData {
   // Additional info
   special_requests?: string
   payment_method?: string
+  payment_status?: string
+  dp_amount?: number
+
+  // Discount info
+  discount_id?: string
+  discount_amount?: number
+
+  internal_notes?: string
 }
 
 export interface ActionResult<T = any> {
@@ -146,6 +154,201 @@ function calculateEndTime(startTime: string, durationMinutes: number): string {
 
   const endDate = new Date(startDate.getTime() + durationMinutes * 60000)
   return format(endDate, 'HH:mm')
+}
+
+// Admin/Staff action to create manual reservation (for manual booking by CS/Admin)
+export async function createManualReservationAction(data: CreateReservationData): Promise<ActionResult<{ reservation: Reservation; customer: Customer; payment?: any }>> {
+  try {
+    const supabase = await createClient()
+
+    // Get current user to check permissions
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return { success: false, error: 'Unauthorized' }
+    }
+
+    // Get current user profile
+    const { data: currentProfile } = await supabase
+      .from('user_profiles')
+      .select('role, studio_id')
+      .eq('id', user.id)
+      .single()
+
+    if (!currentProfile || !['admin', 'cs'].includes(currentProfile.role)) {
+      return { success: false, error: 'Insufficient permissions' }
+    }
+
+    // For CS users, ensure they can only create reservations for their studio
+    if (currentProfile.role === 'cs' && data.studio_id !== currentProfile.studio_id) {
+      return { success: false, error: 'Cannot create reservation for different studio' }
+    }
+
+    // Generate booking code
+    const bookingCode = generateBookingCode()
+    const endTime = calculateEndTime(data.start_time, data.duration_minutes)
+
+    // Get package facilities
+    const { data: packageFacilities, error: facilityError } = await supabase
+      .from('package_facilities')
+      .select(`
+        facility:facilities(id, name, description)
+      `)
+      .eq('package_id', data.package_id)
+
+    if (facilityError) {
+      console.error('Error fetching package facilities:', facilityError)
+    }
+
+    // Format selected facilities for storage
+    const selectedFacilities = packageFacilities?.map(pf => pf.facility) || []
+
+    // Calculate pricing - for manual booking, use provided values directly
+    const packagePrice = data.package_price
+    const addonsTotal = data.total_addons_price || 0
+    const subtotal = packagePrice + addonsTotal
+    const taxAmount = 0 // No tax for now
+    const discountAmount = data.discount_amount || 0
+    const totalAmount = subtotal + taxAmount - discountAmount
+
+    // Use provided DP amount or calculate default
+    const dpAmount = data.dp_amount !== undefined ? data.dp_amount : Math.round(totalAmount * data.dp_percentage / 100)
+    const remainingAmount = totalAmount - dpAmount
+
+    // Create customer first
+    const { data: customerData, error: customerError } = await supabase
+      .from('customers')
+      .insert({
+        full_name: data.customer_name,
+        email: data.customer_email || '',
+        phone: data.customer_phone,
+        notes: data.customer_notes || '',
+        is_guest: data.is_guest_booking || true
+      })
+      .select()
+      .single()
+
+    if (customerError) {
+      console.error('Error creating customer:', customerError)
+      return { success: false, error: customerError.message }
+    }
+
+    // Create reservation with manual booking specific fields
+    const { data: reservationData, error: reservationError } = await supabase
+      .from('reservations')
+      .insert({
+        booking_code: bookingCode,
+        studio_id: data.studio_id,
+        customer_id: customerData.id,
+        user_id: user.id, // Set user_id to current staff member
+        package_id: data.package_id,
+        reservation_date: data.reservation_date,
+        start_time: data.start_time,
+        end_time: endTime,
+        total_duration: data.duration_minutes,
+        selected_facilities: selectedFacilities,
+        package_price: packagePrice,
+        other_addon_total: addonsTotal,
+        subtotal: subtotal,
+        tax_amount: taxAmount,
+        discount_amount: discountAmount,
+        total_amount: totalAmount,
+        dp_amount: dpAmount,
+        remaining_amount: remainingAmount,
+        special_requests: data.special_requests || '',
+        internal_notes: data.internal_notes || '',
+        guest_email: data.customer_email || '',
+        guest_phone: data.customer_phone,
+        is_guest_booking: data.is_guest_booking || true,
+        status: 'confirmed', // Manual bookings are auto-confirmed
+        payment_status: data.payment_status || 'pending',
+        discount_id: data.discount_id
+      })
+      .select()
+      .single()
+
+    if (reservationError) {
+      console.error('Error creating manual reservation:', reservationError)
+      return { success: false, error: reservationError.message }
+    }
+
+    // Add reservation add-ons if any
+    if (data.selected_addons && data.selected_addons.length > 0) {
+      const addonInserts = data.selected_addons.map(addon => ({
+        reservation_id: reservationData.id,
+        addon_id: addon.addon_id,
+        quantity: addon.quantity,
+        unit_price: addon.unit_price,
+        total_price: addon.unit_price * addon.quantity
+      }))
+
+      const { error: addonsError } = await supabase
+        .from('reservation_addons')
+        .insert(addonInserts)
+
+      if (addonsError) {
+        console.error('Error adding reservation add-ons:', addonsError)
+        // Don't fail the entire operation for add-ons error
+      }
+    }
+
+    console.log(data)
+
+    // Create payment record for manual booking if payment method is provided
+    if (data.payment_method && data.payment_status && dpAmount > 0) {
+      const { error: paymentError } = await supabase
+        .from('payments')
+        .insert({
+          reservation_id: reservationData.id,
+          payment_method_id: data.payment_method,
+          amount: dpAmount,
+          payment_type: data.payment_status === 'completed' ? 'full' : 'dp',
+          status: 'completed', // Manual payments are marked as completed
+          paid_at: new Date().toISOString(),
+        })
+
+      if (paymentError) {
+        console.error('Error creating payment record:', paymentError)
+        // Don't fail reservation creation for payment record error
+      }
+    }
+
+    // Fetch the created reservation with all relations
+    const { data: createdReservation, error: fetchError } = await supabase
+      .from('reservations')
+      .select(`
+        *,
+        studio:studios(id, name),
+        customer:customers(id, full_name, email, phone),
+        package:packages(id, name, duration_minutes),
+        reservation_addons(
+          *,
+          addon:addons(id, name, description)
+        )
+      `)
+      .eq('id', reservationData.id)
+      .single()
+
+    if (fetchError) {
+      console.error('Error fetching created reservation:', fetchError)
+      return { success: false, error: 'Reservation created but failed to fetch details' }
+    }
+
+    revalidatePath('/admin/reservations')
+    revalidatePath('/cs/reservations')
+    revalidatePath('/booking')
+
+    // Return the reservation and customer data
+    return {
+      success: true,
+      data: {
+        reservation: createdReservation,
+        customer: customerData
+      }
+    }
+  } catch (error: any) {
+    console.error('Error in createManualReservationAction:', error)
+    return { success: false, error: error.message || 'Failed to create manual reservation' }
+  }
 }
 
 // Public action to create a new reservation (for guest booking)
@@ -628,6 +831,7 @@ export async function updateReservationPaymentStatus(
 export async function updateReservationAction(
   reservationId: string,
   updateData: {
+    customer_name?: string
     guest_email?: string
     guest_phone?: string
     special_requests?: string
@@ -658,9 +862,66 @@ export async function updateReservationAction(
       return { success: false, error: 'Insufficient permissions' }
     }
 
-    // Prepare update data
+    // First get the reservation to check if it's a guest booking
+    let reservationQuery = supabase
+      .from('reservations')
+      .select(`
+        *,
+        customer:customers(id, full_name, email, phone, is_guest)
+      `)
+      .eq('id', reservationId)
+
+    // CS users can only access their studio's reservations
+    if (currentProfile.role === 'cs') {
+      reservationQuery = reservationQuery.eq('studio_id', currentProfile.studio_id)
+    }
+
+    const { data: currentReservation, error: fetchError } = await reservationQuery.single()
+    
+    if (fetchError) {
+      console.error('Error fetching reservation:', fetchError)
+      return { success: false, error: fetchError.message }
+    }
+
+    // Handle customer info updates for guest bookings
+    if (currentReservation.customer?.is_guest) {
+      const customerUpdateData: any = {
+        updated_at: new Date().toISOString()
+      }
+
+      // Update customer name if provided
+      if (updateData.customer_name) {
+        customerUpdateData.full_name = updateData.customer_name
+      }
+
+      // Update email if provided
+      if (updateData.guest_email) {
+        customerUpdateData.email = updateData.guest_email
+      }
+
+      // Update phone if provided  
+      if (updateData.guest_phone) {
+        customerUpdateData.phone = updateData.guest_phone
+      }
+
+      // Only update customer table if there are actual changes
+      if (Object.keys(customerUpdateData).length > 1) { // More than just updated_at
+        const { error: customerError } = await supabase
+          .from('customers')
+          .update(customerUpdateData)
+          .eq('id', currentReservation.customer_id)
+
+        if (customerError) {
+          console.error('Error updating customer info:', customerError)
+          return { success: false, error: 'Failed to update customer information' }
+        }
+      }
+    }
+
+    // Prepare reservation update data (exclude customer_name as it's handled separately)
+    const { customer_name, ...reservationUpdateData } = updateData
     const updatePayload: any = {
-      ...updateData,
+      ...reservationUpdateData,
       updated_at: new Date().toISOString()
     }
 
@@ -698,6 +959,7 @@ export async function updateReservationAction(
     }
 
     revalidatePath('/admin/reservations')
+    revalidatePath('/cs/reservations')
     return { success: true, data: updatedReservation }
   } catch (error: any) {
     console.error('Error in updateReservationAction:', error)

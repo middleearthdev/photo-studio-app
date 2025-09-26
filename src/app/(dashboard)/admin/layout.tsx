@@ -19,9 +19,9 @@ import {
   ChevronDown,
   Clock,
   Image,
-  Star,
   FileText,
   User,
+  Tag,
 } from "lucide-react"
 
 import {
@@ -41,7 +41,6 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,7 +49,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Badge } from "@/components/ui/badge"
 import { NavigationProgress } from "@/components/ui/navigation-progress"
 import { useProfile } from "@/hooks/use-profile"
 import { signOutAction } from "@/actions/auth"
@@ -97,6 +95,11 @@ const menuItems = [
     href: "/admin/packages",
   },
   {
+    title: "Discounts",
+    icon: Tag,
+    href: "/admin/disconts",
+  },
+  {
     title: "Reservations",
     icon: Calendar,
     href: "/admin/reservations",
@@ -111,11 +114,7 @@ const menuItems = [
     icon: DollarSign,
     href: "/admin/payments",
   },
-  {
-    title: "Reviews",
-    icon: Star,
-    href: "/admin/reviews",
-  },
+
   {
     title: "Analytics",
     icon: BarChart3,
@@ -175,7 +174,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               <SidebarGroupLabel>Studio Management</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {menuItems.slice(0, 7).map((item) => (
+                  {menuItems.slice(0, 8).map((item) => (
                     <SidebarMenuItem key={item.href}>
                       <SidebarMenuButton
                         asChild
@@ -196,7 +195,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               <SidebarGroupLabel>Business Operations</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {menuItems.slice(7, 11).map((item) => (
+                  {menuItems.slice(8, 11).map((item) => (
                     <SidebarMenuItem key={item.href}>
                       <SidebarMenuButton
                         asChild

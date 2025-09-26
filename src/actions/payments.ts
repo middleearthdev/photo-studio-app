@@ -362,6 +362,116 @@ export async function getPaymentByExternalId(externalId: string): Promise<Paymen
 }
 
 
+// Complete payment (Lunas) - Create final payment and update reservation status
+export async function completePaymentAction(
+  reservationId: string,
+  paymentMethodId: string | null = null
+): Promise<ActionResult<Payment>> {
+  try {
+    const supabase = await createClient()
+
+    // Get current user to check permissions
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return { success: false, error: 'Unauthorized' }
+    }
+
+    // Get current user profile
+    const { data: currentProfile } = await supabase
+      .from('user_profiles')
+      .select('role, studio_id')
+      .eq('id', user.id)
+      .single()
+
+    if (!currentProfile || !['admin', 'cs'].includes(currentProfile.role)) {
+      return { success: false, error: 'Insufficient permissions' }
+    }
+
+    // Get reservation details with studio check for CS users
+    let reservationQuery = supabase
+      .from('reservations')
+      .select(`
+        id, booking_code, studio_id, customer_id, total_amount, dp_amount, 
+        remaining_amount, payment_status,
+        customer:customers(id, full_name, email, phone, is_guest)
+      `)
+      .eq('id', reservationId)
+
+    // CS users can only access their studio's reservations
+    if (currentProfile.role === 'cs') {
+      reservationQuery = reservationQuery.eq('studio_id', currentProfile.studio_id)
+    }
+
+    const { data: reservation, error: reservationError } = await reservationQuery.single()
+    
+    if (reservationError) {
+      console.error('Error fetching reservation:', reservationError)
+      return { success: false, error: 'Reservation not found' }
+    }
+
+    // Check if payment can be completed
+    if (reservation.payment_status === 'completed') {
+      return { success: false, error: 'Payment is already completed' }
+    }
+
+    // Calculate remaining amount to be paid
+    const remainingAmount = reservation.total_amount - reservation.dp_amount
+    
+    if (remainingAmount <= 0) {
+      return { success: false, error: 'No remaining amount to pay' }
+    }
+
+    // Create final payment record
+    const paymentData = {
+      reservation_id: reservationId,
+      payment_method_id: paymentMethodId,
+      amount: remainingAmount,
+      payment_type: 'remaining', // Remaining payment
+      status: 'completed' as PaymentStatus,
+      gateway_fee: 0,
+      net_amount: remainingAmount,
+      paid_at: new Date().toISOString(),
+    }
+
+    const { data: payment, error: paymentError } = await supabase
+      .from('payments')
+      .insert(paymentData)
+      .select(`
+        *,
+        reservation:reservations(
+          id, booking_code, customer_id, total_amount, reservation_date, studio_id,
+          customer:customers(full_name, email, phone),
+          guest_email,
+          guest_phone
+        ),
+        payment_method:payment_methods(id, name, type, provider)
+      `)
+      .single()
+
+    if (paymentError) {
+      console.error('Error creating payment:', paymentError)
+      return { success: false, error: 'Failed to create payment record' }
+    }
+
+    // Update reservation payment status to completed
+    const updateResult = await updateReservationPaymentStatus(reservationId, 'completed')
+    if (!updateResult.success) {
+      // If reservation update fails, we should ideally rollback the payment creation
+      console.error('Error updating reservation payment status:', updateResult.error)
+      return { success: false, error: 'Payment recorded but failed to update reservation status' }
+    }
+
+    revalidatePath('/admin/payments')
+    revalidatePath('/cs/reservations')
+    revalidatePath('/admin/reservations')
+    
+    return { success: true, data: payment }
+  } catch (error: any) {
+    console.error('Error in completePaymentAction:', error)
+    return { success: false, error: error.message || 'Failed to complete payment' }
+  }
+}
+
 // Create new payment with Xendit support
 export async function createPayment(data: CreatePaymentData): Promise<Payment> {
   const supabase = await createClient()

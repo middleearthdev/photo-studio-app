@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
-import { Calendar, Clock, User, Package as PackageIcon, DollarSign, Save, X, Plus, Minus } from "lucide-react"
+import { Calendar, User, Package as PackageIcon, DollarSign, Save, X, Plus, Minus, Search, Tag } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -26,8 +26,10 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "sonner"
 import { usePublicPackages } from "@/hooks/use-customer-packages"
 import { useAvailableTimeSlots } from "@/hooks/use-time-slots"
-import { createReservationAction } from "@/actions/reservations"
+import { useActivePaymentManualMethods } from "@/hooks/use-payment-methods"
+import { createManualReservationAction } from "@/actions/reservations"
 import { getPackageAddonsAction } from "@/actions/addons"
+import { getActiveDiscountsAction, validateDiscountAction, type Discount } from "@/actions/discounts"
 import type { Package } from "@/actions/customer-packages"
 import type { Addon } from "@/actions/addons"
 
@@ -37,6 +39,14 @@ interface SelectedAddon {
   price: number
   quantity: number
   max_quantity: number
+}
+
+interface SelectedDiscount {
+  id: string
+  name: string
+  type: 'percentage' | 'fixed_amount'
+  value: number
+  discount_amount: number
 }
 
 interface ManualBookingFormProps {
@@ -53,7 +63,7 @@ export function ManualBookingForm({ isOpen, onClose, onSuccess, studioId }: Manu
     // Customer info
     customer_name: '',
     customer_email: '',
-    customer_phone: '',
+    customer_whatsapp: '',
 
     // Booking details
     package_id: '',
@@ -65,14 +75,15 @@ export function ManualBookingForm({ isOpen, onClose, onSuccess, studioId }: Manu
     package_price: 0,
     dp_amount: 0,
     total_amount: 0,
+    discount_amount: 0,
 
     // Notes
     special_requests: '',
     internal_notes: '',
 
     // Payment
-    payment_status: 'pending' as 'pending' | 'partial' | 'completed',
-    payment_option: 'dp' as 'dp' | 'full' | 'none'
+    payment_status: 'partial' as 'partial' | 'completed',
+    payment_option: 'dp' as 'dp' | 'full'
   })
 
   const [availableAddons, setAvailableAddons] = useState<Addon[]>([])
@@ -80,9 +91,62 @@ export function ManualBookingForm({ isOpen, onClose, onSuccess, studioId }: Manu
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoadingAddons, setIsLoadingAddons] = useState(false)
   const [selectedPackage, setSelectedPackage] = useState<Package | null>(null)
+  const [packageSearch, setPackageSearch] = useState('')
+  const [paymentMethod, setPaymentMethod] = useState('')
+  const [customDpAmount, setCustomDpAmount] = useState('')
+
+  // Discount states
+  const [availableDiscounts, setAvailableDiscounts] = useState<Discount[]>([])
+  const [selectedDiscount, setSelectedDiscount] = useState<SelectedDiscount | null>(null)
+  const [isLoadingDiscounts, setIsLoadingDiscounts] = useState(false)
 
   // Use real API hooks
   const { data: packages = [], isLoading: packagesLoading } = usePublicPackages(studioId)
+  const { data: paymentMethods = [], isLoading: isLoadingPaymentMethods } = useActivePaymentManualMethods(studioId)
+
+  // Set default payment method to cash when payment methods are loaded
+  useEffect(() => {
+    if (paymentMethods.length > 0 && !paymentMethod) {
+      // Find cash payment method (assuming it has 'cash' in type or name)
+      const cashMethod = paymentMethods.find(method =>
+        method.type === 'cash' ||
+        method.name.toLowerCase().includes('cash') ||
+        method.name.toLowerCase().includes('tunai')
+      )
+      if (cashMethod) {
+        setPaymentMethod(cashMethod.id)
+      } else {
+        // If no cash method found, use first available method
+        setPaymentMethod(paymentMethods[0].id)
+      }
+    }
+  }, [paymentMethods, paymentMethod])
+
+  // Load discounts when component mounts
+  useEffect(() => {
+    const loadDiscounts = async () => {
+      try {
+        setIsLoadingDiscounts(true)
+        const result = await getActiveDiscountsAction(studioId)
+        if (result.success && result.data) {
+          setAvailableDiscounts(result.data)
+        }
+      } catch (error) {
+        console.error('Error loading discounts:', error)
+      } finally {
+        setIsLoadingDiscounts(false)
+      }
+    }
+
+    if (studioId) {
+      loadDiscounts()
+    }
+  }, [studioId])
+
+  // Filter packages based on search
+  const filteredPackages = packages.filter(pkg =>
+    pkg.name.toLowerCase().includes(packageSearch.toLowerCase())
+  )
   const {
     data: availableSlots = [],
     isLoading: isLoadingSlots
@@ -103,6 +167,82 @@ export function ManualBookingForm({ isOpen, onClose, onSuccess, studioId }: Manu
     }
   }, [formData.package_id])
 
+  // Sync selectedAddons with availableAddons data when addons are loaded
+  useEffect(() => {
+    if (availableAddons.length > 0 && selectedAddons.length > 0) {
+      setSelectedAddons(prevSelected =>
+        prevSelected.map(selectedAddon => {
+          const availableAddon = availableAddons.find(a => a.id === selectedAddon.id)
+          if (availableAddon) {
+            const isIncluded = availableAddon.package_addon?.is_included
+            const finalPrice = isIncluded ? 0 : (availableAddon.package_addon?.final_price !== undefined ? availableAddon.package_addon.final_price : availableAddon.price)
+            return {
+              ...selectedAddon,
+              price: finalPrice
+            }
+          }
+          return selectedAddon
+        })
+      )
+    }
+  }, [availableAddons])
+
+  // Recalculate pricing when addons, package price, or discount changes
+  useEffect(() => {
+    if (formData.package_price > 0) { // Only recalculate if package is selected
+      const addonTotal = selectedAddons.reduce((sum, addon) => sum + (addon.price * addon.quantity), 0)
+      const subtotal = formData.package_price + addonTotal
+      
+      
+      const totalAmount = Math.max(0, subtotal - formData.discount_amount) // Ensure total is never negative
+
+      // Only update if values are different to avoid infinite loops
+      if (Math.abs(formData.total_amount - totalAmount) > 0.01) {
+        const currentDpAmount = formData.dp_amount
+        let newDpAmount = currentDpAmount
+        let paymentStatus: 'partial' | 'completed' = currentDpAmount >= totalAmount ? 'completed' : 'partial'
+
+        // Adjust DP amount based on payment option
+        if (formData.payment_option === 'full') {
+          newDpAmount = totalAmount
+          paymentStatus = 'completed'
+          setCustomDpAmount(totalAmount.toString())
+        } else if (formData.payment_option === 'dp') {
+          // If in DP mode, auto-adjust DP based on new total (especially when discount is applied)
+          const dpPercentage = (selectedPackage?.dp_percentage || 50) / 100
+          const calculatedDp = Math.floor(totalAmount * dpPercentage)
+          
+          // Always recalculate DP when total changes - this is expected behavior when discount is applied
+          newDpAmount = calculatedDp
+          setCustomDpAmount(calculatedDp.toString())
+          
+          paymentStatus = newDpAmount >= totalAmount ? 'completed' : 'partial'
+        }
+
+        setFormData(prev => ({
+          ...prev,
+          total_amount: totalAmount,
+          dp_amount: newDpAmount,
+          payment_status: paymentStatus
+        }))
+      }
+    }
+  }, [selectedAddons, formData.package_price, formData.discount_amount, formData.payment_option])
+
+  // Separate useEffect to handle discount revalidation when addons change
+  useEffect(() => {
+    if (selectedDiscount && formData.discount_amount > 0 && formData.package_price > 0) {
+      const addonTotal = selectedAddons.reduce((sum, addon) => sum + (addon.price * addon.quantity), 0)
+      const newSubtotal = formData.package_price + addonTotal
+      const currentSubtotal = formData.total_amount + formData.discount_amount
+      
+      // Only revalidate if subtotal actually changed
+      if (Math.abs(newSubtotal - currentSubtotal) > 0.01) {
+        handleDiscountRevalidation(newSubtotal)
+      }
+    }
+  }, [selectedAddons]) // Only trigger when addons change
+
   const loadPackageAddons = async (packageId: string) => {
     try {
       setIsLoadingAddons(true)
@@ -121,26 +261,116 @@ export function ManualBookingForm({ isOpen, onClose, onSuccess, studioId }: Manu
     }
   }
 
+  // Handle discount revalidation when subtotal changes
+  const handleDiscountRevalidation = async (newSubtotal: number) => {
+    if (!selectedDiscount) return
+
+    try {
+      const validation = await validateDiscountAction(selectedDiscount.id, newSubtotal, studioId)
+      
+      if (validation.success && validation.data?.is_valid) {
+        const newDiscountAmount = validation.data.discount_amount
+
+        // Update discount amount if it changed
+        if (newDiscountAmount !== selectedDiscount.discount_amount) {
+          setSelectedDiscount(prev => prev ? {
+            ...prev,
+            discount_amount: newDiscountAmount
+          } : null)
+
+          setFormData(prev => ({
+            ...prev,
+            discount_amount: newDiscountAmount
+          }))
+        }
+      } else {
+        // If discount becomes invalid, remove it
+        toast.warning(`Discount "${selectedDiscount.name}" tidak valid untuk total baru: ${validation.data?.error_message || 'Unknown error'}`)
+        setSelectedDiscount(null)
+        setFormData(prev => ({ ...prev, discount_amount: 0 }))
+      }
+    } catch (error) {
+      console.error('Error revalidating discount:', error)
+      // Keep current discount on error
+    }
+  }
+
+  // Handle discount selection
+  const handleDiscountSelect = async (discountId: string) => {
+    if (!discountId || discountId === 'no-discount') {
+      setSelectedDiscount(null)
+      setFormData(prev => ({ ...prev, discount_amount: 0 }))
+      return
+    }
+
+    const discount = availableDiscounts.find(d => d.id === discountId)
+    if (!discount) return
+
+    try {
+      // Calculate subtotal (package + addons) before discount
+      const addonTotal = selectedAddons.reduce((sum, addon) => sum + (addon.price * addon.quantity), 0)
+      const subtotal = formData.package_price + addonTotal
+
+      // Validate discount
+      const validation = await validateDiscountAction(discountId, subtotal, studioId)
+
+      if (validation.success && validation.data?.is_valid) {
+        const discountAmount = validation.data.discount_amount
+
+        setSelectedDiscount({
+          id: discount.id,
+          name: discount.name,
+          type: discount.type,
+          value: discount.value,
+          discount_amount: discountAmount
+        })
+
+        setFormData(prev => ({
+          ...prev,
+          discount_amount: discountAmount
+        }))
+
+        toast.success(`Discount applied: ${discount.name}`)
+      } else {
+        toast.error(validation.data?.error_message || 'Invalid discount')
+        setSelectedDiscount(null)
+      }
+    } catch (error) {
+      console.error('Error validating discount:', error)
+      toast.error('Failed to apply discount')
+      setSelectedDiscount(null)
+    }
+  }
+
 
   const handlePackageSelect = (packageId: string) => {
     const pkg = packages.find(p => p.id === packageId)
     if (pkg) {
       setSelectedPackage(pkg)
 
-      // Reset addons when package changes
+      // Reset addons and discount when package changes
       setSelectedAddons([])
+      setSelectedDiscount(null)
 
       // Recalculate pricing
       const addonTotal = 0 // No addons selected yet
       const totalAmount = pkg.price + addonTotal
+
+      // Use package DP percentage or default 50%
+      const dpPercentage = (pkg.dp_percentage || 50) / 100
+      const initialDpAmount = Math.floor(totalAmount * dpPercentage)
 
       setFormData(prev => ({
         ...prev,
         package_id: packageId,
         package_price: pkg.price,
         total_amount: totalAmount,
-        dp_amount: Math.floor(totalAmount * (pkg.dp_percentage || 30) / 100)
+        dp_amount: initialDpAmount,
+        discount_amount: 0 // Reset discount amount
       }))
+
+      // Set custom DP amount for display
+      setCustomDpAmount(initialDpAmount.toString())
     }
   }
 
@@ -159,21 +389,23 @@ export function ManualBookingForm({ isOpen, onClose, onSuccess, studioId }: Manu
     }))
   }
 
-  const handlePaymentOptionChange = (option: 'dp' | 'full' | 'none') => {
+  const handlePaymentOptionChange = (option: 'dp' | 'full') => {
     let dpAmount = 0
-    let paymentStatus: 'pending' | 'partial' | 'completed' = 'pending'
-    
+    let paymentStatus: 'partial' | 'completed' = 'partial'
+
     if (option === 'dp') {
-      dpAmount = Math.floor(formData.total_amount * (selectedPackage?.dp_percentage || 30) / 100)
+      // Use package DP percentage or default 50% of total after discount
+      const dpPercentage = (selectedPackage?.dp_percentage || 50) / 100
+      const calculatedDp = Math.floor(formData.total_amount * dpPercentage)
+      dpAmount = calculatedDp
       paymentStatus = 'partial'
+      setCustomDpAmount(dpAmount.toString())
     } else if (option === 'full') {
       dpAmount = formData.total_amount
       paymentStatus = 'completed'
-    } else {
-      dpAmount = 0
-      paymentStatus = 'pending'
+      setCustomDpAmount(dpAmount.toString())
     }
-    
+
     setFormData(prev => ({
       ...prev,
       payment_option: option,
@@ -184,13 +416,42 @@ export function ManualBookingForm({ isOpen, onClose, onSuccess, studioId }: Manu
 
   const handleDpChange = (value: string) => {
     const dpAmount = parseInt(value) || 0
-    const paymentStatus = dpAmount >= formData.total_amount ? 'completed' : dpAmount > 0 ? 'partial' : 'pending'
+    const dpPercentage = selectedPackage?.dp_percentage || 50
+    const minimumDp = Math.floor(formData.total_amount * (dpPercentage / 100))
+
+    // Validate minimum DP requirement for DP option
+    if (formData.payment_option === 'dp' && dpAmount > 0 && dpAmount < minimumDp) {
+      toast.error(`DP minimum adalah ${dpPercentage}% dari total setelah diskon (${formatCurrency(minimumDp)})`)
+      return
+    }
+
+    const paymentStatus = dpAmount >= formData.total_amount ? 'completed' : 'partial'
 
     setFormData(prev => ({
       ...prev,
       dp_amount: dpAmount,
-      payment_status: paymentStatus,
-      payment_option: dpAmount === formData.total_amount ? 'full' : dpAmount > 0 ? 'dp' : 'none'
+      payment_status: paymentStatus
+    }))
+  }
+
+  const handleCustomDpChange = (value: string) => {
+    setCustomDpAmount(value)
+    const dpAmount = parseInt(value) || 0
+    const dpPercentage = selectedPackage?.dp_percentage || 50
+    const minimumDp = Math.floor(formData.total_amount * (dpPercentage / 100))
+
+    // Validate minimum DP requirement for DP option (calculated from total after discount)
+    if (formData.payment_option === 'dp' && dpAmount < minimumDp && dpAmount > 0) {
+      toast.error(`DP minimum adalah ${dpPercentage}% dari total setelah diskon (${formatCurrency(minimumDp)})`)
+      return
+    }
+
+    const paymentStatus = dpAmount >= formData.total_amount ? 'completed' : 'partial'
+
+    setFormData(prev => ({
+      ...prev,
+      dp_amount: dpAmount,
+      payment_status: paymentStatus
     }))
   }
 
@@ -200,16 +461,17 @@ export function ManualBookingForm({ isOpen, onClose, onSuccess, studioId }: Manu
       // Remove addon
       setSelectedAddons(prev => prev.filter(a => a.id !== addon.id))
     } else {
-      // Add addon
+      // Add addon - if is_included is true, price should be 0 for calculation
+      const isIncluded = addon.package_addon?.is_included
+      const finalPrice = isIncluded ? 0 : (addon.package_addon?.final_price !== undefined ? addon.package_addon.final_price : addon.price)
       setSelectedAddons(prev => [...prev, {
         id: addon.id,
         name: addon.name,
-        price: addon.package_addon?.final_price || addon.price,
+        price: finalPrice,
         quantity: 1,
         max_quantity: addon.max_quantity
       }])
     }
-    recalculatePricing()
   }
 
   const handleAddonQuantityChange = (addonId: string, newQuantity: number) => {
@@ -220,29 +482,14 @@ export function ManualBookingForm({ isOpen, onClose, onSuccess, studioId }: Manu
           : addon
       )
     )
-    recalculatePricing()
   }
 
-  const recalculatePricing = () => {
-    setTimeout(() => {
-      const addonTotal = selectedAddons.reduce((sum, addon) => sum + (addon.price * addon.quantity), 0)
-      const totalAmount = formData.package_price + addonTotal
-      const dpAmount = formData.dp_amount // Keep current DP amount
-      const paymentStatus = dpAmount >= totalAmount ? 'completed' : dpAmount > 0 ? 'partial' : 'pending'
-
-      setFormData(prev => ({
-        ...prev,
-        total_amount: totalAmount,
-        payment_status: paymentStatus
-      }))
-    }, 0)
-  }
 
   const validateForm = () => {
     const required = [
       'customer_name',
       'customer_email',
-      'customer_phone',
+      'customer_whatsapp',
       'package_id',
       'reservation_date',
       'start_time'
@@ -255,9 +502,9 @@ export function ManualBookingForm({ isOpen, onClose, onSuccess, studioId }: Manu
       }
     }
 
-    // Validate phone format
-    if (!/^[0-9+\-\s()]+$/.test(formData.customer_phone)) {
-      toast.error("Invalid phone number format")
+    // Validate WhatsApp format
+    if (!/^[0-9+\-\s()]+$/.test(formData.customer_whatsapp)) {
+      toast.error("Invalid WhatsApp number format")
       return false
     }
 
@@ -265,6 +512,22 @@ export function ManualBookingForm({ isOpen, onClose, onSuccess, studioId }: Manu
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.customer_email)) {
       toast.error("Invalid email format")
       return false
+    }
+
+    // Validate payment method selection
+    if (!paymentMethod) {
+      toast.error("Pilih metode pembayaran")
+      return false
+    }
+
+    // Validate DP amount for DP option
+    if (formData.payment_option === 'dp') {
+      const dpPercentage = selectedPackage?.dp_percentage || 50
+      const minimumDp = Math.floor(formData.total_amount * (dpPercentage / 100))
+      if (formData.dp_amount < minimumDp) {
+        toast.error(`DP minimum adalah ${dpPercentage}% dari total setelah diskon (${formatCurrency(minimumDp)})`)
+        return false
+      }
     }
 
     return true
@@ -297,7 +560,7 @@ export function ManualBookingForm({ isOpen, onClose, onSuccess, studioId }: Manu
         package_id: formData.package_id,
         customer_name: formData.customer_name,
         customer_email: formData.customer_email || undefined,
-        customer_phone: formData.customer_phone,
+        customer_phone: formData.customer_whatsapp,
         is_guest_booking: true,
         reservation_date: formData.reservation_date,
         start_time: formData.start_time,
@@ -307,9 +570,16 @@ export function ManualBookingForm({ isOpen, onClose, onSuccess, studioId }: Manu
         dp_percentage: selectedPackage.dp_percentage || 30,
         total_addons_price: totalAddonsPrice,
         special_requests: formData.special_requests || undefined,
+        internal_notes: formData.internal_notes || undefined,
+        payment_method: paymentMethod || undefined,
+        payment_status: formData.payment_status, // partial for DP, completed for full payment
+        dp_amount: formData.dp_amount,
+        // Discount data
+        discount_id: selectedDiscount?.id || undefined,
+        discount_amount: formData.discount_amount,
       }
 
-      const result = await createReservationAction(reservationData)
+      const result = await createManualReservationAction(reservationData)
 
       if (result.success) {
         toast.success("Manual booking berhasil dibuat")
@@ -332,7 +602,7 @@ export function ManualBookingForm({ isOpen, onClose, onSuccess, studioId }: Manu
     setFormData({
       customer_name: '',
       customer_email: '',
-      customer_phone: '',
+      customer_whatsapp: '',
       package_id: '',
       reservation_date: '',
       start_time: '',
@@ -340,14 +610,19 @@ export function ManualBookingForm({ isOpen, onClose, onSuccess, studioId }: Manu
       package_price: 0,
       dp_amount: 0,
       total_amount: 0,
+      discount_amount: 0,
       special_requests: '',
       internal_notes: '',
-      payment_status: 'pending',
+      payment_status: 'partial',
       payment_option: 'dp'
     })
     setSelectedPackage(null)
     setSelectedAddons([])
     setAvailableAddons([])
+    setPackageSearch('')
+    setPaymentMethod('')
+    setCustomDpAmount('')
+    setSelectedDiscount(null)
   }
 
   const formatCurrency = (amount: number) => {
@@ -356,6 +631,28 @@ export function ManualBookingForm({ isOpen, onClose, onSuccess, studioId }: Manu
       currency: 'IDR',
       minimumFractionDigits: 0,
     }).format(amount)
+  }
+
+  const formatPhoneNumber = (value: string) => {
+    // Remove all non-numeric characters except + at the beginning
+    const cleaned = value.replace(/[^\d+]/g, '')
+
+    // If starts with 0, replace with +62
+    if (cleaned.startsWith('0')) {
+      return '+62' + cleaned.slice(1)
+    }
+
+    // If starts with 62, add +
+    if (cleaned.startsWith('62') && !cleaned.startsWith('+62')) {
+      return '+' + cleaned
+    }
+
+    return cleaned
+  }
+
+  const handleWhatsAppChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatPhoneNumber(e.target.value)
+    setFormData(prev => ({ ...prev, customer_whatsapp: formatted }))
   }
 
   return (
@@ -393,14 +690,20 @@ export function ManualBookingForm({ isOpen, onClose, onSuccess, studioId }: Manu
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="customer_phone">Phone Number *</Label>
-                  <Input
-                    id="customer_phone"
-                    value={formData.customer_phone}
-                    onChange={(e) => setFormData(prev => ({ ...prev, customer_phone: e.target.value }))}
-                    placeholder="08xxxxxxxxxx"
-                    className="w-full"
-                  />
+                  <Label htmlFor="customer_whatsapp">WhatsApp Number *</Label>
+                  <div className="relative">
+                    <Input
+                      id="customer_whatsapp"
+                      type="tel"
+                      value={formData.customer_whatsapp || ''}
+                      onChange={handleWhatsAppChange}
+                      placeholder="+62 xxx xxx xxxx"
+                      className="w-full pl-3"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Nomor WhatsApp untuk konfirmasi booking
+                  </p>
                 </div>
               </div>
               <div className="space-y-2">
@@ -425,17 +728,31 @@ export function ManualBookingForm({ isOpen, onClose, onSuccess, studioId }: Manu
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="package_search">Search Package</Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="package_search"
+                    type="text"
+                    value={packageSearch}
+                    onChange={(e) => setPackageSearch(e.target.value)}
+                    placeholder="Cari nama paket..."
+                    className="pl-10"
+                  />
+                </div>
+              </div>
               {packagesLoading ? (
                 <div className="flex justify-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                 </div>
-              ) : packages.length === 0 ? (
+              ) : filteredPackages.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
-                  Tidak ada paket tersedia
+                  {packageSearch ? 'Tidak ada paket yang sesuai dengan pencarian' : 'Tidak ada paket tersedia'}
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
-                  {packages.map((pkg) => (
+                  {filteredPackages.map((pkg) => (
                     <div
                       key={pkg.id}
                       className={`p-4 border rounded-lg cursor-pointer transition-colors ${formData.package_id === pkg.id
@@ -557,9 +874,10 @@ export function ManualBookingForm({ isOpen, onClose, onSuccess, studioId }: Manu
                     {availableAddons.map((addon) => {
                       const selectedAddon = selectedAddons.find(sa => sa.id === addon.id)
                       const isSelected = !!selectedAddon
-                      const finalPrice = addon.package_addon?.final_price || addon.price
+                      const finalPrice = addon.package_addon?.final_price !== undefined ? addon.package_addon.final_price : addon.price
                       const originalPrice = addon.price
                       const hasDiscount = addon.package_addon?.discount_percentage && addon.package_addon.discount_percentage > 0
+                      const isIncluded = addon.package_addon?.is_included
 
                       return (
                         <div
@@ -584,10 +902,16 @@ export function ManualBookingForm({ isOpen, onClose, onSuccess, studioId }: Manu
                                     </div>
                                   )}
                                   <div className="flex flex-wrap items-center gap-2 mt-2">
-                                    <div className="text-sm font-semibold text-green-600 whitespace-nowrap">
-                                      {formatCurrency(finalPrice)}
-                                    </div>
-                                    {hasDiscount && (
+                                    {isIncluded ? (
+                                      <Badge variant="outline" className="text-xs whitespace-nowrap border-green-500 text-green-600 bg-green-50">
+                                        Gratis
+                                      </Badge>
+                                    ) : (
+                                      <div className="text-sm font-semibold text-green-600 whitespace-nowrap">
+                                        {formatCurrency(finalPrice)}
+                                      </div>
+                                    )}
+                                    {hasDiscount && !isIncluded && (
                                       <>
                                         <div className="text-xs text-gray-400 line-through whitespace-nowrap">
                                           {formatCurrency(originalPrice)}
@@ -642,6 +966,82 @@ export function ManualBookingForm({ isOpen, onClose, onSuccess, studioId }: Manu
             </Card>
           )}
 
+          {/* Discount Selection */}
+          {selectedPackage && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Tag className="h-4 w-4" />
+                  Discount (Optional)
+                </CardTitle>
+                <CardDescription>
+                  Apply discount to reduce the total amount
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoadingDiscounts ? (
+                  <div className="flex justify-center py-4">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <Label htmlFor="discount_select">Select Discount</Label>
+                    <Select
+                      value={selectedDiscount?.id || 'no-discount'}
+                      onValueChange={handleDiscountSelect}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="No discount selected" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="no-discount">No Discount</SelectItem>
+                        {availableDiscounts.map((discount) => (
+                          <SelectItem key={discount.id} value={discount.id}>
+                            <div className="flex items-center justify-between w-full">
+                              <div>
+                                <div className="font-medium">{discount.name}</div>
+                                <div className="text-xs text-gray-500">
+                                  {discount.type === 'percentage'
+                                    ? `${discount.value}% off`
+                                    : `${formatCurrency(discount.value)} off`
+                                  }
+                                  {discount.minimum_amount > 0 &&
+                                    ` (Min: ${formatCurrency(discount.minimum_amount)})`
+                                  }
+                                </div>
+                              </div>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    {selectedDiscount && (
+                      <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="font-medium text-green-800">{selectedDiscount.name}</div>
+                            <div className="text-sm text-green-600">
+                              {selectedDiscount.type === 'percentage'
+                                ? `${selectedDiscount.value}% discount`
+                                : `${formatCurrency(selectedDiscount.value)} discount`
+                              }
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-lg font-bold text-green-700">
+                              -{formatCurrency(selectedDiscount.discount_amount)}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           {/* Payment Information */}
           {selectedPackage && (
             <Card>
@@ -655,37 +1055,24 @@ export function ManualBookingForm({ isOpen, onClose, onSuccess, studioId }: Manu
                 {/* Payment Option Selection */}
                 <div className="space-y-3">
                   <Label>Payment Option</Label>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div 
-                      className={`p-3 border rounded-lg cursor-pointer transition-colors ${
-                        formData.payment_option === 'none' 
-                          ? 'border-orange-500 bg-orange-50' 
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                      onClick={() => handlePaymentOptionChange('none')}
-                    >
-                      <div className="font-medium text-sm">Belum Bayar</div>
-                      <div className="text-xs text-gray-500 mt-1">Customer belum melakukan pembayaran</div>
-                    </div>
-                    <div 
-                      className={`p-3 border rounded-lg cursor-pointer transition-colors ${
-                        formData.payment_option === 'dp' 
-                          ? 'border-blue-500 bg-blue-50' 
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div
+                      className={`p-4 border rounded-lg cursor-pointer transition-colors ${formData.payment_option === 'dp'
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                        }`}
                       onClick={() => handlePaymentOptionChange('dp')}
                     >
                       <div className="font-medium text-sm">Bayar DP</div>
                       <div className="text-xs text-gray-500 mt-1">
-                        {selectedPackage?.dp_percentage || 30}% dari total ({formatCurrency(Math.floor(formData.total_amount * (selectedPackage?.dp_percentage || 30) / 100))})
+                        Minimum {selectedPackage?.dp_percentage || 50}% dari total setelah diskon (Min: {formatCurrency(Math.floor(formData.total_amount * ((selectedPackage?.dp_percentage || 50) / 100)))})
                       </div>
                     </div>
-                    <div 
-                      className={`p-3 border rounded-lg cursor-pointer transition-colors ${
-                        formData.payment_option === 'full' 
-                          ? 'border-green-500 bg-green-50' 
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
+                    <div
+                      className={`p-4 border rounded-lg cursor-pointer transition-colors ${formData.payment_option === 'full'
+                        ? 'border-green-500 bg-green-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                        }`}
                       onClick={() => handlePaymentOptionChange('full')}
                     >
                       <div className="font-medium text-sm">Bayar Lunas</div>
@@ -694,6 +1081,41 @@ export function ManualBookingForm({ isOpen, onClose, onSuccess, studioId }: Manu
                       </div>
                     </div>
                   </div>
+                </div>
+
+                {/* Payment Method Selection */}
+                <div className="space-y-3">
+                  <Label htmlFor="payment_method">Payment Method *</Label>
+                  {isLoadingPaymentMethods ? (
+                    <div className="flex justify-center py-4">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                    </div>
+                  ) : paymentMethods.length === 0 ? (
+                    <div className="text-center py-4 text-gray-500 text-sm">
+                      Tidak ada metode pembayaran tersedia
+                    </div>
+                  ) : (
+                    <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Pilih metode pembayaran" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {paymentMethods.map((method) => (
+                          <SelectItem key={method.id} value={method.id}>
+                            <div className="flex items-center gap-2">
+                              <span>{method.type === 'bank_transfer' ? '🏦' : method.type === 'e_wallet' ? '💳' : '💰'}</span>
+                              <div>
+                                <div className="font-medium">{method.name}</div>
+                                <div className="text-xs text-gray-500">
+                                  {method.provider} • {method.type.replace('_', ' ')}
+                                </div>
+                              </div>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -705,22 +1127,27 @@ export function ManualBookingForm({ isOpen, onClose, onSuccess, studioId }: Manu
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="dp_amount">
-                      {formData.payment_option === 'full' ? 'Payment Amount (Full)' : 
-                       formData.payment_option === 'dp' ? 'Down Payment (DP)' : 
-                       'Payment Amount'}
+                      {formData.payment_option === 'full' ? 'Payment Amount (Full)' : 'Down Payment (DP)'}
                     </Label>
                     <Input
                       id="dp_amount"
                       type="number"
-                      value={formData.dp_amount}
-                      onChange={(e) => handleDpChange(e.target.value)}
+                      value={formData.payment_option === 'dp' ? customDpAmount : formData.dp_amount}
+                      onChange={(e) => formData.payment_option === 'dp' ? handleCustomDpChange(e.target.value) : handleDpChange(e.target.value)}
                       placeholder="0"
                       className="w-full"
-                      readOnly={formData.payment_option !== 'none'}
+                      readOnly={formData.payment_option === 'full'}
+                      min={formData.payment_option === 'dp' ? Math.floor(formData.total_amount * ((selectedPackage?.dp_percentage || 50) / 100)) : 0}
+                      max={formData.total_amount}
                     />
-                    {formData.payment_option !== 'none' && (
+                    {formData.payment_option === 'dp' && (
                       <div className="text-xs text-gray-500">
-                        Amount automatically set based on payment option
+                        Minimum DP: {formatCurrency(Math.floor(formData.total_amount * ((selectedPackage?.dp_percentage || 50) / 100)))} ({selectedPackage?.dp_percentage || 50}% dari total setelah diskon)
+                      </div>
+                    )}
+                    {formData.payment_option === 'full' && (
+                      <div className="text-xs text-gray-500">
+                        Amount automatically set to full payment
                       </div>
                     )}
                   </div>
@@ -751,6 +1178,14 @@ export function ManualBookingForm({ isOpen, onClose, onSuccess, studioId }: Manu
                       <span>Add-ons ({selectedAddons.length}):</span>
                       <span className="font-medium break-all text-right">
                         {formatCurrency(selectedAddons.reduce((sum, addon) => sum + (addon.price * addon.quantity), 0))}
+                      </span>
+                    </div>
+                  )}
+                  {formData.discount_amount > 0 && (
+                    <div className="flex justify-between items-center mb-2">
+                      <span>Discount:</span>
+                      <span className="font-medium break-all text-right text-green-600">
+                        -{formatCurrency(formData.discount_amount)}
                       </span>
                     </div>
                   )}

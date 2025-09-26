@@ -11,6 +11,7 @@ import {
   deletePayment,
   getPaymentStats,
   getPaymentMethods,
+  completePaymentAction,
   type CreatePaymentData,
   type UpdatePaymentData,
   type PaymentStatus
@@ -162,6 +163,29 @@ export function useDeletePayment() {
     },
     onError: (error: Error) => {
       toast.error(`Gagal menghapus payment: ${error.message}`)
+    },
+  })
+}
+
+// Complete payment (Lunas) mutation
+export function useCompletePayment() {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: ({ reservationId, paymentMethodId }: { reservationId: string; paymentMethodId?: string }) => 
+      completePaymentAction(reservationId, paymentMethodId),
+    onSuccess: (result) => {
+      if (result.success) {
+        toast.success('Pembayaran berhasil diselesaikan (Lunas)')
+        // Invalidate all relevant queries
+        queryClient.invalidateQueries({ queryKey: paymentKeys.all })
+        queryClient.invalidateQueries({ queryKey: ['reservations'] }) // Also invalidate reservations
+      } else {
+        toast.error(result.error || 'Gagal menyelesaikan pembayaran')
+      }
+    },
+    onError: (error: Error) => {
+      toast.error(`Gagal menyelesaikan pembayaran: ${error.message}`)
     },
   })
 }

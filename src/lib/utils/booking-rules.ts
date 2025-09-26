@@ -19,13 +19,13 @@ export interface DeadlineInfo {
 export function getDaysUntilReservation(reservationDate: string): number {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
-  
+
   const eventDate = new Date(reservationDate)
   eventDate.setHours(0, 0, 0, 0)
-  
+
   const diffTime = eventDate.getTime() - today.getTime()
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-  
+
   return diffDays
 }
 
@@ -34,27 +34,27 @@ export function getDaysUntilReservation(reservationDate: string): number {
  */
 export function canCompletePayment(reservation: Reservation): BusinessRuleResult {
   const daysRemaining = getDaysUntilReservation(reservation.reservation_date)
-  
+
   if (reservation.payment_status === 'completed') {
     return { allowed: false, reason: 'Pembayaran sudah lunas' }
   }
-  
+
   if (daysRemaining < 3) {
-    return { 
-      allowed: false, 
+    return {
+      allowed: false,
       reason: 'Batas waktu pelunasan maksimal H-3 sudah terlewat',
-      daysRemaining 
+      daysRemaining
     }
   }
-  
+
   if (reservation.remaining_amount <= 0) {
     return { allowed: false, reason: 'Tidak ada sisa pembayaran' }
   }
-  
-  return { 
-    allowed: true, 
+
+  return {
+    allowed: true,
     reason: `Masih ${daysRemaining} hari untuk melunasi`,
-    daysRemaining 
+    daysRemaining
   }
 }
 
@@ -63,26 +63,26 @@ export function canCompletePayment(reservation: Reservation): BusinessRuleResult
  */
 export function canRescheduleBooking(reservation: Reservation): BusinessRuleResult {
   const daysRemaining = getDaysUntilReservation(reservation.reservation_date)
-  
+
   if (['completed', 'cancelled'].includes(reservation.status)) {
-    return { 
-      allowed: false, 
-      reason: `Tidak dapat reschedule booking yang sudah ${reservation.status}` 
+    return {
+      allowed: false,
+      reason: `Tidak dapat reschedule booking yang sudah ${reservation.status}`
     }
   }
-  
+
   if (daysRemaining < 3) {
-    return { 
-      allowed: false, 
+    return {
+      allowed: false,
       reason: 'Batas waktu reschedule maksimal H-3 sudah terlewat',
-      daysRemaining 
+      daysRemaining
     }
   }
-  
-  return { 
-    allowed: true, 
+
+  return {
+    allowed: true,
     reason: `Masih ${daysRemaining} hari untuk reschedule`,
-    daysRemaining 
+    daysRemaining
   }
 }
 
@@ -101,14 +101,14 @@ export function getCancellationInfo(reservation: Reservation): {
       message: `Booking sudah ${reservation.status}`
     }
   }
-  
+
   const daysRemaining = getDaysUntilReservation(reservation.reservation_date)
   const hasPaid = ['partial', 'completed'].includes(reservation.payment_status)
-  
+
   return {
     canCancel: true,
     dpPolicy: hasPaid ? 'hangus' : 'refund',
-    message: hasPaid 
+    message: hasPaid
       ? `⚠️ Pembatalan: DP sebesar ${formatCurrency(reservation.dp_amount)} akan HANGUS dan tidak dikembalikan`
       : 'Booking dapat dibatalkan tanpa penalti karena belum ada pembayaran'
   }
@@ -119,11 +119,11 @@ export function getCancellationInfo(reservation: Reservation): {
  */
 export function getDeadlineInfo(reservation: Reservation): DeadlineInfo {
   const daysRemaining = getDaysUntilReservation(reservation.reservation_date)
-  
+
   let message = ''
   let isUrgent = false
   let isPastDeadline = false
-  
+
   if (daysRemaining < 0) {
     message = `Event sudah lewat ${Math.abs(daysRemaining)} hari`
     isPastDeadline = true
@@ -138,14 +138,14 @@ export function getDeadlineInfo(reservation: Reservation): DeadlineInfo {
     message = `${daysRemaining} hari lagi (H-2)`
     isUrgent = true
   } else if (daysRemaining === 3) {
-    message = `${daysRemaining} hari lagi (batas reschedule & pelunasan)`
+    message = `${daysRemaining} hari lagi`
     isUrgent = true
   } else if (daysRemaining <= 7) {
     message = `${daysRemaining} hari lagi`
   } else {
     message = `${daysRemaining} hari lagi`
   }
-  
+
   return {
     daysRemaining,
     isUrgent,
@@ -168,12 +168,12 @@ export function generateWhatsAppMessage(reservation: Reservation, type: 'payment
   })
   const eventTime = `${reservation.start_time} - ${reservation.end_time}`
   const daysRemaining = getDaysUntilReservation(reservation.reservation_date)
-  
+
   const baseMessage = `Halo ${customerName}!\n\n` +
     `Booking Code: *${bookingCode}*\n` +
     `Tanggal: *${eventDate}*\n` +
     `Waktu: *${eventTime}*\n\n`
-  
+
   switch (type) {
     case 'payment':
       return baseMessage +
@@ -182,14 +182,14 @@ export function generateWhatsAppMessage(reservation: Reservation, type: 'payment
         `Batas pelunasan: *H-3 (${daysRemaining} hari lagi)*\n\n` +
         `Mohon segera lakukan pelunasan agar booking Anda terkonfirmasi.\n\n` +
         `Terima kasih! 🙏`
-    
+
     case 'reschedule':
       return baseMessage +
         `📅 *INFO RESCHEDULE*\n\n` +
         `Jika Anda perlu mengubah jadwal, mohon konfirmasi maksimal *H-3* (${daysRemaining} hari lagi).\n\n` +
         `Setelah H-3, reschedule tidak dapat dilakukan.\n\n` +
         `Hubungi kami untuk reschedule. Terima kasih! 🙏`
-    
+
     case 'confirmation':
       return baseMessage +
         `✅ *KONFIRMASI BOOKING*\n\n` +
@@ -197,7 +197,7 @@ export function generateWhatsAppMessage(reservation: Reservation, type: 'payment
         `Mohon datang tepat waktu pada jadwal yang telah ditentukan.\n\n` +
         `Jika ada pertanyaan, jangan ragu untuk menghubungi kami.\n\n` +
         `Terima kasih! 🙏`
-    
+
     default:
       return baseMessage + `Terima kasih atas booking Anda! 🙏`
   }
@@ -209,14 +209,14 @@ export function generateWhatsAppMessage(reservation: Reservation, type: 'payment
 export function getWhatsAppURL(phoneNumber: string, message: string): string {
   // Clean phone number (remove spaces, dashes, etc)
   const cleanPhone = phoneNumber.replace(/\D/g, '')
-  
+
   // Add country code if not present
-  const formattedPhone = cleanPhone.startsWith('62') 
-    ? cleanPhone 
+  const formattedPhone = cleanPhone.startsWith('62')
+    ? cleanPhone
     : cleanPhone.startsWith('0')
-    ? '62' + cleanPhone.substring(1)
-    : '62' + cleanPhone
-  
+      ? '62' + cleanPhone.substring(1)
+      : '62' + cleanPhone
+
   const encodedMessage = encodeURIComponent(message)
   return `https://wa.me/${formattedPhone}?text=${encodedMessage}`
 }
@@ -242,22 +242,22 @@ export function getBookingPriority(reservation: Reservation): {
 } {
   const daysRemaining = getDaysUntilReservation(reservation.reservation_date)
   const needsPayment = reservation.payment_status !== 'completed' && reservation.remaining_amount > 0
-  
+
   if (daysRemaining <= 0) {
     return { priority: 'urgent', color: 'red', label: 'URGENT' }
   }
-  
+
   if (daysRemaining <= 2) {
     return { priority: 'urgent', color: 'red', label: 'URGENT' }
   }
-  
+
   if (daysRemaining === 3 && needsPayment) {
     return { priority: 'high', color: 'orange', label: 'HIGH' }
   }
-  
+
   if (daysRemaining <= 7) {
     return { priority: 'medium', color: 'yellow', label: 'MEDIUM' }
   }
-  
+
   return { priority: 'low', color: 'green', label: 'LOW' }
 }
