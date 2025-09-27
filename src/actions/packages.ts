@@ -12,8 +12,6 @@ export interface Package {
   duration_minutes: number
   price: number
   dp_percentage: number
-  max_photos: number | null
-  max_edited_photos: number | null
   includes: string[] | null
   is_popular: boolean
   is_active: boolean
@@ -24,6 +22,7 @@ export interface Package {
     id: string
     name: string
   }
+  addons_count?: number
 }
 
 export interface PackageCategory {
@@ -44,8 +43,6 @@ export interface CreatePackageData {
   duration_minutes: number
   price: number
   dp_percentage: number
-  max_photos?: number
-  max_edited_photos?: number
   includes?: string[]
   is_popular?: boolean
   facility_ids?: string[]
@@ -290,9 +287,10 @@ export async function getPackagesAction(studioId?: string): Promise<ActionResult
       .from('packages')
       .select(`
         *,
-        category:package_categories(id, name)
+        category:package_categories(id, name),
+        package_addons(count)
       `)
-      .order('created_at', { ascending: false })
+      .order('name', { ascending: true })
 
     // Filter by studio if specified, otherwise use user's studio
     const targetStudioId = studioId || currentProfile.studio_id
@@ -307,7 +305,14 @@ export async function getPackagesAction(studioId?: string): Promise<ActionResult
       return { success: false, error: 'Failed to fetch packages' }
     }
 
-    return { success: true, data: packages || [] }
+    // Transform packages to include addons_count as a number
+    const transformedPackages = (packages || []).map((pkg: any) => ({
+      ...pkg,
+      addons_count: pkg.package_addons?.[0]?.count || 0,
+      package_addons: undefined // Remove the raw package_addons data
+    }))
+
+    return { success: true, data: transformedPackages }
   } catch (error: any) {
     console.error('Error in getPackagesAction:', error)
     return { success: false, error: error.message || 'An error occurred' }
@@ -405,8 +410,6 @@ export async function createPackageAction(packageData: CreatePackageData): Promi
         duration_minutes: packageData.duration_minutes,
         price: packageData.price,
         dp_percentage: packageData.dp_percentage,
-        max_photos: packageData.max_photos,
-        max_edited_photos: packageData.max_edited_photos,
         includes: packageData.includes,
         is_popular: packageData.is_popular || false,
       })

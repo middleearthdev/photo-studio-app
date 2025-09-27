@@ -202,13 +202,11 @@ export default function PackageDetailPage() {
                       <p className="text-xs text-slate-600">Durasi</p>
                     </div>
 
-                    {packageData.max_photos && (
-                      <div className="bg-[#b0834d]/5 rounded-lg p-2 sm:p-4 text-center">
-                        <ImageIcon className="h-4 w-4 sm:h-6 sm:w-6 text-[#b0834d] mx-auto mb-1 sm:mb-2" />
-                        <p className="font-semibold text-[#b0834d] text-xs sm:text-base">{packageData.max_photos}</p>
-                        <p className="text-xs text-slate-600">Foto</p>
-                      </div>
-                    )}
+                    <div className="bg-[#b0834d]/5 rounded-lg p-2 sm:p-4 text-center">
+                      <ImageIcon className="h-4 w-4 sm:h-6 sm:w-6 text-[#b0834d] mx-auto mb-1 sm:mb-2" />
+                      <p className="font-semibold text-[#b0834d] text-xs sm:text-base">Lengkap</p>
+                      <p className="text-xs text-slate-600">Foto</p>
+                    </div>
 
                     <div className="bg-slate-50 rounded-lg p-2 sm:p-4 text-center">
                       <Users className="h-4 w-4 sm:h-6 sm:w-6 text-slate-600 mx-auto mb-1 sm:mb-2" />

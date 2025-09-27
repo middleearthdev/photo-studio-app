@@ -91,7 +91,7 @@ export function canRescheduleBooking(reservation: Reservation): BusinessRuleResu
  */
 export function getCancellationInfo(reservation: Reservation): {
   canCancel: boolean
-  dpPolicy: 'refund' | 'hangus'
+  dpPolicy: 'hangus'
   message: string
 } {
   if (['completed', 'cancelled'].includes(reservation.status)) {
@@ -107,10 +107,10 @@ export function getCancellationInfo(reservation: Reservation): {
 
   return {
     canCancel: true,
-    dpPolicy: hasPaid ? 'hangus' : 'refund',
+    dpPolicy: 'hangus',
     message: hasPaid
       ? `⚠️ Pembatalan: DP sebesar ${formatCurrency(reservation.dp_amount)} akan HANGUS dan tidak dikembalikan`
-      : 'Booking dapat dibatalkan tanpa penalti karena belum ada pembayaran'
+      : 'Booking dapat dibatalkan. Jika sudah bayar DP, dana tidak akan dikembalikan'
   }
 }
 
@@ -176,18 +176,90 @@ export function generateWhatsAppMessage(reservation: Reservation, type: 'payment
 
   switch (type) {
     case 'payment':
+      let paymentDeadlineText = ''
+      let urgencyMessage = ''
+      
+      if (daysRemaining < 0) {
+        // Event sudah lewat
+        paymentDeadlineText = `*⚠️ EVENT SUDAH LEWAT ${Math.abs(daysRemaining)} HARI*`
+        urgencyMessage = `Booking Anda sudah melewati tanggal acara. Silakan hubungi kami untuk penyelesaian lebih lanjut.`
+      } else if (daysRemaining === 0) {
+        // Event hari ini
+        paymentDeadlineText = '*⚠️ EVENT HARI INI - BATAS PELUNASAN SUDAH TERLEWAT*'
+        urgencyMessage = `Booking Anda hari ini namun belum lunas. Silakan hubungi kami segera untuk konfirmasi.`
+      } else if (daysRemaining === 1) {
+        // H-1, sudah melewati batas H-3
+        paymentDeadlineText = '*⚠️ BATAS PELUNASAN SUDAH TERLEWAT*'
+        urgencyMessage = `Batas waktu pelunasan (H-3) sudah terlewat. Event besok namun belum lunas. Silakan hubungi kami segera.`
+      } else if (daysRemaining === 2) {
+        // H-2, sudah melewati batas H-3
+        paymentDeadlineText = '*⚠️ BATAS PELUNASAN SUDAH TERLEWAT*'
+        urgencyMessage = `Batas waktu pelunasan (H-3) sudah terlewat. Silakan hubungi kami segera untuk konfirmasi.`
+      } else if (daysRemaining === 3) {
+        // H-3, hari terakhir pelunasan
+        paymentDeadlineText = '*BATAS WAKTU PELUNASAN HARI INI*'
+        urgencyMessage = `Mohon segera lakukan pelunasan agar booking Anda terkonfirmasi.`
+      } else if (daysRemaining === 4) {
+        // H-4, besok deadline
+        paymentDeadlineText = '*BATAS WAKTU PELUNASAN BESOK*'
+        urgencyMessage = `Mohon segera lakukan pelunasan agar booking Anda terkonfirmasi.`
+      } else if (daysRemaining === 5) {
+        // H-5, 2 hari lagi deadline
+        paymentDeadlineText = '*Batas waktu pelunasan: 2 hari lagi*'
+        urgencyMessage = `Mohon segera lakukan pelunasan agar booking Anda terkonfirmasi.`
+      } else {
+        // Masih ada waktu
+        const deadlineDays = daysRemaining - 3
+        paymentDeadlineText = `*Batas waktu pelunasan: ${deadlineDays} hari lagi*`
+        urgencyMessage = `Mohon segera lakukan pelunasan agar booking Anda terkonfirmasi.`
+      }
+      
       return baseMessage +
         `💰 *REMINDER PELUNASAN*\n\n` +
         `Sisa pembayaran: *${formatCurrency(reservation.remaining_amount)}*\n` +
-        `Batas pelunasan: *H-3 (${daysRemaining} hari lagi)*\n\n` +
-        `Mohon segera lakukan pelunasan agar booking Anda terkonfirmasi.\n\n` +
+        `${paymentDeadlineText}\n\n` +
+        `${urgencyMessage}\n\n` +
         `Terima kasih! 🙏`
 
     case 'reschedule':
+      let rescheduleDeadlineText = ''
+      let rescheduleMessage = ''
+      
+      if (daysRemaining < 0) {
+        // Event sudah lewat
+        rescheduleDeadlineText = `*⚠️ EVENT SUDAH LEWAT ${Math.abs(daysRemaining)} HARI*`
+        rescheduleMessage = `Booking Anda sudah melewati tanggal acara. Reschedule tidak dapat dilakukan.`
+      } else if (daysRemaining === 0) {
+        // Event hari ini
+        rescheduleDeadlineText = '*⚠️ EVENT HARI INI - RESCHEDULE TIDAK DAPAT DILAKUKAN*'
+        rescheduleMessage = `Event Anda hari ini. Reschedule sudah tidak memungkinkan. Silakan hubungi kami jika ada kendala.`
+      } else if (daysRemaining === 1) {
+        // H-1, sudah melewati batas H-3
+        rescheduleDeadlineText = '*⚠️ BATAS RESCHEDULE SUDAH TERLEWAT*'
+        rescheduleMessage = `Batas waktu reschedule (H-3) sudah terlewat. Event besok dan reschedule tidak dapat dilakukan.`
+      } else if (daysRemaining === 2) {
+        // H-2, sudah melewati batas H-3
+        rescheduleDeadlineText = '*⚠️ BATAS RESCHEDULE SUDAH TERLEWAT*'
+        rescheduleMessage = `Batas waktu reschedule (H-3) sudah terlewat. Reschedule tidak dapat dilakukan.`
+      } else if (daysRemaining === 3) {
+        // H-3, hari terakhir reschedule
+        rescheduleDeadlineText = '*BATAS RESCHEDULE HARI INI*'
+        rescheduleMessage = `Jika Anda perlu mengubah jadwal, mohon konfirmasi hari ini juga (batas H-3).`
+      } else if (daysRemaining === 4) {
+        // H-4, besok deadline reschedule
+        rescheduleDeadlineText = '*BATAS RESCHEDULE BESOK*'
+        rescheduleMessage = `Jika Anda perlu mengubah jadwal, mohon konfirmasi maksimal besok (batas H-3).`
+      } else {
+        // Masih ada waktu
+        const deadlineDays = daysRemaining - 3
+        rescheduleDeadlineText = `*Batas reschedule: ${deadlineDays} hari lagi*`
+        rescheduleMessage = `Jika Anda perlu mengubah jadwal, mohon konfirmasi maksimal H-3 (${deadlineDays} hari lagi).`
+      }
+      
       return baseMessage +
         `📅 *INFO RESCHEDULE*\n\n` +
-        `Jika Anda perlu mengubah jadwal, mohon konfirmasi maksimal *H-3* (${daysRemaining} hari lagi).\n\n` +
-        `Setelah H-3, reschedule tidak dapat dilakukan.\n\n` +
+        `${rescheduleDeadlineText}\n\n` +
+        `${rescheduleMessage}\n\n` +
         `Hubungi kami untuk reschedule. Terima kasih! 🙏`
 
     case 'confirmation':

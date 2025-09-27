@@ -133,8 +133,7 @@ export function useUpdatePaymentStatus() {
         pending: 'Payment dikembalikan ke status pending',
         completed: 'Payment berhasil dikonfirmasi',
         failed: 'Payment ditandai sebagai gagal',
-        partial: 'Payment ditandai sebagai partial',
-        refunded: 'Payment berhasil direfund'
+        partial: 'Payment ditandai sebagai partial'
       }
       toast.success(statusMessages[data.status] || 'Status payment berhasil diperbarui')
       

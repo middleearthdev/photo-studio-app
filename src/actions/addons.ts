@@ -465,6 +465,119 @@ export async function removeAddonFromPackageAction(packageId: string, addonId: s
   }
 }
 
+// Admin action to bulk assign all available addons to package
+export async function bulkAssignAddonsToPackageAction(
+  packageId: string,
+  defaultOptions: {
+    is_included?: boolean
+    discount_percentage?: number
+    is_recommended?: boolean
+    display_order_start?: number
+  } = {}
+): Promise<ActionResult<{ assigned: number; skipped: number }>> {
+  try {
+    const supabase = await createClient()
+
+    // Get current user to check permissions
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return { success: false, error: 'Unauthorized' }
+    }
+
+    // Get current user profile
+    const { data: currentProfile } = await supabase
+      .from('user_profiles')
+      .select('role, studio_id')
+      .eq('id', user.id)
+      .single()
+
+    if (!currentProfile || !['admin', 'cs'].includes(currentProfile.role)) {
+      return { success: false, error: 'Insufficient permissions' }
+    }
+
+    // Get package details to verify ownership
+    const { data: packageData, error: packageError } = await supabase
+      .from('packages')
+      .select('studio_id')
+      .eq('id', packageId)
+      .single()
+
+    if (packageError || !packageData) {
+      return { success: false, error: 'Package not found' }
+    }
+
+    // Check if user has access to this package's studio
+    if (currentProfile.role === 'cs' && currentProfile.studio_id !== packageData.studio_id) {
+      return { success: false, error: 'Insufficient permissions' }
+    }
+
+    // Get all addons for the studio
+    const { data: allAddons, error: addonsError } = await supabase
+      .from('addons')
+      .select('id, name, type')
+      .eq('studio_id', packageData.studio_id)
+      .eq('is_active', true)
+
+    if (addonsError) {
+      return { success: false, error: addonsError.message }
+    }
+
+    if (!allAddons || allAddons.length === 0) {
+      return { success: false, error: 'No addons found to assign' }
+    }
+
+    // Get already assigned addons
+    const { data: existingAssignments, error: existingError } = await supabase
+      .from('package_addons')
+      .select('addon_id')
+      .eq('package_id', packageId)
+
+    if (existingError) {
+      return { success: false, error: existingError.message }
+    }
+
+    const existingAddonIds = new Set(existingAssignments?.map(item => item.addon_id) || [])
+    
+    // Filter out already assigned addons
+    const availableAddons = allAddons.filter(addon => !existingAddonIds.has(addon.id))
+
+    if (availableAddons.length === 0) {
+      return { success: true, data: { assigned: 0, skipped: allAddons.length } }
+    }
+
+    // Prepare bulk insert data
+    const insertData = availableAddons.map((addon, index) => ({
+      package_id: packageId,
+      addon_id: addon.id,
+      is_included: defaultOptions.is_included || false,
+      discount_percentage: defaultOptions.discount_percentage || 0,
+      is_recommended: defaultOptions.is_recommended || false,
+      display_order: (defaultOptions.display_order_start || 0) + index
+    }))
+
+    // Bulk insert
+    const { error: insertError } = await supabase
+      .from('package_addons')
+      .insert(insertData)
+
+    if (insertError) {
+      return { success: false, error: insertError.message }
+    }
+
+    revalidatePath('/admin/packages')
+    return { 
+      success: true, 
+      data: { 
+        assigned: availableAddons.length, 
+        skipped: existingAddonIds.size 
+      }
+    }
+  } catch (error: any) {
+    console.error('Error in bulkAssignAddonsToPackageAction:', error)
+    return { success: false, error: error.message || 'Failed to bulk assign addons to package' }
+  }
+}
+
 // Admin action to get all addons
 export async function getAddonsAction(studioId?: string): Promise<ActionResult<Addon[]>> {
   try {

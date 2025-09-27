@@ -274,7 +274,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Update payment status based on Xendit status
-    let paymentStatus: 'pending' | 'completed' | 'failed' | 'partial' | 'refunded' = 'pending'
+    let paymentStatus: 'pending' | 'completed' | 'failed' | 'partial' = 'pending'
     let paidAt: string | null = null
 
     switch (status.toUpperCase()) {
@@ -294,9 +294,6 @@ export async function POST(req: NextRequest) {
         break
       case 'PARTIALLY_PAID':
         paymentStatus = 'partial'
-        break
-      case 'REFUNDED':
-        paymentStatus = 'refunded'
         break
       default:
         log('warn', 'Unknown payment status received', { status, paymentId: payment.id })

@@ -46,8 +46,6 @@ const packageSchema = z.object({
   duration_minutes: z.number().min(15, "Durasi minimal 15 menit").max(1440, "Durasi maksimal 24 jam"),
   price: z.number().min(1000, "Harga minimal Rp 1,000"),
   dp_percentage: z.number().min(10, "DP minimal 10%").max(100, "DP maksimal 100%"),
-  max_photos: z.number().min(1, "Minimal 1 foto").optional(),
-  max_edited_photos: z.number().min(0, "Minimal 0 foto edited").optional(),
   is_popular: z.boolean().optional(),
   is_active: z.boolean().optional(),
   includes: z.array(z.string()).optional(),
@@ -78,8 +76,6 @@ const defaultFormValues = {
   duration_minutes: 60,
   price: 100000,
   dp_percentage: 30,
-  max_photos: 50,
-  max_edited_photos: 10,
   is_popular: false,
   is_active: true,
   includes: [] as string[],
@@ -115,8 +111,6 @@ export function PackageDialog({ open, onOpenChange, packageData, onPackageSaved,
         duration_minutes: packageData.duration_minutes || 60,
         price: packageData.price || 100000,
         dp_percentage: packageData.dp_percentage || 30,
-        max_photos: packageData.max_photos || undefined,
-        max_edited_photos: packageData.max_edited_photos || undefined,
         is_popular: packageData.is_popular,
         is_active: packageData.is_active,
         includes: includes,
@@ -380,58 +374,6 @@ export function PackageDialog({ open, onOpenChange, packageData, onPackageSaved,
               </div>
             </div>
 
-            <Separator />
-
-            {/* Photo Specifications */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium">Spesifikasi Foto</h3>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="max_photos"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Maksimal Foto Raw</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          placeholder="50"
-                          {...field}
-                          onChange={(e) => field.onChange(parseInt(e.target.value) || undefined)}
-                        />
-                      </FormControl>
-                      <FormDescription className="text-xs">
-                        Total foto yang akan diambil
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="max_edited_photos"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Maksimal Foto Edited</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          placeholder="10"
-                          {...field}
-                          onChange={(e) => field.onChange(parseInt(e.target.value) || undefined)}
-                        />
-                      </FormControl>
-                      <FormDescription className="text-xs">
-                        Foto yang akan diedit profesional
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </div>
 
             <Separator />
 

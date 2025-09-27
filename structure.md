@@ -51,7 +51,6 @@ src/app/
 │ │ │ ├── page.tsx # Payment overview
 │ │ │ ├── pending/page.tsx # Pending verifications
 │ │ │ ├── verified/page.tsx # Verified payments
-│ │ │ ├── refunds/page.tsx # Refund requests
 │ │ │ ├── methods/page.tsx # Payment methods config
 │ │ │ └── [id]/page.tsx # Payment details
 │ │ ├── reviews/ # Review Management

@@ -181,10 +181,10 @@ export default function StudioManagementPage() {
             <RefreshCw className="h-4 w-4 mr-2" />
             Perbarui
           </Button>
-          <Button onClick={handleCreateStudio}>
+          {/* <Button onClick={handleCreateStudio}>
             <Plus className="h-4 w-4 mr-2" />
             Tambah Studio
-          </Button>
+          </Button> */}
         </div>
       </div>
 

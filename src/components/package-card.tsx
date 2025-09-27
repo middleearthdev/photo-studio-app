@@ -96,12 +96,12 @@ export function PackageCard({
             {/* Mobile: Simple grid layout */}
             <div className="grid grid-cols-2 gap-1 mb-3 sm:hidden">
               <div className="text-center">
-                <div className="text-xs text-slate-500">Foto</div>
-                <div className="text-xs font-medium text-[#00052e]">{pkg.max_photos || '∞'}</div>
+                <div className="text-xs text-slate-500">Paket</div>
+                <div className="text-xs font-medium text-[#00052e]">Lengkap</div>
               </div>
               <div className="text-center">
-                <div className="text-xs text-slate-500">Edit</div>
-                <div className="text-xs font-medium text-[#00052e]">{pkg.max_edited_photos || 'All'}</div>
+                <div className="text-xs text-slate-500">Bonus</div>
+                <div className="text-xs font-medium text-[#00052e]">Included</div>
               </div>
             </div>
 
@@ -112,18 +112,6 @@ export function PackageCard({
                   <CheckCircle className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
                   <span className="text-sm">Durasi {formatDuration(pkg.duration_minutes)}</span>
                 </li>
-                {pkg.max_photos && (
-                  <li className="text-slate-600 flex items-start gap-3">
-                    <ImageIcon className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
-                    <span className="text-sm">Maksimal {pkg.max_photos} foto</span>
-                  </li>
-                )}
-                {pkg.max_edited_photos && (
-                  <li className="text-slate-600 flex items-start gap-3">
-                    <Sparkles className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
-                    <span className="text-sm">{pkg.max_edited_photos} foto diedit</span>
-                  </li>
-                )}
                 <li className="text-slate-600 flex items-start gap-3">
                   <Users className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
                   <span className="text-sm">1-4 orang</span>
@@ -203,12 +191,12 @@ export function PackageCard({
                 <div className="font-medium text-slate-900 text-xs">{formatDuration(pkg.duration_minutes)}</div>
               </div>
               <div className="bg-slate-50 rounded p-1 text-center">
-                <div className="text-xs text-slate-500">Foto</div>
-                <div className="font-medium text-slate-900 text-xs">{pkg.max_photos || '∞'}</div>
+                <div className="text-xs text-slate-500">Paket</div>
+                <div className="font-medium text-slate-900 text-xs">Lengkap</div>
               </div>
               <div className="bg-slate-50 rounded p-1 text-center">
-                <div className="text-xs text-slate-500">Edit</div>
-                <div className="font-medium text-slate-900 text-xs">{pkg.max_edited_photos || 'All'}</div>
+                <div className="text-xs text-slate-500">Bonus</div>
+                <div className="font-medium text-slate-900 text-xs">Included</div>
               </div>
             </div>
             
@@ -254,13 +242,11 @@ export function PackageCard({
                 <div className="font-medium text-slate-900 text-sm">{formatDuration(pkg.duration_minutes)}</div>
               </div>
 
-              {pkg.max_photos && (
-                <div className="bg-slate-50 rounded-lg p-3 text-center">
-                  <ImageIcon className="h-5 w-5 text-[#b0834d] mx-auto mb-1" />
-                  <div className="text-xs text-slate-500">Foto</div>
-                  <div className="font-medium text-slate-900 text-sm">{pkg.max_photos}</div>
-                </div>
-              )}
+              <div className="bg-slate-50 rounded-lg p-3 text-center">
+                <ImageIcon className="h-5 w-5 text-[#b0834d] mx-auto mb-1" />
+                <div className="text-xs text-slate-500">Paket</div>
+                <div className="font-medium text-slate-900 text-sm">Lengkap</div>
+              </div>
 
               <div className="bg-slate-50 rounded-lg p-3 text-center">
                 <Users className="h-5 w-5 text-[#b0834d] mx-auto mb-1" />

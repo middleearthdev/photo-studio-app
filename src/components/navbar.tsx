@@ -55,16 +55,10 @@ export function Navbar({ currentPath = '/' }: NavbarProps) {
               Portfolio
             </Link>
             <Link
-              href="#services"
+              href="/#services"
               className="text-slate-600 hover:text-[#00052e] transition-colors"
             >
               Layanan
-            </Link>
-            <Link
-              href="#contact"
-              className="text-slate-600 hover:text-[#00052e] transition-colors"
-            >
-              Kontak
             </Link>
             <Link href="/packages">
               <Button className="bg-[#00052e] hover:bg-[#00052e]/90 text-white transition-all duration-300 shadow-md hover:shadow-lg">

@@ -472,17 +472,19 @@ export default function PackagesPage() {
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div className="grid grid-cols-3 gap-4 text-sm">
                           <div className="flex items-center space-x-1">
                             <Clock className="h-4 w-4 text-muted-foreground" />
                             <span>{formatDuration(pkg.duration_minutes)}</span>
                           </div>
-                          {pkg.max_photos && (
-                            <div className="flex items-center space-x-1">
-                              <Users className="h-4 w-4 text-muted-foreground" />
-                              <span>{pkg.max_photos} foto</span>
-                            </div>
-                          )}
+                          <div className="flex items-center space-x-1">
+                            <Users className="h-4 w-4 text-muted-foreground" />
+                            <span>Paket Lengkap</span>
+                          </div>
+                          <div className="flex items-center space-x-1">
+                            <Puzzle className="h-4 w-4 text-muted-foreground" />
+                            <span>{pkg.addons_count || 0} Add-on</span>
+                          </div>
                         </div>
 
                         {includesBadges.length > 0 && (
@@ -526,6 +528,7 @@ export default function PackagesPage() {
                       <TableHead>Kategori</TableHead>
                       <TableHead>Harga</TableHead>
                       <TableHead>Durasi</TableHead>
+                      <TableHead>Add-ons</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="w-[100px]">Aksi</TableHead>
                     </TableRow>
@@ -533,7 +536,7 @@ export default function PackagesPage() {
                   <TableBody>
                     {filteredPackages.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
+                        <TableCell colSpan={7} className="text-center h-24 text-muted-foreground">
                           {searchTerm ? "Tidak ada paket yang cocok dengan pencarian" : "Belum ada paket yang terdaftar"}
                         </TableCell>
                       </TableRow>
@@ -589,6 +592,12 @@ export default function PackagesPage() {
                               <div className="flex items-center space-x-1">
                                 <Clock className="h-4 w-4 text-muted-foreground" />
                                 <span>{formatDuration(pkg.duration_minutes)}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center space-x-1">
+                                <Puzzle className="h-4 w-4 text-muted-foreground" />
+                                <span>{pkg.addons_count || 0} Add-on</span>
                               </div>
                             </TableCell>
                             <TableCell>

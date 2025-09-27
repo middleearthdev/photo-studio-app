@@ -22,6 +22,7 @@ import {
   FileText,
   User,
   Tag,
+  Monitor,
 } from "lucide-react"
 
 import {

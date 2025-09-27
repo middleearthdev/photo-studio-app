@@ -11,7 +11,7 @@ export interface ActionResult<T = any> {
   error?: string
 }
 
-export type PaymentStatus = 'pending' | 'completed' | 'failed' | 'partial' | 'refunded'
+export type PaymentStatus = 'pending' | 'completed' | 'failed' | 'partial'
 
 export interface Payment {
   id: string
@@ -790,7 +790,7 @@ export async function updatePaymentStatus(id: string, status: PaymentStatus): Pr
   
   // Update the corresponding reservation's payment status
   if (payment.reservation_id) {
-    let reservationPaymentStatus: 'pending' | 'partial' | 'completed' | 'failed' | 'refunded' = status
+    let reservationPaymentStatus: 'pending' | 'partial' | 'completed' | 'failed' = status
     
     // For completed payments, determine the correct reservation payment status
     if (status === 'completed') {

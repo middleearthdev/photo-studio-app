@@ -30,7 +30,7 @@ export interface Reservation {
   dp_amount: number
   remaining_amount: number
   status: 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled'
-  payment_status: 'pending' | 'partial' | 'completed' | 'failed' | 'refunded'
+  payment_status: 'pending' | 'partial' | 'completed' | 'failed'
   special_requests: string | null
   notes: string | null
   internal_notes: string | null
@@ -137,6 +137,7 @@ export interface ActionResult<T = any> {
   success: boolean
   data?: T
   error?: string
+  message?: string
 }
 
 // Helper function to generate booking code
@@ -687,7 +688,7 @@ export async function updateReservationStatusAction(
 // Admin/Staff action to update reservation status based on payment completion
 export async function updateReservationStatusOnPayment(
   reservationId: string,
-  paymentStatus: 'pending' | 'partial' | 'completed' | 'failed' | 'refunded'
+  paymentStatus: 'pending' | 'partial' | 'completed' | 'failed'
 ): Promise<ActionResult> {
   try {
     // If payment is completed, we might want to update the reservation status as well
@@ -736,7 +737,7 @@ export async function updateReservationStatusOnPayment(
 // Webhook-specific function to update reservation payment status (no auth required)
 export async function updateReservationPaymentStatusFromWebhook(
   reservationId: string,
-  paymentStatus: 'pending' | 'partial' | 'completed' | 'failed' | 'refunded'
+  paymentStatus: 'pending' | 'partial' | 'completed' | 'failed'
 ): Promise<ActionResult> {
   try {
     const supabase = await createClient()
@@ -772,7 +773,7 @@ export async function updateReservationPaymentStatusFromWebhook(
 // Admin/Staff action to update reservation payment status
 export async function updateReservationPaymentStatus(
   reservationId: string,
-  paymentStatus: 'pending' | 'partial' | 'completed' | 'failed' | 'refunded'
+  paymentStatus: 'pending' | 'partial' | 'completed' | 'failed'
 ): Promise<ActionResult> {
   try {
     const supabase = await createClient()
@@ -1072,5 +1073,148 @@ export async function deleteReservationAction(reservationId: string): Promise<Ac
   } catch (error: any) {
     console.error('Error in deleteReservationAction:', error)
     return { success: false, error: error.message || 'Failed to delete reservation' }
+  }
+}
+
+// Reschedule booking action for CS/Admin
+export async function rescheduleBookingAction(
+  reservationId: string,
+  rescheduleData: {
+    new_date: string
+    new_start_time: string
+    new_end_time: string
+    reschedule_reason: string
+    internal_notes?: string
+  }
+): Promise<ActionResult<Reservation>> {
+  try {
+    const supabase = await createClient()
+
+    // Get current user to check permissions
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return { success: false, error: 'Unauthorized' }
+    }
+
+    // Get current user profile
+    const { data: currentProfile } = await supabase
+      .from('user_profiles')
+      .select('role, studio_id')
+      .eq('id', user.id)
+      .single()
+
+    if (!currentProfile || !['admin', 'cs'].includes(currentProfile.role)) {
+      return { success: false, error: 'Insufficient permissions' }
+    }
+
+    // Get the current reservation to validate
+    let reservationQuery = supabase
+      .from('reservations')
+      .select('*')
+      .eq('id', reservationId)
+
+    // CS users can only reschedule their studio's reservations
+    if (currentProfile.role === 'cs') {
+      reservationQuery = reservationQuery.eq('studio_id', currentProfile.studio_id)
+    }
+
+    const { data: reservation, error: fetchError } = await reservationQuery.single()
+    
+    if (fetchError) {
+      console.error('Error fetching reservation:', fetchError)
+      return { success: false, error: 'Reservation not found' }
+    }
+
+    // Validate reschedule rules (H-3 rule)
+    const reservationDate = new Date(reservation.reservation_date)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    reservationDate.setHours(0, 0, 0, 0)
+    const daysUntilEvent = Math.ceil((reservationDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+
+    if (daysUntilEvent < 3) {
+      return { success: false, error: 'Reschedule tidak diizinkan, batas waktu H-3 sudah terlewat' }
+    }
+
+    if (['completed', 'cancelled'].includes(reservation.status)) {
+      return { success: false, error: `Cannot reschedule ${reservation.status} booking` }
+    }
+
+    // Validate new date is not in the past
+    const newDate = new Date(rescheduleData.new_date)
+    if (newDate < today) {
+      return { success: false, error: 'Cannot reschedule to a past date' }
+    }
+
+    // Check if new date/time is different from current
+    if (rescheduleData.new_date === reservation.reservation_date && 
+        rescheduleData.new_start_time === reservation.start_time) {
+      return { success: false, error: 'New date and time must be different from current booking' }
+    }
+
+    // TODO: Add availability checking logic here
+    // For now, we'll assume the slot is available
+
+    // Calculate new total duration
+    const startTime = new Date(`${rescheduleData.new_date}T${rescheduleData.new_start_time}`)
+    const endTime = new Date(`${rescheduleData.new_date}T${rescheduleData.new_end_time}`)
+    const newDuration = Math.round((endTime.getTime() - startTime.getTime()) / (1000 * 60))
+
+    // TODO: Add reschedule history logging when table is available
+    // For now, we'll log the reschedule in internal_notes
+
+    // Update the reservation
+    const updateData: any = {
+      reservation_date: rescheduleData.new_date,
+      start_time: rescheduleData.new_start_time,
+      end_time: rescheduleData.new_end_time,
+      total_duration: newDuration,
+      updated_at: new Date().toISOString()
+    }
+
+    // Append reschedule info to internal notes
+    const rescheduleNote = `RESCHEDULED: ${format(new Date(), 'dd/MM/yyyy HH:mm')} - Reason: ${rescheduleData.reschedule_reason}`
+    if (reservation.internal_notes) {
+      updateData.internal_notes = `${reservation.internal_notes}\n\n${rescheduleNote}`
+    } else {
+      updateData.internal_notes = rescheduleNote
+    }
+
+    if (rescheduleData.internal_notes) {
+      updateData.internal_notes += `\n${rescheduleData.internal_notes}`
+    }
+
+    const { data: updatedReservation, error: updateError } = await supabase
+      .from('reservations')
+      .update(updateData)
+      .eq('id', reservationId)
+      .select(`
+        *,
+        studio:studios(id, name),
+        customer:customers(id, full_name, email, phone),
+        package:packages(id, name, price, duration_minutes)
+      `)
+      .single()
+
+    if (updateError) {
+      console.error('Error updating reservation:', updateError)
+      return { success: false, error: updateError.message }
+    }
+
+    // TODO: Send notification to customer about reschedule
+    // This could be an email or WhatsApp notification
+
+    revalidatePath('/cs/reservations')
+    revalidatePath('/cs/reminders')
+    revalidatePath('/admin/reservations')
+    
+    return { 
+      success: true, 
+      data: updatedReservation,
+      message: 'Booking has been rescheduled successfully'
+    }
+  } catch (error: any) {
+    console.error('Error in rescheduleBookingAction:', error)
+    return { success: false, error: error.message || 'Failed to reschedule booking' }
   }
 }

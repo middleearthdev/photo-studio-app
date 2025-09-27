@@ -255,6 +255,19 @@ export async function updatePortfolio(id: string, data: UpdatePortfolioData): Pr
 export async function deletePortfolio(id: string): Promise<void> {
   const supabase = await createClient()
   
+  // Get portfolio data to clean up image
+  const { data: portfolio, error: fetchError } = await supabase
+    .from('portfolios')
+    .select('image_url')
+    .eq('id', id)
+    .single()
+  
+  if (fetchError) {
+    console.error('Error fetching portfolio for deletion:', fetchError)
+    throw new Error(`Failed to fetch portfolio: ${fetchError.message}`)
+  }
+  
+  // Delete the portfolio record
   const { error } = await supabase
     .from('portfolios')
     .delete()
@@ -263,6 +276,13 @@ export async function deletePortfolio(id: string): Promise<void> {
   if (error) {
     console.error('Error deleting portfolio:', error)
     throw new Error(`Failed to delete portfolio: ${error.message}`)
+  }
+  
+  // Clean up the image from storage (async, don't wait for it)
+  if (portfolio?.image_url) {
+    cleanupPortfolioImage(portfolio.image_url).catch(err => 
+      console.warn('Failed to cleanup image after portfolio deletion:', err)
+    )
   }
   
   revalidatePath('/admin/portfolio')
@@ -445,4 +465,74 @@ export async function deletePortfolioCategory(id: string): Promise<void> {
   }
   
   revalidatePath('/admin/portfolio')
+}
+
+// ===== IMAGE MANAGEMENT HELPERS =====
+
+/**
+ * Extract storage path from Supabase URL for cleanup
+ */
+function extractStoragePathFromUrl(url: string): string | null {
+  try {
+    const urlObj = new URL(url)
+    const pathParts = urlObj.pathname.split('/')
+    const storageIndex = pathParts.findIndex(part => part === 'storage')
+    
+    if (storageIndex !== -1 && pathParts[storageIndex + 2]) {
+      // Remove /storage/v1/object/public/bucket-name/ and get the file path
+      return pathParts.slice(storageIndex + 4).join('/')
+    }
+    
+    return null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Clean up portfolio image from storage when portfolio is deleted
+ */
+export async function cleanupPortfolioImage(imageUrl: string): Promise<void> {
+  try {
+    const supabase = await createClient()
+    const path = extractStoragePathFromUrl(imageUrl)
+    
+    if (path && imageUrl.includes('portfolio-images')) {
+      const { error } = await supabase.storage
+        .from('portfolio-images')
+        .remove([path])
+      
+      if (error) {
+        console.warn('Failed to cleanup portfolio image:', error.message)
+      }
+    }
+  } catch (error) {
+    console.warn('Error during image cleanup:', error)
+  }
+}
+
+/**
+ * Validate if user has permission to upload to this studio
+ */
+export async function validateStudioUploadPermission(studioId: string): Promise<boolean> {
+  try {
+    const supabase = await createClient()
+    
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return false
+    }
+
+    // Check if user has access to this studio
+    const { data, error } = await supabase
+      .from('user_studios')
+      .select('studio_id')
+      .eq('studio_id', studioId)
+      .eq('user_id', user.id)
+      .single()
+
+    return !error && !!data
+  } catch {
+    return false
+  }
 }

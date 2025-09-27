@@ -72,16 +72,14 @@ const paymentStatusLabels = {
   pending: 'Belum Bayar',
   partial: 'DP',
   completed: 'Lunas',
-  failed: 'Gagal',
-  refunded: 'Dikembalikan'
+  failed: 'Gagal'
 }
 
 const paymentStatusColors: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   pending: 'outline',
   partial: 'secondary',
   completed: 'default',
-  failed: 'destructive',
-  refunded: 'destructive'
+  failed: 'destructive'
 }
 
 export default function ReservationsPage() {
@@ -298,12 +296,6 @@ export default function ReservationsPage() {
                         {stats?.completed || 0}
                       </div>
                       <div className="text-sm text-muted-foreground">Selesai</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-purple-600">
-                        {formatCurrency(stats?.totalRevenue || 0)}
-                      </div>
-                      <div className="text-sm text-muted-foreground">Revenue</div>
                     </div>
                   </div>
                 )}

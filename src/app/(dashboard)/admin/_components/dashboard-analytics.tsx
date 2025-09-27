@@ -7,9 +7,9 @@ import { useDashboardStats, formatCurrency } from "@/hooks/use-dashboard-analyti
 import { usePaginatedReservations } from "@/hooks/use-reservations"
 import { usePaginatedPayments } from "@/hooks/use-payments"
 import { Skeleton } from "@/components/ui/skeleton"
-import { 
-  TrendingUp, 
-  TrendingDown, 
+import {
+  TrendingUp,
+  TrendingDown,
   Calendar,
   DollarSign,
   Users,
@@ -38,12 +38,12 @@ function RevenueChart({ data }: { data: { month: string; amount: number }[] }) {
   }
 
   const maxAmount = Math.max(...data.map(d => d.amount))
-  
+
   return (
     <div className="h-32 flex items-end justify-between gap-2">
       {data.map((item, index) => (
         <div key={item.month} className="flex-1 flex flex-col items-center gap-1">
-          <div 
+          <div
             className="bg-blue-500 rounded-t-sm min-h-[4px] w-full transition-all duration-500"
             style={{ height: `${(item.amount / maxAmount) * 100}%` }}
           />
@@ -73,7 +73,7 @@ function BookingStatusChart({ reservations }: { reservations: any[] }) {
 
   const statusColors = {
     confirmed: 'bg-green-500',
-    pending: 'bg-yellow-500', 
+    pending: 'bg-yellow-500',
     in_progress: 'bg-blue-500',
     completed: 'bg-gray-500',
     cancelled: 'bg-red-500'
@@ -82,7 +82,7 @@ function BookingStatusChart({ reservations }: { reservations: any[] }) {
   const statusLabels = {
     confirmed: 'Confirmed',
     pending: 'Pending',
-    in_progress: 'In Progress', 
+    in_progress: 'In Progress',
     completed: 'Completed',
     cancelled: 'Cancelled'
   }
@@ -100,7 +100,7 @@ function BookingStatusChart({ reservations }: { reservations: any[] }) {
               <p className="text-sm text-muted-foreground">{count as number}</p>
             </div>
             <div className="w-full bg-muted rounded-full h-1.5 mt-1">
-              <div 
+              <div
                 className={`h-1.5 rounded-full transition-all duration-500 ${statusColors[status as keyof typeof statusColors]}`}
                 style={{ width: `${((count as number) / reservations.length) * 100}%` }}
               />
@@ -116,7 +116,7 @@ export function DashboardAnalytics({ studioId }: AnalyticsChartsProps) {
   const [refreshKey, setRefreshKey] = useState(0)
   const { data: stats, isLoading: statsLoading } = useDashboardStats(studioId)
   const { data: reservationsData, isLoading: reservationsLoading } = usePaginatedReservations(
-    studioId || '', 
+    studioId || '',
     { page: 1, pageSize: 100 }
   )
   const { data: paymentsData, isLoading: paymentsLoading } = usePaginatedPayments(
@@ -129,7 +129,7 @@ export function DashboardAnalytics({ studioId }: AnalyticsChartsProps) {
     const interval = setInterval(() => {
       setRefreshKey(prev => prev + 1)
     }, 5 * 60 * 1000)
-    
+
     return () => clearInterval(interval)
   }, [])
 
@@ -255,14 +255,13 @@ export function DashboardAnalytics({ studioId }: AnalyticsChartsProps) {
             <div className="space-y-3">
               {reservations.slice(0, 4).map((reservation, index) => (
                 <div key={reservation.id} className="flex items-start gap-3">
-                  <div className={`p-1 rounded-full ${
-                    reservation.status === 'confirmed' ? 'bg-green-100' :
-                    reservation.status === 'pending' ? 'bg-yellow-100' :
-                    reservation.status === 'cancelled' ? 'bg-red-100' : 'bg-blue-100'
-                  }`}>
+                  <div className={`p-1 rounded-full ${reservation.status === 'confirmed' ? 'bg-green-100' :
+                      reservation.status === 'pending' ? 'bg-yellow-100' :
+                        reservation.status === 'cancelled' ? 'bg-red-100' : 'bg-blue-100'
+                    }`}>
                     {reservation.status === 'confirmed' ? <CheckCircle className="h-3 w-3 text-green-600" /> :
-                     reservation.status === 'cancelled' ? <XCircle className="h-3 w-3 text-red-600" /> :
-                     <AlertTriangle className="h-3 w-3 text-yellow-600" />}
+                      reservation.status === 'cancelled' ? <XCircle className="h-3 w-3 text-red-600" /> :
+                        <AlertTriangle className="h-3 w-3 text-yellow-600" />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">
@@ -274,7 +273,7 @@ export function DashboardAnalytics({ studioId }: AnalyticsChartsProps) {
                   </div>
                 </div>
               ))}
-              
+
               {reservations.length === 0 && (
                 <div className="text-center py-4 text-muted-foreground">
                   <p className="text-sm">No recent activity</p>
@@ -304,22 +303,21 @@ export function DashboardAnalytics({ studioId }: AnalyticsChartsProps) {
                 </div>
                 <DollarSign className="h-8 w-8 text-muted-foreground" />
               </div>
-              
+
               <div className="space-y-2">
                 {['completed', 'pending', 'failed'].map((status) => {
                   const count = payments.filter(p => p.status === status).length
                   const percentage = payments.length > 0 ? (count / payments.length) * 100 : 0
-                  
+
                   return (
                     <div key={status} className="flex items-center justify-between">
                       <span className="text-sm capitalize">{status}</span>
                       <div className="flex items-center gap-2">
                         <div className="w-12 bg-muted rounded-full h-1.5">
-                          <div 
-                            className={`h-1.5 rounded-full transition-all duration-500 ${
-                              status === 'completed' ? 'bg-green-500' :
-                              status === 'pending' ? 'bg-yellow-500' : 'bg-red-500'
-                            }`}
+                          <div
+                            className={`h-1.5 rounded-full transition-all duration-500 ${status === 'completed' ? 'bg-green-500' :
+                                status === 'pending' ? 'bg-yellow-500' : 'bg-red-500'
+                              }`}
                             style={{ width: `${percentage}%` }}
                           />
                         </div>
@@ -330,51 +328,6 @@ export function DashboardAnalytics({ studioId }: AnalyticsChartsProps) {
                     </div>
                   )
                 })}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Performance Metrics */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Star className="h-5 w-5" />
-              Performance
-            </CardTitle>
-            <CardDescription>
-              Key performance indicators
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium">Avg. Rating</p>
-                  <p className="text-2xl font-bold">
-                    {stats?.averageRating ? stats.averageRating.toFixed(1) : 'N/A'}
-                  </p>
-                </div>
-                <Star className="h-8 w-8 text-yellow-500 fill-current" />
-              </div>
-              
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm">Customer Satisfaction</span>
-                  <span className="text-sm">{stats?.averageRating ? Math.round(stats.averageRating * 20) : 0}%</span>
-                </div>
-                <div className="w-full bg-muted rounded-full h-1.5">
-                  <div 
-                    className="bg-yellow-500 h-1.5 rounded-full transition-all duration-500"
-                    style={{ width: `${stats?.averageRating ? Math.round(stats.averageRating * 20) : 0}%` }}
-                  />
-                </div>
-              </div>
-
-              <div className="pt-2 border-t">
-                <Link href="/admin/reviews" className="text-sm text-blue-600 hover:underline">
-                  View all reviews →
-                </Link>
               </div>
             </div>
           </CardContent>

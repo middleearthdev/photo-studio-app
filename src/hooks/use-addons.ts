@@ -9,6 +9,7 @@ import {
   getPackageAddonsGroupedAction,
   assignAddonToPackageAction,
   removeAddonFromPackageAction,
+  bulkAssignAddonsToPackageAction,
   getAddonsAction,
   getPaginatedAddonsAction,
   deleteAddonAction,
@@ -235,6 +236,38 @@ export function useUpdateAddon() {
     },
     onError: (error: Error) => {
       toast.error(`Gagal memperbarui add-on: ${error.message}`)
+    },
+  })
+}
+
+// Mutation hook to bulk assign all addons to package
+export function useBulkAssignAddonsToPackage() {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: ({ packageId, defaultOptions }: { 
+      packageId: string, 
+      defaultOptions?: {
+        is_included?: boolean
+        discount_percentage?: number
+        is_recommended?: boolean
+        display_order_start?: number
+      }
+    }) => bulkAssignAddonsToPackageAction(packageId, defaultOptions),
+    onSuccess: (result) => {
+      if (result.success && result.data) {
+        const { assigned, skipped } = result.data
+        if (assigned > 0) {
+          toast.success(`${assigned} add-on berhasil ditambahkan ke paket${skipped > 0 ? ` (${skipped} sudah ada)` : ''}`)
+        } else {
+          toast.info('Semua add-on sudah ditambahkan ke paket ini')
+        }
+      }
+      // Invalidate related queries
+      queryClient.invalidateQueries({ queryKey: addonKeys.all })
+    },
+    onError: (error: Error) => {
+      toast.error(`Gagal menambahkan semua add-on: ${error.message}`)
     },
   })
 }

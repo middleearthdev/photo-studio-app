@@ -8,7 +8,8 @@ import {
   Package as PackageIcon,
   Puzzle,
   Tag,
-  AlertCircle
+  AlertCircle,
+  ListPlus
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -40,7 +41,7 @@ import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { usePackages } from "@/hooks/use-packages"
-import { useAddons, usePackageAddons, useAssignAddonToPackage, useRemoveAddonFromPackage } from "@/hooks/use-addons"
+import { useAddons, usePackageAddons, useAssignAddonToPackage, useRemoveAddonFromPackage, useBulkAssignAddonsToPackage } from "@/hooks/use-addons"
 import { useStudios } from "@/hooks/use-studios"
 import { type Addon } from "@/actions/addons"
 import { type Package } from "@/actions/packages"
@@ -61,12 +62,19 @@ export function PackageAddonsManagement() {
   const [searchTerm, setSearchTerm] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false)
+  const [isBulkAssignDialogOpen, setIsBulkAssignDialogOpen] = useState(false)
   const [selectedAddon, setSelectedAddon] = useState<Addon | null>(null)
   const [assignOptions, setAssignOptions] = useState({
     is_included: false,
     discount_percentage: 0,
     is_recommended: false,
     display_order: 0
+  })
+  const [bulkAssignOptions, setBulkAssignOptions] = useState({
+    is_included: false,
+    discount_percentage: 0,
+    is_recommended: false,
+    display_order_start: 0
   })
 
   const { data: studios = [], isLoading: studiosLoading } = useStudios()
@@ -75,6 +83,7 @@ export function PackageAddonsManagement() {
   const { data: packageAddonsData = [], isLoading: packageAddonsLoading } = usePackageAddons(selectedPackageId)
   const assignAddonMutation = useAssignAddonToPackage()
   const removeAddonMutation = useRemoveAddonFromPackage()
+  const bulkAssignMutation = useBulkAssignAddonsToPackage()
 
   // Filter package addons based on search
   const packageAddons = packageAddonsData.filter(addon => 
@@ -146,6 +155,27 @@ export function PackageAddonsManagement() {
       })
     } catch (error) {
       console.error('Error removing addon:', error)
+    }
+  }
+
+  const handleConfirmBulkAssign = async () => {
+    if (!selectedPackageId) return
+    
+    try {
+      await bulkAssignMutation.mutateAsync({
+        packageId: selectedPackageId,
+        defaultOptions: bulkAssignOptions
+      })
+      setIsBulkAssignDialogOpen(false)
+      // Reset form
+      setBulkAssignOptions({
+        is_included: false,
+        discount_percentage: 0,
+        is_recommended: false,
+        display_order_start: 0
+      })
+    } catch (error) {
+      console.error('Error bulk assigning addons:', error)
     }
   }
 
@@ -245,10 +275,20 @@ export function PackageAddonsManagement() {
                   Add-ons yang telah ditetapkan untuk paket ini
                 </CardDescription>
               </div>
-              <Button onClick={() => setIsAssignDialogOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Tambah Add-on
-              </Button>
+              <div className="flex gap-2">
+                <Button onClick={() => setIsAssignDialogOpen(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Tambah Add-on
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setIsBulkAssignDialogOpen(true)}
+                  disabled={availableAddons.length === 0}
+                >
+                  <ListPlus className="h-4 w-4 mr-2" />
+                  Tambah Semua Add-on
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -565,6 +605,136 @@ export function PackageAddonsManagement() {
                 <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
               )}
               Tambah ke Paket
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Assign Addons Dialog */}
+      <Dialog open={isBulkAssignDialogOpen} onOpenChange={setIsBulkAssignDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ListPlus className="h-5 w-5" />
+              Tambah Semua Add-on ke Paket
+            </DialogTitle>
+            <DialogDescription>
+              Akan menambahkan {availableAddons.length} add-on yang belum ditetapkan ke paket ini dengan pengaturan default.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Bulk Assignment Options */}
+            <div className="space-y-4 border rounded-lg p-4">
+              <h3 className="font-medium text-sm">Pengaturan Default untuk Semua Add-on</h3>
+              
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label htmlFor="bulk_discount_percentage" className="text-xs">Diskon Default (%)</Label>
+                  <Input
+                    id="bulk_discount_percentage"
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={bulkAssignOptions.discount_percentage}
+                    onChange={(e) => setBulkAssignOptions({
+                      ...bulkAssignOptions,
+                      discount_percentage: Number(e.target.value)
+                    })}
+                    className="h-8"
+                  />
+                </div>
+                
+                <div className="space-y-1">
+                  <Label htmlFor="bulk_display_order_start" className="text-xs">Urutan Tampil Mulai Dari</Label>
+                  <Input
+                    id="bulk_display_order_start"
+                    type="number"
+                    min="0"
+                    value={bulkAssignOptions.display_order_start}
+                    onChange={(e) => setBulkAssignOptions({
+                      ...bulkAssignOptions,
+                      display_order_start: Number(e.target.value)
+                    })}
+                    className="h-8"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="bulk_is_included"
+                    checked={bulkAssignOptions.is_included}
+                    onCheckedChange={(checked) => setBulkAssignOptions({
+                      ...bulkAssignOptions,
+                      is_included: checked
+                    })}
+                  />
+                  <Label htmlFor="bulk_is_included" className="text-xs">Included in Package Price</Label>
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="bulk_is_recommended"
+                    checked={bulkAssignOptions.is_recommended}
+                    onCheckedChange={(checked) => setBulkAssignOptions({
+                      ...bulkAssignOptions,
+                      is_recommended: checked
+                    })}
+                  />
+                  <Label htmlFor="bulk_is_recommended" className="text-xs">Mark as Recommended</Label>
+                </div>
+              </div>
+            </div>
+
+            {/* Preview of addons to be added */}
+            {availableAddons.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="font-medium text-sm">Add-on yang akan ditambahkan:</h3>
+                <div className="max-h-40 overflow-y-auto border rounded-lg p-3 bg-muted/30">
+                  <div className="space-y-1">
+                    {availableAddons.slice(0, 10).map((addon) => {
+                      const typeInfo = getAddonTypeInfo(addon.type)
+                      return (
+                        <div key={addon.id} className="flex items-center justify-between text-sm">
+                          <div className="flex items-center gap-2">
+                            <span>{addon.name}</span>
+                            <Badge className={`text-xs ${typeInfo.color}`}>
+                              {typeInfo.label}
+                            </Badge>
+                          </div>
+                          <span className="text-muted-foreground">{formatCurrency(addon.price)}</span>
+                        </div>
+                      )
+                    })}
+                    {availableAddons.length > 10 && (
+                      <div className="text-xs text-muted-foreground italic">
+                        +{availableAddons.length - 10} add-on lainnya
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsBulkAssignDialogOpen(false)}
+              disabled={bulkAssignMutation.isPending}
+            >
+              Batal
+            </Button>
+            <Button
+              onClick={handleConfirmBulkAssign}
+              disabled={availableAddons.length === 0 || bulkAssignMutation.isPending}
+            >
+              {bulkAssignMutation.isPending && (
+                <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
+              )}
+              Tambah {availableAddons.length} Add-on
             </Button>
           </DialogFooter>
         </DialogContent>

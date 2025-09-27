@@ -7,7 +7,7 @@ interface PaymentSummaryItem {
   title: string
   value: string
   count: string
-  status: 'pending' | 'confirmed' | 'refund'
+  status: 'pending' | 'confirmed'
 }
 
 interface PaymentAnalyticsProps {

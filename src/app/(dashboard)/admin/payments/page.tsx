@@ -47,16 +47,14 @@ const statusLabels: Record<PaymentStatus, string> = {
   pending: 'Pending',
   completed: 'Completed',
   failed: 'Failed',
-  partial: 'Partial',
-  refunded: 'Refunded'
+  partial: 'Partial'
 }
 
 const statusColors: Record<PaymentStatus, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   pending: 'outline',
   completed: 'default',
   failed: 'destructive',
-  partial: 'secondary',
-  refunded: 'destructive'
+  partial: 'secondary'
 }
 
 const paymentTypeLabels = {
@@ -562,15 +560,6 @@ export default function PaymentsPage() {
                               </>
                             )}
 
-                            {payment.status === 'completed' && (
-                              <DropdownMenuItem
-                                onClick={() => handleStatusUpdate(payment, 'refunded')}
-                                className="text-red-600"
-                              >
-                                <TrendingDown className="mr-2 h-4 w-4" />
-                                Refund
-                              </DropdownMenuItem>
-                            )}
 
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
@@ -863,19 +852,6 @@ export default function PaymentsPage() {
                       </>
                     )}
 
-                    {selectedPayment.status === 'completed' && (
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => {
-                          handleStatusUpdate(selectedPayment, 'refunded')
-                          setIsDetailModalOpen(false)
-                        }}
-                      >
-                        <TrendingDown className="mr-2 h-4 w-4" />
-                        Refund
-                      </Button>
-                    )}
 
                     <Button
                       variant="outline"

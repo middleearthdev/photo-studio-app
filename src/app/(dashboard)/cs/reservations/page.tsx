@@ -85,16 +85,14 @@ const paymentStatusLabels = {
   pending: 'Belum Bayar',
   partial: 'DP',
   completed: 'Lunas',
-  failed: 'Gagal',
-  refunded: 'Dikembalikan'
+  failed: 'Gagal'
 }
 
 const paymentStatusColors: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   pending: 'outline',
   partial: 'secondary',
   completed: 'default',
-  failed: 'destructive',
-  refunded: 'destructive'
+  failed: 'destructive'
 }
 
 export default function ReservationsPage() {
@@ -486,7 +484,6 @@ export default function ReservationsPage() {
                   <TableHead>Status</TableHead>
                   <TableHead>Payment</TableHead>
                   <TableHead>Total</TableHead>
-                  <TableHead>Reminders</TableHead>
                   <TableHead className="w-[70px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -494,7 +491,7 @@ export default function ReservationsPage() {
                 {loading ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i}>
-                      <TableCell colSpan={10}>
+                      <TableCell colSpan={9}>
                         <div className="flex items-center space-x-4">
                           <div className="space-y-2 flex-1">
                             <div className="h-4 w-32 bg-gray-200 rounded animate-pulse" />
@@ -506,14 +503,13 @@ export default function ReservationsPage() {
                   ))
                 ) : reservations.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center py-8">
+                    <TableCell colSpan={9} className="text-center py-8">
                       <Calendar className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
                       <p className="text-muted-foreground">Tidak ada booking ditemukan</p>
                     </TableCell>
                   </TableRow>
                 ) : (
                   reservations.map((reservation: Reservation) => {
-                    const priority = getBookingPriority(reservation)
                     const deadline = getDeadlineInfo(reservation)
                     const paymentRule = canCompletePayment(reservation)
                     const rescheduleRule = canRescheduleBooking(reservation)
@@ -522,20 +518,8 @@ export default function ReservationsPage() {
                     return (
                       <TableRow key={reservation.id}>
                         <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Badge
-                              variant={priority.priority === 'urgent' ? 'destructive' :
-                                priority.priority === 'high' ? 'default' :
-                                  priority.priority === 'medium' ? 'secondary' : 'outline'}
-                              className="text-xs"
-                            >
-                              {priority.priority === 'urgent' && <AlertTriangle className="h-3 w-3 mr-1" />}
-                              {priority.priority === 'high' && <Zap className="h-3 w-3 mr-1" />}
-                              {priority.label}
-                            </Badge>
-                          </div>
-                          <div className="text-xs text-muted-foreground mt-1">
-                            {deadline.message}
+                          <div className="text-sm text-gray-900">
+                            {deadline.message || 'No deadline info'}
                           </div>
                         </TableCell>
                         <TableCell>
@@ -600,49 +584,6 @@ export default function ReservationsPage() {
                               <div className="text-sm text-muted-foreground">
                                 DP: {formatCurrency(reservation.dp_amount)}
                               </div>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-1">
-                            {(reservation.customer?.phone || reservation.guest_phone) && (
-                              <>
-                                {paymentRule.allowed && reservation.payment_status !== 'completed' && (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => handleWhatsAppReminder(reservation, 'payment')}
-                                    className="h-8 w-8 p-0"
-                                    title="Payment Reminder"
-                                  >
-                                    <DollarSign className="h-3 w-3" />
-                                  </Button>
-                                )}
-
-                                {rescheduleRule.allowed && (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => handleWhatsAppReminder(reservation, 'reschedule')}
-                                    className="h-8 w-8 p-0"
-                                    title="Reschedule Reminder"
-                                  >
-                                    <Calendar className="h-3 w-3" />
-                                  </Button>
-                                )}
-
-                                {reservation.status === 'confirmed' && (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => handleWhatsAppReminder(reservation, 'confirmation')}
-                                    className="h-8 w-8 p-0"
-                                    title="Booking Confirmation"
-                                  >
-                                    <MessageCircle className="h-3 w-3" />
-                                  </Button>
-                                )}
-                              </>
                             )}
                           </div>
                         </TableCell>
@@ -732,6 +673,22 @@ export default function ReservationsPage() {
                               )}
 
                               <DropdownMenuSeparator />
+                              {(reservation.customer?.phone || reservation.guest_phone) && (
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    const phone = reservation.customer?.phone || reservation.guest_phone
+                                    if (phone) {
+                                      const cleanPhone = phone.replace(/\D/g, '')
+                                      window.open(`https://wa.me/${cleanPhone}`, '_blank')
+                                    }
+                                  }}
+                                  className="text-green-600"
+                                >
+                                  <MessageCircle className="mr-2 h-4 w-4" />
+                                  WA Direct
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuSeparator />
                               <DropdownMenuItem
                                 onClick={() => handleDelete(reservation)}
                                 className="text-red-600"
@@ -779,7 +736,6 @@ export default function ReservationsPage() {
             <div className="space-y-6">
               {/* Business Rules Status */}
               {(() => {
-                const priority = getBookingPriority(selectedReservation)
                 const deadline = getDeadlineInfo(selectedReservation)
                 const paymentRule = canCompletePayment(selectedReservation)
                 const rescheduleRule = canRescheduleBooking(selectedReservation)
@@ -796,16 +752,7 @@ export default function ReservationsPage() {
                     <CardContent>
                       <div className="space-y-4">
                         <div className="flex items-center gap-4">
-                          <Badge
-                            variant={priority.priority === 'urgent' ? 'destructive' :
-                              priority.priority === 'high' ? 'default' :
-                                priority.priority === 'medium' ? 'secondary' : 'outline'}
-                          >
-                            {priority.priority === 'urgent' && <AlertTriangle className="h-4 w-4 mr-1" />}
-                            {priority.priority === 'high' && <Zap className="h-4 w-4 mr-1" />}
-                            Priority: {priority.label}
-                          </Badge>
-                          <span className="text-sm text-muted-foreground">{deadline.message}</span>
+                          <span className="text-sm font-medium">{deadline.message}</span>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -879,6 +826,25 @@ export default function ReservationsPage() {
                                 >
                                   <MessageCircle className="h-4 w-4 mr-2" />
                                   Confirmation
+                                </Button>
+                              )}
+                              
+                              {/* Direct WhatsApp Button */}
+                              {(selectedReservation.customer?.phone || selectedReservation.guest_phone) && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    const phone = selectedReservation.customer?.phone || selectedReservation.guest_phone
+                                    if (phone) {
+                                      const whatsappUrl = `https://wa.me/${phone.replace(/\D/g, '')}`
+                                      window.open(whatsappUrl, '_blank')
+                                    }
+                                  }}
+                                  className="bg-green-50 hover:bg-green-100 border-green-200"
+                                >
+                                  <MessageCircle className="h-4 w-4 mr-2" />
+                                  WA Direct
                                 </Button>
                               )}
                             </div>
@@ -1379,7 +1345,11 @@ export default function ReservationsPage() {
           setIsRescheduleOpen(false)
           setReservationToReschedule(null)
         }}
-        onSuccess={() => refetch()}
+        onSuccess={async () => {
+          console.log('Reschedule success - refreshing data...')
+          await refetch()
+          console.log('Data refreshed')
+        }}
         reservation={reservationToReschedule}
       />
 

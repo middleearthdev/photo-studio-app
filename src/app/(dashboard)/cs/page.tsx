@@ -7,7 +7,7 @@ export default function CSPage() {
   const router = useRouter()
 
   useEffect(() => {
-    router.replace("/cs/dashboard")
+    router.replace("/cs/reminders")
   }, [router])
 
   return null

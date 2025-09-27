@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import React, { useState, useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -35,14 +35,171 @@ import { Switch } from "@/components/ui/switch"
 import { useCreatePortfolio, useUpdatePortfolio } from "@/hooks/use-portfolios"
 import { usePortfolioCategories } from "@/hooks/use-portfolios"
 import { type Portfolio } from "@/actions/portfolios"
-import { Loader2, Upload, Image as ImageIcon, X, Star, Eye } from "lucide-react"
+import { Loader2, Star, Eye, Image as ImageIcon, Upload, X } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import Image from "next/image"
+
+// Simple upload component using NEXT_UPLOAD_DESTINATION
+function ImageUploadComponent({ studioId, value, onChange }: {
+  studioId: string
+  value: string
+  onChange: (url: string) => void
+}) {
+  const [isUploading, setIsUploading] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const fileInputRef = React.useRef<HTMLInputElement>(null)
+
+  const uploadToDestination = async (file: File): Promise<string> => {
+    const destination = process.env.NEXT_PUBLIC_UPLOAD_DESTINATION || 'server'
+    
+    if (destination === 'supabase') {
+      // Upload to Supabase
+      const { createClient } = await import('@/lib/supabase/client')
+      const supabase = createClient()
+      
+      const fileName = `${studioId}/${Date.now()}-${file.name}`
+      const { data, error } = await supabase.storage
+        .from('portfolio-images')
+        .upload(fileName, file)
+      
+      if (error) throw error
+      
+      const { data: { publicUrl } } = supabase.storage
+        .from('portfolio-images')
+        .getPublicUrl(fileName)
+      
+      return publicUrl
+    } else {
+      // Upload to server
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('studioId', studioId)
+      
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+      })
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Upload failed')
+      }
+      
+      const result = await response.json()
+      
+      // Create full URL for server uploads
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+      const fullUrl = result.url.startsWith('http') 
+        ? result.url 
+        : `${baseUrl}${result.url}`
+      
+      return fullUrl
+    }
+  }
+
+  const handleFileSelect = async (file: File) => {
+    if (!file || file.type.indexOf('image/') !== 0) return
+
+    setIsUploading(true)
+    setProgress(0)
+
+    try {
+      // Simulate progress
+      const progressInterval = setInterval(() => {
+        setProgress(prev => prev + 10)
+      }, 200)
+
+      const url = await uploadToDestination(file)
+      
+      clearInterval(progressInterval)
+      setProgress(100)
+      
+      setTimeout(() => {
+        onChange(url)
+        setIsUploading(false)
+        setProgress(0)
+      }, 500)
+    } catch (error) {
+      setIsUploading(false)
+      setProgress(0)
+      console.error('Upload failed:', error)
+      alert(error instanceof Error ? error.message : 'Upload failed')
+    }
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    const file = e.dataTransfer.files[0]
+    if (file) handleFileSelect(file)
+  }
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) handleFileSelect(file)
+  }
+
+  const destination = process.env.NEXT_PUBLIC_UPLOAD_DESTINATION || 'server'
+
+  return (
+    <div className="space-y-4">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleInputChange}
+        className="hidden"
+      />
+      
+      {isUploading ? (
+        <div className="text-center space-y-4">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto" />
+          <div>
+            <p className="text-sm font-medium">Uploading to {destination}...</p>
+            <div className="bg-gray-200 rounded-full h-2 mt-2">
+              <div 
+                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            <p className="text-xs text-gray-500 mt-1">{progress}%</p>
+          </div>
+        </div>
+      ) : (
+        <div 
+          className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-gray-400 transition-colors"
+          onDrop={handleDrop}
+          onDragOver={(e) => e.preventDefault()}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <Upload className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+          <p className="text-sm font-medium">Click to upload or drag and drop</p>
+          <p className="text-xs text-gray-500">Upload to: {destination}</p>
+        </div>
+      )}
+
+      {/* Manual URL Input - Always visible */}
+      <div className="space-y-2">
+        <Input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="Atau masukkan URL gambar langsung"
+        />
+      </div>
+    </div>
+  )
+}
 
 const formSchema = z.object({
   title: z.string().min(1, "Judul portfolio wajib diisi"),
   description: z.string().optional(),
-  image_url: z.string().url("URL gambar tidak valid").min(1, "URL gambar wajib diisi"),
+  image_url: z.string().min(1, "URL gambar wajib diisi").refine((val) => {
+    try {
+      new URL(val)
+      return true
+    } catch {
+      return false
+    }
+  }, "URL gambar tidak valid"),
   alt_text: z.string().optional(),
   category_id: z.string().optional(),
   display_order: z.number().min(0, "Urutan tampil tidak boleh negatif"),
@@ -68,7 +225,6 @@ export function PortfolioDialog({
   studioId
 }: PortfolioDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [imagePreview, setImagePreview] = useState<string>("")
   const { data: categories = [] } = usePortfolioCategories(studioId)
   const createPortfolioMutation = useCreatePortfolio()
   const updatePortfolioMutation = useUpdatePortfolio()
@@ -87,16 +243,6 @@ export function PortfolioDialog({
     },
   })
 
-  // Watch image URL for preview
-  const imageUrl = form.watch("image_url")
-
-  useEffect(() => {
-    if (imageUrl && imageUrl.startsWith('http')) {
-      setImagePreview(imageUrl)
-    } else {
-      setImagePreview("")
-    }
-  }, [imageUrl])
 
   // Reset form when dialog opens/closes or portfolio data changes
   useEffect(() => {
@@ -171,19 +317,6 @@ export function PortfolioDialog({
     }
   }
 
-  const handleImageUpload = () => {
-    // Placeholder for actual image upload functionality
-    // This would integrate with Cloudinary or other image service
-    const sampleImages = [
-      "https://images.unsplash.com/photo-1606216794074-735e91aa2c92?w=800",
-      "https://images.unsplash.com/photo-1519741497674-611481863552?w=800",
-      "https://images.unsplash.com/photo-1537633552985-df8429e8048b?w=800",
-      "https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=800",
-    ]
-    
-    const randomImage = sampleImages[Math.floor(Math.random() * sampleImages.length)]
-    form.setValue("image_url", randomImage)
-  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -205,64 +338,35 @@ export function PortfolioDialog({
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             {/* Image Upload Section */}
             <div className="space-y-4">
-              <label className="text-sm font-medium">Gambar Portfolio *</label>
-              
-              {/* Image Preview */}
-              {imagePreview ? (
-                <Card className="relative overflow-hidden">
-                  <CardContent className="p-0">
-                    <div className="relative aspect-video">
-                      <Image
-                        src={imagePreview}
-                        alt="Preview"
-                        fill
-                        className="object-cover"
-                      />
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="icon"
-                        className="absolute top-2 right-2 h-8 w-8"
-                        onClick={() => {
-                          form.setValue("image_url", "")
-                          setImagePreview("")
-                        }}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ) : (
-                <Card className="border-2 border-dashed border-muted-foreground/25">
-                  <CardContent className="flex flex-col items-center justify-center py-8">
-                    <Upload className="h-8 w-8 text-muted-foreground mb-2" />
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Drag gambar ke sini atau klik untuk upload
-                    </p>
-                    <Button type="button" variant="outline" onClick={handleImageUpload}>
-                      <Upload className="h-4 w-4 mr-2" />
-                      Upload Gambar
-                    </Button>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Manual Image URL Input */}
               <FormField
                 control={form.control}
                 name="image_url"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>URL Gambar (Manual)</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="https://example.com/image.jpg"
-                        {...field}
-                      />
-                    </FormControl>
+                    <FormLabel>Gambar Portfolio *</FormLabel>
+                    <div className="space-y-4">
+                      {/* Image Upload Area */}
+                      <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6">
+                        <ImageUploadComponent
+                          studioId={studioId}
+                          value={field.value}
+                          onChange={field.onChange}
+                        />
+                      </div>
+                      
+                      {/* Preview */}
+                      {field.value && (
+                        <div className="relative w-full max-w-sm mx-auto">
+                          <img
+                            src={field.value}
+                            alt="Portfolio preview"
+                            className="w-full h-48 object-cover rounded-lg border"
+                          />
+                        </div>
+                      )}
+                    </div>
                     <FormDescription>
-                      Masukkan URL gambar langsung atau gunakan upload di atas
+                      Upload gambar portfolio atau masukkan URL langsung
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -456,6 +560,7 @@ export function PortfolioDialog({
           </form>
         </Form>
       </DialogContent>
+      
     </Dialog>
   )
 }

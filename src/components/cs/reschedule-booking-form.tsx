@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
-import { Calendar, Clock, AlertTriangle, Save, X, RefreshCw } from "lucide-react"
+import { Calendar, Clock, AlertTriangle, Save, X, RefreshCw, MessageCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -17,6 +17,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 import { type Reservation } from "@/actions/reservations"
+import { useRescheduleReservation } from "@/hooks/use-reservations"
+import { useAvailableTimeSlots } from "@/hooks/use-time-slots"
 import { canRescheduleBooking, getDeadlineInfo } from "@/lib/utils/booking-rules"
 
 interface TimeSlot {
@@ -43,9 +45,19 @@ export function RescheduleBookingForm({ isOpen, onClose, onSuccess, reservation 
     internal_notes: '',
   })
 
-  const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([])
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isCheckingAvailability, setIsCheckingAvailability] = useState(false)
+  // Use reschedule mutation hook
+  const rescheduleReservation = useRescheduleReservation()
+
+  // Use real time slots hook
+  const {
+    data: availableSlots = [],
+    isLoading: isCheckingAvailability
+  } = useAvailableTimeSlots(
+    reservation?.studio_id,
+    formData.new_date,
+    reservation?.total_duration,
+    reservation?.package_id || undefined
+  )
 
   // Reset form when reservation changes
   useEffect(() => {
@@ -57,59 +69,21 @@ export function RescheduleBookingForm({ isOpen, onClose, onSuccess, reservation 
         reschedule_reason: '',
         internal_notes: '',
       })
-      setAvailableSlots([])
     }
   }, [reservation])
 
-  // Generate time slots when date changes
-  useEffect(() => {
-    if (formData.new_date && reservation) {
-      checkAvailability()
-    }
-  }, [formData.new_date, reservation])
+  const handleTimeSlotSelect = (slot: any) => {
+    if (!slot.available || !reservation) return
 
-  const checkAvailability = async () => {
-    setIsCheckingAvailability(true)
-    
-    try {
-      // Mock API call to check availability
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      const slots: TimeSlot[] = []
-      const startHour = 8
-      const endHour = 18
-      const duration = reservation?.total_duration || 60
-      const slotDuration = Math.max(duration, 60) / 60 // Convert to hours
-      
-      for (let hour = startHour; hour < endHour; hour += slotDuration) {
-        const endHour = hour + slotDuration
-        if (endHour <= 18) {
-          const start = `${Math.floor(hour).toString().padStart(2, '0')}:${((hour % 1) * 60).toString().padStart(2, '0')}`
-          const end = `${Math.floor(endHour).toString().padStart(2, '0')}:${((endHour % 1) * 60).toString().padStart(2, '0')}`
-          
-          slots.push({
-            start_time: start,
-            end_time: end,
-            is_available: Math.random() > 0.4 // Mock availability
-          })
-        }
-      }
-      
-      setAvailableSlots(slots)
-    } catch (error) {
-      toast.error("Failed to check availability")
-    } finally {
-      setIsCheckingAvailability(false)
-    }
-  }
-
-  const handleTimeSlotSelect = (slot: TimeSlot) => {
-    if (!slot.is_available) return
+    // Calculate end time based on reservation duration
+    const startTime = new Date(`1970-01-01 ${slot.time}:00`)
+    const endTime = new Date(startTime.getTime() + reservation.total_duration * 60000)
+    const endTimeString = endTime.toTimeString().slice(0, 5)
     
     setFormData(prev => ({
       ...prev,
-      new_start_time: slot.start_time,
-      new_end_time: slot.end_time
+      new_start_time: slot.time,
+      new_end_time: endTimeString
     }))
   }
 
@@ -148,33 +122,38 @@ export function RescheduleBookingForm({ isOpen, onClose, onSuccess, reservation 
   }
 
   const handleSubmit = async () => {
-    if (!validateForm()) return
+    if (!validateForm() || !reservation) return
     
-    setIsSubmitting(true)
-    
-    try {
-      // Mock API call - replace with actual API
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      
-      toast.success("Booking has been rescheduled successfully")
-      
-      onSuccess()
-      onClose()
-      
-      // Reset form
-      setFormData({
-        new_date: '',
-        new_start_time: '',
-        new_end_time: '',
-        reschedule_reason: '',
-        internal_notes: '',
-      })
-      
-    } catch (error) {
-      toast.error("Failed to reschedule booking")
-    } finally {
-      setIsSubmitting(false)
-    }
+    rescheduleReservation.mutate({
+      id: reservation.id,
+      rescheduleData: {
+        new_date: formData.new_date,
+        new_start_time: formData.new_start_time,
+        new_end_time: formData.new_end_time,
+        reschedule_reason: formData.reschedule_reason,
+        internal_notes: formData.internal_notes
+      }
+    }, {
+      onSuccess: async () => {
+        // Reset form first
+        setFormData({
+          new_date: '',
+          new_start_time: '',
+          new_end_time: '',
+          reschedule_reason: '',
+          internal_notes: '',
+        })
+        
+        // Wait a bit for query invalidation to propagate
+        await new Promise(resolve => setTimeout(resolve, 100))
+        
+        // Call onSuccess callback to refresh parent data
+        onSuccess()
+        
+        // Close form after successful reschedule
+        onClose()
+      }
+    })
   }
 
   const formatDate = (dateString: string) => {
@@ -305,27 +284,33 @@ export function RescheduleBookingForm({ isOpen, onClose, onSuccess, reservation 
                         </div>
                       ) : availableSlots.length > 0 ? (
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                          {availableSlots.map((slot, index) => (
-                            <Button
-                              key={index}
-                              variant={
-                                formData.new_start_time === slot.start_time 
-                                  ? "default" 
-                                  : slot.is_available 
-                                    ? "outline" 
-                                    : "secondary"
-                              }
-                              size="sm"
-                              disabled={!slot.is_available}
-                              onClick={() => handleTimeSlotSelect(slot)}
-                              className="text-xs"
-                            >
-                              {slot.start_time} - {slot.end_time}
-                              {!slot.is_available && (
-                                <span className="ml-1 text-red-500">⚠️</span>
-                              )}
-                            </Button>
-                          ))}
+                          {availableSlots.map((slot) => {
+                            const endTime = new Date(`1970-01-01 ${slot.time}:00`)
+                            endTime.setMinutes(endTime.getMinutes() + (reservation?.total_duration || 60))
+                            const endTimeString = endTime.toTimeString().slice(0, 5)
+
+                            return (
+                              <Button
+                                key={slot.id}
+                                variant={
+                                  formData.new_start_time === slot.time 
+                                    ? "default" 
+                                    : slot.available 
+                                      ? "outline" 
+                                      : "secondary"
+                                }
+                                size="sm"
+                                disabled={!slot.available}
+                                onClick={() => handleTimeSlotSelect(slot)}
+                                className="text-xs"
+                              >
+                                {slot.time} - {endTimeString}
+                                {!slot.available && (
+                                  <span className="ml-1 text-red-500">⚠️</span>
+                                )}
+                              </Button>
+                            )
+                          })}
                         </div>
                       ) : (
                         <div className="text-center py-4 text-gray-500">
@@ -372,17 +357,17 @@ export function RescheduleBookingForm({ isOpen, onClose, onSuccess, reservation 
 
         {/* Footer Actions */}
         <div className="flex justify-end gap-2 pt-4 border-t">
-          <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
+          <Button variant="outline" onClick={onClose} disabled={rescheduleReservation.isPending}>
             <X className="h-4 w-4 mr-2" />
             Cancel
           </Button>
           {rescheduleRule.allowed && (
             <Button 
               onClick={handleSubmit} 
-              disabled={isSubmitting || !formData.new_date || !formData.new_start_time}
+              disabled={rescheduleReservation.isPending || !formData.new_date || !formData.new_start_time}
             >
               <Save className="h-4 w-4 mr-2" />
-              {isSubmitting ? 'Rescheduling...' : 'Confirm Reschedule'}
+              {rescheduleReservation.isPending ? 'Rescheduling...' : 'Confirm Reschedule'}
             </Button>
           )}
         </div>

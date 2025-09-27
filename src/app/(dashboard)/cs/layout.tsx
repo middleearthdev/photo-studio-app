@@ -17,7 +17,6 @@ import {
   CheckSquare,
   Clock,
   Star,
-  BarChart3,
 } from "lucide-react"
 
 import {
@@ -50,6 +49,7 @@ import { Badge } from "@/components/ui/badge"
 import { useProfile } from "@/hooks/use-profile"
 import { signOutAction } from "@/actions/auth"
 import { toast } from "sonner"
+import { RemindersNotification } from "@/components/cs/reminders-notification"
 
 interface CSLayoutProps {
   children: React.ReactNode
@@ -57,14 +57,9 @@ interface CSLayoutProps {
 
 const menuItems = [
   {
-    title: "Dashboard",
-    icon: BarChart3,
-    href: "/cs/dashboard",
-  },
-  {
-    title: "Customer Management",
-    icon: Users,
-    href: "/cs/customers",
+    title: "Reminders",
+    icon: Bell,
+    href: "/cs/reminders",
   },
   {
     title: "Booking Management",
@@ -75,6 +70,11 @@ const menuItems = [
     title: "Payment Approval",
     icon: DollarSign,
     href: "/cs/payments",
+  },
+  {
+    title: "Customer Management",
+    icon: Users,
+    href: "/cs/customers",
   }
 ]
 
@@ -118,7 +118,7 @@ export default function CSLayout({ children }: CSLayoutProps) {
             <SidebarGroupLabel>Operations & Approvals</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {menuItems.slice(0, 5).map((item) => (
+                {menuItems.map((item) => (
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
                       asChild
@@ -201,6 +201,27 @@ export default function CSLayout({ children }: CSLayoutProps) {
               <h1 className="text-lg font-semibold">
                 {menuItems.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))?.title || "Customer Service"}
               </h1>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <RemindersNotification />
+
+              <div className="flex items-center gap-2">
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={profile?.avatar_url || ""} alt={profile?.full_name || "CS"} />
+                  <AvatarFallback className="bg-orange-100 text-orange-700">
+                    {profile?.full_name?.charAt(0) || "CS"}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="hidden md:block">
+                  <div className="text-sm font-medium">
+                    {profile?.full_name || "Customer Service"}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    CS Portal
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </header>

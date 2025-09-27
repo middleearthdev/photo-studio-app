@@ -9,6 +9,7 @@ import {
   updateReservationStatusAction,
   updateReservationAction,
   deleteReservationAction,
+  rescheduleBookingAction,
   type CreateReservationData,
   type Reservation
 } from '@/actions/reservations'
@@ -314,6 +315,58 @@ export function useDeleteReservation() {
     },
     onError: (error: Error) => {
       toast.error(`Gagal menghapus reservasi: ${error.message}`)
+    },
+  })
+}
+
+// Reschedule reservation mutation
+export function useRescheduleReservation() {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: async ({ 
+      id, 
+      rescheduleData 
+    }: { 
+      id: string; 
+      rescheduleData: {
+        new_date: string
+        new_start_time: string
+        new_end_time: string
+        reschedule_reason: string
+        internal_notes?: string
+      }
+    }) => {
+      const result = await rescheduleBookingAction(id, rescheduleData)
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to reschedule reservation')
+      }
+      if (!result.data) {
+        throw new Error('No data returned from reschedule operation')
+      }
+      return result.data
+    },
+    onSuccess: async (data: Reservation) => {
+      toast.success('Booking berhasil direschedule')
+      
+      // Force refetch all reservation queries to ensure fresh data
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: reservationKeys.all }),
+        queryClient.invalidateQueries({ queryKey: reservationKeys.stats(data?.studio_id || '') }),
+        queryClient.refetchQueries({ 
+          predicate: (query) => {
+            const queryKey = query.queryKey
+            return queryKey[0] === 'reservations' && 
+                   queryKey[1] === 'paginated' && 
+                   typeof queryKey[2] === 'object' &&
+                   queryKey[2] !== null &&
+                   (queryKey[2] as any).studioId === data?.studio_id
+          }
+        })
+      ])
+    },
+    onError: (error: Error) => {
+      toast.error(`Gagal reschedule booking: ${error.message}`)
     },
   })
 }

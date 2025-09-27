@@ -14,9 +14,11 @@ import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { BottomNav } from '@/components/navigation/bottom-nav'
+import { Navbar } from '@/components/navbar'
 import { usePublicPortfolios, usePublicPortfolioCategories } from '@/hooks/use-customer-portfolios'
 import type { Portfolio } from '@/actions/customer-portfolios'
 import { Footer } from '@/components/footer'
+import WhatsAppFloatButton from '@/components/whatsapp-float-button'
 
 function PortfolioPageContent() {
   const searchParams = useSearchParams()
@@ -126,43 +128,7 @@ function PortfolioPageContent() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-100">
       {/* Navigation */}
-      <nav className="fixed top-0 w-full z-40 bg-white/90 backdrop-blur-md border-b border-slate-200/20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-3">
-              <Image
-                src="/icons/logo_blue_white.svg"
-                alt="Kalarasa Studio Logo"
-                width={40}
-                height={40}
-                className="rounded-full"
-              />
-              <span className="text-xl font-bold text-[#00052e]">Kalarasa Studio</span>
-            </div>
-
-            <div className="hidden md:flex items-center space-x-8">
-              <Link href="/" className="text-slate-600 hover:text-[#00052e] transition-colors">
-                Beranda
-              </Link>
-              <Link href="/packages" className="text-slate-600 hover:text-[#00052e] transition-colors">
-                Paket Foto
-              </Link>
-              <Link href="/portfolio" className="text-[#00052e] hover:text-[#b0834d] transition-colors font-medium">
-                Portfolio
-              </Link>
-              <Link href="/#services" className="text-slate-600 hover:text-[#00052e] transition-colors">
-                Layanan
-              </Link>
-              <Link href="/#contact" className="text-slate-600 hover:text-[#00052e] transition-colors">
-                Kontak
-              </Link>
-              <Button className="bg-[#00052e] hover:bg-[#00052e]/90 text-white transition-all duration-300 shadow-md hover:shadow-lg">
-                Booking Sekarang
-              </Button>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <Navbar currentPath="/portfolio" />
 
       {/* Hero Section */}
       <section className="relative pt-20 pb-16 md:pb-24 overflow-hidden">
@@ -566,14 +532,18 @@ function PortfolioPageContent() {
               Mari wujudkan visi kreatif Anda bersama tim profesional kami di Karawang
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button size="lg" variant="outline" className="border-[#00052e] text-[#00052e] hover:bg-[#00052e] hover:text-white px-6 sm:px-8 py-4 sm:py-6 rounded-full transition-all duration-300 text-sm sm:text-base">
-                <Calendar className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
-                Lihat Paket Harga
-              </Button>
+              <Link href="/packages">
+                <Button size="lg" variant="outline" className="border-[#00052e] text-[#00052e] hover:bg-[#00052e] hover:text-white px-6 sm:px-8 py-4 sm:py-6 rounded-full transition-all duration-300 text-sm sm:text-base">
+                  <Calendar className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
+                  Lihat Paket Harga
+                </Button>
+              </Link>
             </div>
           </motion.div>
         </div>
       </section>
+      <WhatsAppFloatButton />
+
       <Footer />
 
       {/* Bottom Navigation */}

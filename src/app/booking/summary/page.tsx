@@ -20,7 +20,8 @@ import {
   MapPin,
   Calendar,
   Gift,
-  AlertCircle
+  AlertCircle,
+  Tag
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -46,7 +47,8 @@ const customerSchema = z.object({
     .regex(/^[\d+\-\s()]+$/, 'Format nomor WhatsApp tidak valid'),
   email: z.string().min(1, 'Email wajib diisi').email('Format email tidak valid'),
   notes: z.string().optional(),
-  paymentMethod: z.string().min(1, 'Pilih metode pembayaran')
+  paymentMethod: z.string().min(1, 'Pilih metode pembayaran'),
+  discountCode: z.string().optional()
 })
 
 type CustomerFormData = z.infer<typeof customerSchema>
@@ -65,6 +67,9 @@ export default function BookingSummaryPage() {
   const router = useRouter()
   const [bookingData, setBookingData] = useState<BookingData | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [discountAmount, setDiscountAmount] = useState(0)
+  const [isValidatingDiscount, setIsValidatingDiscount] = useState(false)
+  const [appliedDiscountCode, setAppliedDiscountCode] = useState('')
   
   const { data: packageData } = usePublicPackage(bookingData?.packageId || '')
   const { data: addonsGrouped = {} } = usePublicAddonsGrouped(packageData?.studio_id)
@@ -81,6 +86,7 @@ export default function BookingSummaryPage() {
   })
 
   const selectedPaymentMethod = watch('paymentMethod')
+  const discountCode = watch('discountCode')
 
   useEffect(() => {
     const storedData = localStorage.getItem('bookingData')
@@ -91,6 +97,64 @@ export default function BookingSummaryPage() {
       router.push('/packages')
     }
   }, [router])
+
+  // Manual discount application function
+  const applyDiscount = async () => {
+    if (!discountCode || !packageData || discountCode.length < 3) {
+      toast.error('Masukkan kode diskon yang valid')
+      return
+    }
+
+    setIsValidatingDiscount(true)
+    try {
+      // Simple discount logic for demo - in production use API
+      const code = discountCode.toUpperCase()
+      const subtotal = getSubtotalPrice()
+      
+      let discount = 0
+      let discountType = ''
+      let discountValue = ''
+      
+      if (code === 'DISKON10') {
+        discount = Math.min(subtotal * 0.1, subtotal) // 10% discount
+        discountType = 'Diskon 10%'
+        discountValue = '10%'
+      } else if (code === 'DISKON50K') {
+        discount = Math.min(50000, subtotal) // 50k discount
+        discountType = 'Diskon 50K'
+        discountValue = 'Rp 50.000'
+      } else if (code === 'WELCOME20') {
+        discount = Math.min(subtotal * 0.2, subtotal) // 20% discount
+        discountType = 'Welcome 20%'
+        discountValue = '20%'
+      }
+      
+      if (discount > 0) {
+        setDiscountAmount(discount)
+        setAppliedDiscountCode(code)
+        toast.success(`${discountType} berhasil diterapkan! Hemat ${formatPrice(discount)}`)
+      } else {
+        toast.error('Kode diskon tidak valid atau sudah tidak berlaku')
+        setDiscountAmount(0)
+        setAppliedDiscountCode('')
+      }
+    } catch (error) {
+      console.error('Discount validation error:', error)
+      toast.error('Terjadi kesalahan saat memvalidasi kode diskon')
+      setDiscountAmount(0)
+      setAppliedDiscountCode('')
+    } finally {
+      setIsValidatingDiscount(false)
+    }
+  }
+
+  // Function to remove applied discount
+  const removeDiscount = () => {
+    setDiscountAmount(0)
+    setAppliedDiscountCode('')
+    setValue('discountCode', '')
+    toast.success('Diskon telah dihapus')
+  }
 
   if (!bookingData || !packageData || isLoadingPaymentMethods) {
     return (
@@ -139,6 +203,13 @@ export default function BookingSummaryPage() {
   }
 
   const getTotalPrice = () => {
+    const packagePrice = packageData.price
+    const addonsPrice = bookingData.addonsTotal || 0
+    const subtotal = packagePrice + addonsPrice
+    return Math.max(0, subtotal - discountAmount) // Ensure total is never negative
+  }
+
+  const getSubtotalPrice = () => {
     const packagePrice = packageData.price
     const addonsPrice = bookingData.addonsTotal || 0
     return packagePrice + addonsPrice
@@ -213,7 +284,8 @@ export default function BookingSummaryPage() {
         dp_percentage: packageData.dp_percentage,
         total_addons_price: totalAddonsPrice,
         special_requests: data.notes,
-        payment_method: data.paymentMethod
+        payment_method: data.paymentMethod,
+        discount_amount: discountAmount
       }
 
       const result = await createReservationAction(reservationData)
@@ -412,15 +484,94 @@ export default function BookingSummaryPage() {
                       )}
                     </div>
                     
-                    <div className="space-y-1.5 sm:space-y-2">
-                      <Label htmlFor="notes" className="text-xs sm:text-sm">Catatan Tambahan (Opsional)</Label>
-                      <Textarea
-                        id="notes"
-                        {...register('notes')}
-                        placeholder="Permintaan khusus, tema foto, dll."
-                        rows={3}
-                        className="text-xs sm:text-sm"
-                      />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
+                      <div className="space-y-1.5 sm:space-y-2">
+                        <Label htmlFor="notes" className="text-xs sm:text-sm">Catatan Tambahan (Opsional)</Label>
+                        <Textarea
+                          id="notes"
+                          {...register('notes')}
+                          placeholder="Permintaan khusus, tema foto, dll."
+                          rows={3}
+                          className="text-xs sm:text-sm"
+                        />
+                      </div>
+                      
+                      <div className="space-y-1.5 sm:space-y-2">
+                        <Label htmlFor="discountCode" className="text-xs sm:text-sm flex items-center gap-1">
+                          <Tag className="h-3 w-3 sm:h-4 sm:w-4" />
+                          Kode Diskon (Opsional)
+                        </Label>
+                        
+                        {appliedDiscountCode ? (
+                          // Show applied discount
+                          <div className="border border-green-500 bg-green-50 rounded-lg p-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <CheckCircle className="h-4 w-4 text-green-600" />
+                                <span className="font-medium text-green-800 text-sm">
+                                  Kode "{appliedDiscountCode}" Diterapkan
+                                </span>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={removeDiscount}
+                                className="h-6 px-2 text-xs text-red-600 hover:text-red-800 hover:bg-red-50"
+                              >
+                                Hapus
+                              </Button>
+                            </div>
+                            <p className="text-xs text-green-700">
+                              Hemat {formatPrice(discountAmount)} dari total pembayaran
+                            </p>
+                          </div>
+                        ) : (
+                          // Show discount input
+                          <>
+                            <div className="flex gap-2">
+                              <Input
+                                id="discountCode"
+                                {...register('discountCode')}
+                                placeholder="DISKON10, WELCOME20, dst"
+                                className="text-xs sm:text-sm flex-1"
+                                disabled={isValidatingDiscount}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault()
+                                    applyDiscount()
+                                  }
+                                }}
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={applyDiscount}
+                                disabled={isValidatingDiscount || !discountCode}
+                                className="px-3 text-xs shrink-0"
+                              >
+                                {isValidatingDiscount ? (
+                                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current"></div>
+                                ) : (
+                                  'Apply'
+                                )}
+                              </Button>
+                            </div>
+                            
+                            {isValidatingDiscount && (
+                              <p className="text-xs text-blue-600 flex items-center gap-1">
+                                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
+                                Memvalidasi kode diskon...
+                              </p>
+                            )}
+                            
+                            <p className="text-xs text-slate-500">
+                              Masukkan kode diskon dan klik "Apply" untuk mendapatkan potongan harga
+                            </p>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -588,6 +739,32 @@ export default function BookingSummaryPage() {
                     </div>
                   </div>
 
+                  {/* Applied Discount */}
+                  {appliedDiscountCode && (
+                    <div className="border-t pt-3 sm:pt-4">
+                      <h4 className="font-semibold text-[#00052e] mb-2 sm:mb-3 flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base">
+                        <Tag className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" />
+                        Diskon Diterapkan
+                      </h4>
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-2 sm:p-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className="h-4 w-4 text-green-600" />
+                            <span className="font-medium text-green-800 text-sm">
+                              {appliedDiscountCode}
+                            </span>
+                          </div>
+                          <span className="font-semibold text-green-600 text-sm">
+                            -{formatPrice(discountAmount)}
+                          </span>
+                        </div>
+                        <p className="text-xs text-green-700 mt-1">
+                          Diskon berhasil diterapkan pada booking Anda
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Selected Add-ons */}
                   {selectedAddons.length > 0 && (
                     <div className="border-t pt-3 sm:pt-4">
@@ -614,8 +791,18 @@ export default function BookingSummaryPage() {
                   <div className="border-t pt-3 sm:pt-4 space-y-2 sm:space-y-3">
                     <div className="flex justify-between text-xs sm:text-sm">
                       <span className="text-slate-600">Subtotal</span>
-                      <span className="font-medium">{formatPrice(getTotalPrice())}</span>
+                      <span className="font-medium">{formatPrice(getSubtotalPrice())}</span>
                     </div>
+                    
+                    {discountAmount > 0 && (
+                      <div className="flex justify-between text-xs sm:text-sm">
+                        <span className="text-green-600 flex items-center gap-1">
+                          <Tag className="h-3 w-3" />
+                          Diskon
+                        </span>
+                        <span className="font-medium text-green-600">-{formatPrice(discountAmount)}</span>
+                      </div>
+                    )}
                     
                     {selectedPaymentMethod && shouldDisplayFeesToCustomers() && calculateSelectedMethodFee() > 0 && (
                       <div className="flex justify-between text-xs sm:text-sm">

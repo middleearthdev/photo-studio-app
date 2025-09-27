@@ -13,6 +13,7 @@ import { PackageCard } from '@/components/package-card'
 import { Navbar } from '@/components/navbar'
 import { Footer } from '@/components/footer'
 import { BottomNav } from '@/components/navigation/bottom-nav'
+import WhatsAppFloatButton from '@/components/whatsapp-float-button'
 
 export default function PackagesPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
@@ -309,50 +310,8 @@ export default function PackagesPage() {
           )}
         </div>
       </section>
-
-      {/* Quick Actions */}
-      <section className="px-4 sm:px-6 lg:px-8 pb-20">
-        <div className="max-w-7xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            viewport={{ once: true }}
-          >
-            <Card className="bg-gradient-to-r from-[#00052e]/10 to-[#b0834d]/10 border-0 p-10 rounded-3xl shadow-xl">
-              <div className="text-center">
-                <h3 className="text-xl sm:text-2xl lg:text-3xl font-bold text-[#00052e] mb-4 sm:mb-6">
-                  Butuh Konsultasi?
-                </h3>
-                <p className="text-slate-600 mb-6 sm:mb-8 lg:mb-10 text-sm sm:text-base lg:text-xl max-w-3xl mx-auto">
-                  Tim ahli kami siap membantu Anda memilih paket foto yang tepat sesuai kebutuhan dan budget
-                </p>
-                <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 lg:gap-6 justify-center">
-                  <Button
-                    size="lg"
-                    className="bg-[#00052e] hover:bg-[#00052e]/90 text-white px-4 sm:px-6 lg:px-8 py-3 sm:py-4 lg:py-6 rounded-full text-sm sm:text-base lg:text-lg shadow-lg hover:shadow-xl transition-all duration-300"
-                  >
-                    <Phone className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 mr-2 sm:mr-3" />
-                    <span className="hidden sm:inline">Hubungi Konsultan</span>
-                    <span className="sm:hidden">Hubungi</span>
-                  </Button>
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    className="border-[#b0834d] text-[#b0834d] hover:bg-[#b0834d] hover:text-white px-4 sm:px-6 lg:px-8 py-3 sm:py-4 lg:py-6 rounded-full text-sm sm:text-base lg:text-lg shadow-lg hover:shadow-xl transition-all duration-300"
-                  >
-                    <Mail className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 mr-2 sm:mr-3" />
-                    <span className="hidden sm:inline">Kirim Pesan</span>
-                    <span className="sm:hidden">Pesan</span>
-                  </Button>
-                </div>
-              </div>
-            </Card>
-          </motion.div>
-        </div>
-      </section>
+      <WhatsAppFloatButton />
       <Footer />
-
       {/* Bottom Navigation for Mobile */}
       <BottomNav />
     </div>

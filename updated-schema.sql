@@ -10,7 +10,7 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 -- Create custom types/enums (FIXED: 3 roles only)
 CREATE TYPE user_role AS ENUM ('customer', 'admin', 'cs');
 CREATE TYPE reservation_status AS ENUM ('pending', 'confirmed', 'in_progress', 'completed', 'cancelled');
-CREATE TYPE payment_status AS ENUM ('pending', 'partial', 'completed', 'failed', 'refunded');
+CREATE TYPE payment_status AS ENUM ('pending', 'partial', 'completed', 'failed');
 
 -- Studios Table
 CREATE TABLE studios (
@@ -91,8 +91,6 @@ CREATE TABLE packages (
     duration_minutes INTEGER NOT NULL,
     price DECIMAL(10,2) NOT NULL,
     dp_percentage DECIMAL(5,2) DEFAULT 30.00,
-    max_photos INTEGER,
-    max_edited_photos INTEGER,
     includes JSONB,
     is_popular BOOLEAN DEFAULT false,
     is_active BOOLEAN DEFAULT true,

@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -33,6 +33,7 @@ import {
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { format } from "date-fns"
+import { id as localeId } from "date-fns/locale"
 import {
   FileText,
   Download,
@@ -47,115 +48,34 @@ import {
   Filter,
   Eye,
   RefreshCw,
+  Loader2,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useStudios } from "@/hooks/use-studios"
+import { useGenerateReport } from "@/hooks/use-reports"
+import { reportTemplates, type ReportData } from "@/types/reports"
 
-interface Report {
-  id: string
-  name: string
-  description: string
-  type: "financial" | "operational" | "customer" | "performance"
-  status: "ready" | "generating" | "scheduled"
-  lastGenerated: string
-  fileSize?: string
-  downloadUrl?: string
-}
-
-interface ReportTemplate {
-  id: string
-  name: string
-  description: string
-  type: "financial" | "operational" | "customer" | "performance"
-  fields: string[]
-  schedule?: "daily" | "weekly" | "monthly"
-}
-
-// Mock data
-const reportTemplates: ReportTemplate[] = [
-  {
-    id: "revenue-report",
-    name: "Revenue Report",
-    description: "Detailed revenue analysis with package breakdown",
-    type: "financial",
-    fields: ["Total Revenue", "Package Revenue", "Payment Methods", "Refunds"],
-  },
-  {
-    id: "booking-report", 
-    name: "Booking Report",
-    description: "Comprehensive booking statistics and trends",
-    type: "operational",
-    fields: ["Total Bookings", "Facility Usage", "Time Slot Analysis", "Cancellations"],
-  },
-  {
-    id: "customer-report",
-    name: "Customer Report", 
-    description: "Customer behavior and demographics analysis",
-    type: "customer",
-    fields: ["New Customers", "Returning Customers", "Customer Lifetime Value"],
-  },
-  {
-    id: "facility-report",
-    name: "Facility Utilization Report",
-    description: "Detailed facility usage and performance metrics",
-    type: "operational", 
-    fields: ["Facility Usage Rate", "Peak Hours", "Revenue per Facility"],
-  },
-  {
-    id: "package-report",
-    name: "Package Performance Report",
-    description: "Package popularity and revenue analysis",
-    type: "performance",
-    fields: ["Package Bookings", "Package Revenue", "Popular Add-ons"],
-  },
-  {
-    id: "reviews-report",
-    name: "Customer Reviews Report",
-    description: "Customer satisfaction and review analysis",
-    type: "customer",
-    fields: ["Average Rating", "Review Trends", "Customer Feedback"],
-  }
-]
-
-const generatedReports: Report[] = [
-  {
-    id: "1",
-    name: "Monthly Revenue Report - August 2025",
-    description: "Complete revenue analysis for August 2025",
-    type: "financial",
-    status: "ready",
-    lastGenerated: "2025-09-01T10:00:00Z",
-    fileSize: "2.3 MB",
-    downloadUrl: "/reports/revenue-aug-2025.pdf"
-  },
-  {
-    id: "2", 
-    name: "Weekly Booking Report - Week 35",
-    description: "Booking statistics for week 35 of 2025",
-    type: "operational",
-    status: "ready",
-    lastGenerated: "2025-09-02T09:00:00Z", 
-    fileSize: "1.8 MB",
-    downloadUrl: "/reports/booking-week-35.pdf"
-  },
-  {
-    id: "3",
-    name: "Customer Analysis Q3 2025",
-    description: "Quarterly customer behavior analysis",
-    type: "customer",
-    status: "generating",
-    lastGenerated: "2025-09-04T08:00:00Z",
-  },
-]
+type ReportType = "financial" | "operational" | "customer" | "performance"
 
 export default function ReportsPage() {
-  const [selectedTemplate, setSelectedTemplate] = useState<ReportTemplate | null>(null)
+  const [selectedTemplate, setSelectedTemplate] = useState<any>(null)
   const [reportType, setReportType] = useState("all")
-  const [reportStatus, setReportStatus] = useState("all")
   const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false)
   const [dateFrom, setDateFrom] = useState<Date>()
   const [dateTo, setDateTo] = useState<Date>()
   const [reportName, setReportName] = useState("")
-  const [selectedFields, setSelectedFields] = useState<string[]>([])
+  const [selectedStudioId, setSelectedStudioId] = useState<string>('')
+  
+  // Get studios and reports functionality
+  const { data: studios = [], isLoading: studiosLoading } = useStudios()
+  const { generateReport, isGenerating, generatedReports, exportToCSV, error } = useGenerateReport()
+  
+  // Set default studio when studios load
+  useEffect(() => {
+    if (studios.length > 0 && !selectedStudioId) {
+      setSelectedStudioId(studios[0].id)
+    }
+  }, [studios, selectedStudioId])
 
   const getTypeColor = (type: string) => {
     switch (type) {
@@ -167,67 +87,94 @@ export default function ReportsPage() {
     }
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "ready": return "bg-green-100 text-green-800"
-      case "generating": return "bg-yellow-100 text-yellow-800"
-      case "scheduled": return "bg-blue-100 text-blue-800"
-      default: return "bg-gray-100 text-gray-800"
+  const getTypeLabel = (type: string) => {
+    switch (type) {
+      case "financial": return "Keuangan"
+      case "operational": return "Operasional" 
+      case "customer": return "Customer"
+      case "performance": return "Performa"
+      default: return "Lainnya"
     }
   }
 
   const filteredReports = generatedReports.filter(report => {
     const typeMatch = reportType === "all" || report.type === reportType
-    const statusMatch = reportStatus === "all" || report.status === reportStatus
-    return typeMatch && statusMatch
+    return typeMatch
   })
 
   const handleGenerateReport = () => {
-    if (selectedTemplate && reportName && dateFrom && dateTo) {
-      console.log("Generating report:", {
-        template: selectedTemplate,
-        name: reportName,
-        dateRange: { from: dateFrom, to: dateTo },
-        fields: selectedFields
+    if (selectedTemplate && reportName && dateFrom && dateTo && selectedStudioId) {
+      generateReport({
+        templateId: selectedTemplate.id,
+        studioId: selectedStudioId,
+        dateFrom: dateFrom.toISOString().split('T')[0],
+        dateTo: dateTo.toISOString().split('T')[0],
+        reportName
       })
-      // Implement report generation logic
       setIsGenerateDialogOpen(false)
       // Reset form
       setReportName("")
       setDateFrom(undefined)
       setDateTo(undefined)
-      setSelectedFields([])
       setSelectedTemplate(null)
     }
   }
 
-  const openGenerateDialog = (template: ReportTemplate) => {
+  const openGenerateDialog = (template: any) => {
     setSelectedTemplate(template)
-    setReportName(`${template.name} - ${format(new Date(), "MMMM yyyy")}`)
-    setSelectedFields(template.fields)
+    setReportName(`${template.name} - ${format(new Date(), "MMMM yyyy", { locale: localeId })}`)
     setIsGenerateDialogOpen(true)
+  }
+
+  // Show loading if studios not loaded yet
+  if (studiosLoading) {
+    return (
+      <div className="container mx-auto py-6 space-y-6">
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin" />
+          <span className="ml-2">Memuat data studio...</span>
+        </div>
+      </div>
+    )
   }
 
   return (
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Reports</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Laporan</h1>
           <p className="text-muted-foreground">
-            Generate and download comprehensive business reports
+            Generate dan unduh laporan bisnis yang komprehensif
           </p>
         </div>
-        <Button onClick={() => setIsGenerateDialogOpen(true)}>
-          <FileText className="mr-2 h-4 w-4" />
-          Generate New Report
-        </Button>
+        <div className="flex items-center gap-4">
+          {/* Studio Selector */}
+          {studios.length > 0 && (
+            <Select value={selectedStudioId} onValueChange={setSelectedStudioId}>
+              <SelectTrigger className="w-[250px]">
+                <SelectValue placeholder="Pilih Studio" />
+              </SelectTrigger>
+              <SelectContent>
+                {studios.map((studio) => (
+                  <SelectItem key={studio.id} value={studio.id}>
+                    {studio.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <Button onClick={() => setIsGenerateDialogOpen(true)} disabled={!selectedStudioId}>
+            <FileText className="mr-2 h-4 w-4" />
+            Buat Laporan Baru
+          </Button>
+        </div>
       </div>
 
       {/* Quick Stats */}
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Reports</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Laporan</CardTitle>
             <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -236,33 +183,37 @@ export default function ReportsPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Ready to Download</CardTitle>
+            <CardTitle className="text-sm font-medium">Siap Diunduh</CardTitle>
             <Download className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {generatedReports.filter(r => r.status === "ready").length}
+              {generatedReports.length}
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Generating</CardTitle>
+            <CardTitle className="text-sm font-medium">Sedang Dibuat</CardTitle>
             <RefreshCw className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {generatedReports.filter(r => r.status === "generating").length}
+              {isGenerating ? 1 : 0}
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">This Month</CardTitle>
+            <CardTitle className="text-sm font-medium">Bulan Ini</CardTitle>
             <CalendarIcon className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">8</div>
+            <div className="text-2xl font-bold">{generatedReports.filter(r => {
+              const reportDate = new Date(r.generatedAt)
+              const now = new Date()
+              return reportDate.getMonth() === now.getMonth() && reportDate.getFullYear() === now.getFullYear()
+            }).length}</div>
           </CardContent>
         </Card>
       </div>
@@ -270,9 +221,9 @@ export default function ReportsPage() {
       {/* Report Templates */}
       <Card>
         <CardHeader>
-          <CardTitle>Report Templates</CardTitle>
+          <CardTitle>Template Laporan</CardTitle>
           <CardDescription>
-            Pre-configured report templates for quick generation
+            Template laporan yang telah dikonfigurasi untuk generate cepat
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -284,14 +235,14 @@ export default function ReportsPage() {
                     <div className="space-y-1">
                       <CardTitle className="text-base">{template.name}</CardTitle>
                       <Badge className={getTypeColor(template.type)}>
-                        {template.type}
+                        {getTypeLabel(template.type)}
                       </Badge>
                     </div>
                     <Button 
                       size="sm" 
                       onClick={() => openGenerateDialog(template)}
                     >
-                      Generate
+                      Buat
                     </Button>
                   </div>
                 </CardHeader>
@@ -300,7 +251,7 @@ export default function ReportsPage() {
                     {template.description}
                   </p>
                   <div className="space-y-1">
-                    <div className="text-xs font-medium text-muted-foreground">Includes:</div>
+                    <div className="text-xs font-medium text-muted-foreground">Termasuk:</div>
                     <div className="flex flex-wrap gap-1">
                       {template.fields.slice(0, 3).map((field) => (
                         <Badge key={field} variant="outline" className="text-xs">
@@ -326,33 +277,20 @@ export default function ReportsPage() {
         <CardHeader>
           <div className="flex justify-between items-center">
             <div>
-              <CardTitle>Generated Reports</CardTitle>
+              <CardTitle>Laporan yang Dibuat</CardTitle>
               <CardDescription>
-                Previously generated reports available for download
+                Laporan yang telah dibuat dan tersedia untuk diunduh
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
               <Select value={reportType} onValueChange={setReportType}>
                 <SelectTrigger className="w-[140px]">
-                  <SelectValue placeholder="Filter by type" />
+                  <SelectValue placeholder="Filter berdasarkan tipe" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="financial">Financial</SelectItem>
-                  <SelectItem value="operational">Operational</SelectItem>
-                  <SelectItem value="customer">Customer</SelectItem>
-                  <SelectItem value="performance">Performance</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={reportStatus} onValueChange={setReportStatus}>
-                <SelectTrigger className="w-[140px]">
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="ready">Ready</SelectItem>
-                  <SelectItem value="generating">Generating</SelectItem>
-                  <SelectItem value="scheduled">Scheduled</SelectItem>
+                  <SelectItem value="all">Semua Tipe</SelectItem>
+                  <SelectItem value="financial">Keuangan</SelectItem>
+                  <SelectItem value="operational">Operasional</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -362,16 +300,34 @@ export default function ReportsPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Report Name</TableHead>
-                <TableHead>Type</TableHead>
+                <TableHead>Nama Laporan</TableHead>
+                <TableHead>Tipe</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Generated</TableHead>
-                <TableHead>File Size</TableHead>
-                <TableHead>Actions</TableHead>
+                <TableHead>Dibuat</TableHead>
+                <TableHead>Ukuran File</TableHead>
+                <TableHead>Aksi</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredReports.map((report) => (
+              {error && (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8">
+                    <div className="text-red-500">
+                      Terjadi kesalahan: {error instanceof Error ? error.message : 'Unknown error'}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )}
+              {!error && filteredReports.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8">
+                    <div className="text-muted-foreground">
+                      {isGenerating ? 'Sedang membuat laporan...' : 'Belum ada laporan yang dibuat'}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )}
+              {!error && filteredReports.map((report) => (
                 <TableRow key={report.id}>
                   <TableCell>
                     <div>
@@ -383,34 +339,26 @@ export default function ReportsPage() {
                   </TableCell>
                   <TableCell>
                     <Badge className={getTypeColor(report.type)}>
-                      {report.type}
+                      {getTypeLabel(report.type)}
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <Badge className={getStatusColor(report.status)}>
-                      {report.status}
+                    <Badge className="bg-green-100 text-green-800">
+                      Siap
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    {format(new Date(report.lastGenerated), "MMM d, yyyy 'at' h:mm a")}
+                    {format(new Date(report.generatedAt), "d MMM yyyy 'pukul' HH:mm", { locale: localeId })}
                   </TableCell>
                   <TableCell>
-                    {report.fileSize || "-"}
+                    -
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      {report.status === "ready" && (
-                        <Button size="sm" variant="outline">
-                          <Download className="mr-1 h-3 w-3" />
-                          Download
-                        </Button>
-                      )}
-                      {report.status === "generating" && (
-                        <Button size="sm" variant="outline" disabled>
-                          <RefreshCw className="mr-1 h-3 w-3 animate-spin" />
-                          Generating...
-                        </Button>
-                      )}
+                      <Button size="sm" variant="outline" onClick={() => exportToCSV(report)}>
+                        <Download className="mr-1 h-3 w-3" />
+                        Export CSV
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -424,9 +372,9 @@ export default function ReportsPage() {
       <Dialog open={isGenerateDialogOpen} onOpenChange={setIsGenerateDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Generate New Report</DialogTitle>
+            <DialogTitle>Buat Laporan Baru</DialogTitle>
             <DialogDescription>
-              Configure and generate a new report with custom parameters
+              Konfigurasi dan buat laporan baru dengan parameter khusus
             </DialogDescription>
           </DialogHeader>
 
@@ -434,7 +382,7 @@ export default function ReportsPage() {
             {/* Template Selection */}
             {!selectedTemplate && (
               <div className="space-y-4">
-                <Label>Select Report Template</Label>
+                <Label>Pilih Template Laporan</Label>
                 <div className="grid gap-2">
                   {reportTemplates.map((template) => (
                     <Card 
@@ -451,7 +399,7 @@ export default function ReportsPage() {
                             </div>
                           </div>
                           <Badge className={getTypeColor(template.type)}>
-                            {template.type}
+                            {getTypeLabel(template.type)}
                           </Badge>
                         </div>
                       </CardContent>
@@ -465,19 +413,19 @@ export default function ReportsPage() {
               <div className="space-y-4">
                 {/* Report Name */}
                 <div className="space-y-2">
-                  <Label htmlFor="report-name">Report Name</Label>
+                  <Label htmlFor="report-name">Nama Laporan</Label>
                   <Input
                     id="report-name"
                     value={reportName}
                     onChange={(e) => setReportName(e.target.value)}
-                    placeholder="Enter report name"
+                    placeholder="Masukkan nama laporan"
                   />
                 </div>
 
                 {/* Date Range */}
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label>From Date</Label>
+                    <Label>Tanggal Mulai</Label>
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button
@@ -488,7 +436,7 @@ export default function ReportsPage() {
                           )}
                         >
                           <CalendarIcon className="mr-2 h-4 w-4" />
-                          {dateFrom ? format(dateFrom, "PPP") : "Pick a date"}
+                          {dateFrom ? format(dateFrom, "PPP", { locale: localeId }) : "Pilih tanggal"}
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0">
@@ -502,7 +450,7 @@ export default function ReportsPage() {
                     </Popover>
                   </div>
                   <div className="space-y-2">
-                    <Label>To Date</Label>
+                    <Label>Tanggal Selesai</Label>
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button
@@ -513,7 +461,7 @@ export default function ReportsPage() {
                           )}
                         >
                           <CalendarIcon className="mr-2 h-4 w-4" />
-                          {dateTo ? format(dateTo, "PPP") : "Pick a date"}
+                          {dateTo ? format(dateTo, "PPP", { locale: localeId }) : "Pilih tanggal"}
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0">
@@ -542,9 +490,9 @@ export default function ReportsPage() {
                     </Badge>
                   </div>
                   <div className="space-y-1">
-                    <div className="text-sm font-medium">Included Fields:</div>
+                    <div className="text-sm font-medium">Field yang Disertakan:</div>
                     <div className="flex flex-wrap gap-1">
-                      {selectedTemplate.fields.map((field) => (
+                      {selectedTemplate.fields.map((field: string) => (
                         <Badge key={field} variant="outline" className="text-xs">
                           {field}
                         </Badge>
@@ -567,13 +515,20 @@ export default function ReportsPage() {
                 setDateTo(undefined)
               }}
             >
-              Cancel
+              Batal
             </Button>
             <Button
               onClick={handleGenerateReport}
-              disabled={!selectedTemplate || !reportName || !dateFrom || !dateTo}
+              disabled={!selectedTemplate || !reportName || !dateFrom || !dateTo || isGenerating}
             >
-              Generate Report
+              {isGenerating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Membuat...
+                </>
+              ) : (
+                'Buat Laporan'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

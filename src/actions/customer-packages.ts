@@ -12,8 +12,6 @@ export interface Package {
   duration_minutes: number
   price: number
   dp_percentage: number
-  max_photos: number | null
-  max_edited_photos: number | null
   includes: string[] | null
   is_popular: boolean
   is_active: boolean

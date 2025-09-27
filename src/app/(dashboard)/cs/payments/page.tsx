@@ -57,23 +57,20 @@ const statusLabels = {
   pending: 'Menunggu Verifikasi',
   completed: 'Berhasil',
   failed: 'Gagal',
-  partial: 'Sebagian',
-  refunded: 'Dikembalikan'
+  partial: 'Sebagian'
 }
 
 const statusColors: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   pending: 'outline',
   completed: 'default',
   failed: 'destructive',
-  partial: 'secondary',
-  refunded: 'destructive'
+  partial: 'secondary'
 }
 
 const paymentTypeLabels = {
   dp: 'Down Payment',
   remaining: 'Pelunasan',
-  full: 'Pembayaran Penuh',
-  refund: 'Pengembalian'
+  full: 'Pembayaran Penuh'
 }
 
 export default function PaymentsPage() {
@@ -510,15 +507,6 @@ export default function PaymentsPage() {
                               </>
                             )}
 
-                            {payment.status === 'completed' && (
-                              <DropdownMenuItem
-                                onClick={() => handleStatusUpdate(payment, 'refunded')}
-                                className="text-orange-600"
-                              >
-                                <RefreshCw className="mr-2 h-4 w-4" />
-                                Refund
-                              </DropdownMenuItem>
-                            )}
 
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
@@ -759,20 +747,6 @@ export default function PaymentsPage() {
                       </>
                     )}
 
-                    {selectedPayment.status === 'completed' && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          handleStatusUpdate(selectedPayment, 'refunded')
-                          setIsDetailModalOpen(false)
-                        }}
-                        className="text-orange-600 hover:text-orange-700"
-                      >
-                        <RefreshCw className="mr-2 h-4 w-4" />
-                        Process Refund
-                      </Button>
-                    )}
 
                     {selectedPayment.payment_url && (
                       <Button
@@ -862,13 +836,6 @@ export default function PaymentsPage() {
                     </div>
                   )}
 
-                  {statusChangeData.newStatus === 'refunded' && (
-                    <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
-                      <p className="text-orange-800 text-sm font-medium">
-                        🔄 Refund akan diproses dan dana dikembalikan ke customer.
-                      </p>
-                    </div>
-                  )}
 
                   <div className="mt-3 p-3 bg-gray-50 rounded-lg">
                     <div className="text-sm">
@@ -890,14 +857,12 @@ export default function PaymentsPage() {
                   ? "bg-green-600 hover:bg-green-700"
                   : statusChangeData?.newStatus === 'failed'
                     ? "bg-red-600 hover:bg-red-700"
-                    : statusChangeData?.newStatus === 'refunded'
-                      ? "bg-orange-600 hover:bg-orange-700"
-                      : "bg-blue-600 hover:bg-blue-700"
+                    : "bg-blue-600 hover:bg-blue-700"
               }
             >
               {statusChangeData?.newStatus === 'completed' && 'Approve Payment'}
               {statusChangeData?.newStatus === 'failed' && 'Reject Payment'}
-              {statusChangeData?.newStatus === 'refunded' && 'Process Refund'}
+              {!['completed', 'failed'].includes(statusChangeData?.newStatus || '') && 'Update Status'}
               {statusChangeData?.newStatus === 'partial' && 'Mark as Partial'}
             </AlertDialogAction>
           </AlertDialogFooter>
