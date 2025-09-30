@@ -8,14 +8,14 @@ import { z } from 'zod'
 import { motion } from 'framer-motion'
 import { format } from 'date-fns'
 import { id as idLocale } from 'date-fns/locale'
-import { 
-  ArrowLeft, 
+import {
+  ArrowLeft,
   ArrowRight,
-  Camera, 
-  Clock, 
-  User, 
-  Phone, 
-  CreditCard, 
+  Camera,
+  Clock,
+  User,
+  Phone,
+  CreditCard,
   CheckCircle,
   MapPin,
   Calendar,
@@ -35,6 +35,8 @@ import { usePublicAddonsGrouped } from '@/hooks/use-addons'
 import { useActivePaymentMethods, formatPaymentMethod } from '@/hooks/use-payment-methods'
 import { createReservationAction } from '@/actions/reservations'
 import type { CreateReservationData } from '@/actions/reservations'
+import { createBankTransferPayment } from '@/actions/payments'
+import { getDiscountByCodeAction, validateDiscountAction } from '@/actions/discounts'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import { shouldDisplayFeesToCustomers, formatFeeDisplay } from '@/lib/config/fee-config'
@@ -57,7 +59,7 @@ interface BookingData {
   packageId: string
   date: string
   timeSlot: string
-  addons?: {[key: string]: number}
+  addons?: { [key: string]: number }
   addonsTotal?: number
 }
 
@@ -70,7 +72,8 @@ export default function BookingSummaryPage() {
   const [discountAmount, setDiscountAmount] = useState(0)
   const [isValidatingDiscount, setIsValidatingDiscount] = useState(false)
   const [appliedDiscountCode, setAppliedDiscountCode] = useState('')
-  
+  const [appliedDiscountId, setAppliedDiscountId] = useState('')
+
   const { data: packageData } = usePublicPackage(bookingData?.packageId || '')
   const { data: addonsGrouped = {} } = usePublicAddonsGrouped(packageData?.studio_id)
   const { data: paymentMethods = [], isLoading: isLoadingPaymentMethods } = useActivePaymentMethods(packageData?.studio_id || '')
@@ -98,7 +101,7 @@ export default function BookingSummaryPage() {
     }
   }, [router])
 
-  // Manual discount application function
+  // Database-integrated discount application function
   const applyDiscount = async () => {
     if (!discountCode || !packageData || discountCode.length < 3) {
       toast.error('Masukkan kode diskon yang valid')
@@ -107,42 +110,51 @@ export default function BookingSummaryPage() {
 
     setIsValidatingDiscount(true)
     try {
-      // Simple discount logic for demo - in production use API
       const code = discountCode.toUpperCase()
       const subtotal = getSubtotalPrice()
-      
-      let discount = 0
-      let discountType = ''
-      let discountValue = ''
-      
-      if (code === 'DISKON10') {
-        discount = Math.min(subtotal * 0.1, subtotal) // 10% discount
-        discountType = 'Diskon 10%'
-        discountValue = '10%'
-      } else if (code === 'DISKON50K') {
-        discount = Math.min(50000, subtotal) // 50k discount
-        discountType = 'Diskon 50K'
-        discountValue = 'Rp 50.000'
-      } else if (code === 'WELCOME20') {
-        discount = Math.min(subtotal * 0.2, subtotal) // 20% discount
-        discountType = 'Welcome 20%'
-        discountValue = '20%'
-      }
-      
-      if (discount > 0) {
-        setDiscountAmount(discount)
-        setAppliedDiscountCode(code)
-        toast.success(`${discountType} berhasil diterapkan! Hemat ${formatPrice(discount)}`)
-      } else {
+
+      // Get discount by code from database
+      const discountResult = await getDiscountByCodeAction(code, packageData.studio_id)
+
+      if (!discountResult.success || !discountResult.data) {
         toast.error('Kode diskon tidak valid atau sudah tidak berlaku')
         setDiscountAmount(0)
         setAppliedDiscountCode('')
+        setAppliedDiscountId('')
+        return
       }
+
+      const discount = discountResult.data
+
+      // Validate discount against current subtotal
+      const validationResult = await validateDiscountAction(discount.id, subtotal, packageData.studio_id)
+
+      if (!validationResult.success || !validationResult.data?.is_valid) {
+        toast.error(validationResult.data?.error_message || 'Kode diskon tidak dapat diterapkan')
+        setDiscountAmount(0)
+        setAppliedDiscountCode('')
+        setAppliedDiscountId('')
+        return
+      }
+
+      const discountAmount = validationResult.data.discount_amount
+
+      setDiscountAmount(discountAmount)
+      setAppliedDiscountCode(code)
+      setAppliedDiscountId(discount.id)
+
+      const discountType = discount.type === 'percentage'
+        ? `${discount.value}% off`
+        : `Potongan ${formatPrice(discount.value)}`
+
+      toast.success(`${discount.name} berhasil diterapkan! Hemat ${formatPrice(discountAmount)}`)
+
     } catch (error) {
       console.error('Discount validation error:', error)
       toast.error('Terjadi kesalahan saat memvalidasi kode diskon')
       setDiscountAmount(0)
       setAppliedDiscountCode('')
+      setAppliedDiscountId('')
     } finally {
       setIsValidatingDiscount(false)
     }
@@ -152,6 +164,7 @@ export default function BookingSummaryPage() {
   const removeDiscount = () => {
     setDiscountAmount(0)
     setAppliedDiscountCode('')
+    setAppliedDiscountId('')
     setValue('discountCode', '')
     toast.success('Diskon telah dihapus')
   }
@@ -185,10 +198,10 @@ export default function BookingSummaryPage() {
 
   const getSelectedAddons = () => {
     if (!bookingData.addons) return []
-    
+
     // Get all addons from grouped data
     const allAddons = Object.values(addonsGrouped).flat()
-    
+
     return Object.entries(bookingData.addons)
       .filter(([_, quantity]) => quantity > 0)
       .map(([addonId, quantity]) => {
@@ -222,12 +235,12 @@ export default function BookingSummaryPage() {
   // Calculate fee for selected payment method
   const calculateSelectedMethodFee = () => {
     if (!selectedPaymentMethod || !paymentMethods.length) return 0;
-    
+
     const selectedMethod = paymentMethods.find(method => method.id === selectedPaymentMethod);
     if (!selectedMethod) return 0;
-    
+
     const dpAmount = getDpAmount();
-    
+
     if (selectedMethod.fee_type === 'fixed') {
       return selectedMethod.fee_amount || 0;
     } else {
@@ -244,7 +257,7 @@ export default function BookingSummaryPage() {
 
   const onSubmit = async (data: CustomerFormData) => {
     setIsSubmitting(true)
-    
+
     try {
       if (!packageData || !bookingData) {
         toast.error('Data booking tidak lengkap')
@@ -264,7 +277,7 @@ export default function BookingSummaryPage() {
           }
         }) : []
 
-      const totalAddonsPrice = selectedAddons.reduce((total, addon) => 
+      const totalAddonsPrice = selectedAddons.reduce((total, addon) =>
         total + (addon.unit_price * addon.quantity), 0
       )
 
@@ -285,11 +298,12 @@ export default function BookingSummaryPage() {
         total_addons_price: totalAddonsPrice,
         special_requests: data.notes,
         payment_method: data.paymentMethod,
-        discount_amount: discountAmount
+        discount_amount: discountAmount,
+        discount_id: appliedDiscountId || undefined
       }
 
       const result = await createReservationAction(reservationData)
-      
+
       if (!result.success) {
         toast.error(result.error || 'Gagal membuat reservasi')
         return
@@ -297,7 +311,7 @@ export default function BookingSummaryPage() {
 
       // Find selected payment method details
       const selectedMethod = paymentMethods.find(method => method.id === data.paymentMethod);
-      
+
       const finalBookingData = {
         reservation: result.data?.reservation,
         customer: result.data?.customer,
@@ -306,17 +320,37 @@ export default function BookingSummaryPage() {
         totalPrice: getTotalPrice(),
         dpAmount: getDpAmount()
       }
-      
+
       localStorage.setItem('finalBookingData', JSON.stringify(finalBookingData))
       localStorage.removeItem('bookingData') // Clear temporary data
-      
+
       toast.success('Reservasi berhasil dibuat!')
-      
+
       const methodType = selectedMethod?.type || 'bank_transfer'
-      
-      // Redirect to payment gateway
-      router.push(`/booking/payment?method=${methodType}&booking=${result.data?.reservation.booking_code}&payment_method_id=${data.paymentMethod}`)
-      
+
+      // Conditional redirect based on payment method
+      if (methodType === 'bank_transfer') {
+        // Create payment record for bank transfer before redirect
+        if (result.data?.reservation.id) {
+          const paymentResult = await createBankTransferPayment(
+            result.data.reservation.id,
+            data.paymentMethod,
+            getDpAmount()
+          )
+          
+          if (!paymentResult.success) {
+            toast.error('Reservasi berhasil dibuat, tetapi gagal membuat record pembayaran')
+            console.error('Payment creation error:', paymentResult.error)
+          }
+        }
+        
+        // For manual bank transfer, redirect to info page with WhatsApp contact
+        router.push(`/booking/payment/info?method=${methodType}&booking=${result.data?.reservation.booking_code}&payment_method_id=${data.paymentMethod}`)
+      } else {
+        // For Xendit payments (e_wallet, va, etc), use existing flow
+        router.push(`/booking/payment?method=${methodType}&booking=${result.data?.reservation.booking_code}&payment_method_id=${data.paymentMethod}`)
+      }
+
     } catch (error) {
       console.error('Error creating reservation:', error)
       toast.error('Terjadi kesalahan. Silakan coba lagi.')
@@ -328,17 +362,17 @@ export default function BookingSummaryPage() {
   const formatPhoneNumber = (value: string) => {
     // Remove all non-numeric characters except + at the beginning
     const cleaned = value.replace(/[^\d+]/g, '')
-    
+
     // If starts with 0, replace with +62
     if (cleaned.startsWith('0')) {
       return `+62${cleaned.slice(1)}`
     }
-    
+
     // If doesn't start with +, add +62
     if (!cleaned.startsWith('+')) {
       return `+62${cleaned}`
     }
-    
+
     return cleaned
   }
 
@@ -357,9 +391,9 @@ export default function BookingSummaryPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => router.back()}
                 className="flex items-center gap-2"
               >
@@ -367,13 +401,13 @@ export default function BookingSummaryPage() {
                 Kembali
               </Button>
               <div className="text-sm text-slate-600">
-                <Link href="/packages" className="hover:text-[#00052e]">Paket</Link> / 
-                <Link href={`/packages/${packageData.id}`} className="hover:text-[#00052e] mx-1">{packageData.name}</Link> / 
-                <Link href="/booking/addons" className="hover:text-[#00052e] mx-1">Add-ons</Link> / 
+                <Link href="/packages" className="hover:text-[#00052e]">Paket</Link> /
+                <Link href={`/packages/${packageData.id}`} className="hover:text-[#00052e] mx-1">{packageData.name}</Link> /
+                <Link href="/booking/addons" className="hover:text-[#00052e] mx-1">Add-ons</Link> /
                 Ringkasan
               </div>
             </div>
-            
+
             {/* Progress Indicator - Hidden on mobile */}
             <div className="hidden sm:flex items-center gap-2 text-sm text-slate-600">
               <div className="flex items-center gap-2">
@@ -430,7 +464,7 @@ export default function BookingSummaryPage() {
                       Masukkan data diri untuk keperluan booking dan komunikasi. Email diperlukan untuk konfirmasi booking.
                     </CardDescription>
                   </CardHeader>
-                  
+
                   <CardContent className="space-y-3 sm:space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
                       <div className="space-y-1.5 sm:space-y-2">
@@ -448,7 +482,7 @@ export default function BookingSummaryPage() {
                           </p>
                         )}
                       </div>
-                      
+
                       <div className="space-y-1.5 sm:space-y-2">
                         <Label htmlFor="whatsapp" className="text-xs sm:text-sm">Nomor WhatsApp *</Label>
                         <Input
@@ -466,7 +500,7 @@ export default function BookingSummaryPage() {
                         )}
                       </div>
                     </div>
-                    
+
                     <div className="space-y-1.5 sm:space-y-2">
                       <Label htmlFor="email" className="text-xs sm:text-sm">Email *</Label>
                       <Input
@@ -483,7 +517,7 @@ export default function BookingSummaryPage() {
                         </p>
                       )}
                     </div>
-                    
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
                       <div className="space-y-1.5 sm:space-y-2">
                         <Label htmlFor="notes" className="text-xs sm:text-sm">Catatan Tambahan (Opsional)</Label>
@@ -495,13 +529,13 @@ export default function BookingSummaryPage() {
                           className="text-xs sm:text-sm"
                         />
                       </div>
-                      
+
                       <div className="space-y-1.5 sm:space-y-2">
                         <Label htmlFor="discountCode" className="text-xs sm:text-sm flex items-center gap-1">
                           <Tag className="h-3 w-3 sm:h-4 sm:w-4" />
                           Kode Diskon (Opsional)
                         </Label>
-                        
+
                         {appliedDiscountCode ? (
                           // Show applied discount
                           <div className="border border-green-500 bg-green-50 rounded-lg p-3 space-y-2">
@@ -558,14 +592,14 @@ export default function BookingSummaryPage() {
                                 )}
                               </Button>
                             </div>
-                            
+
                             {isValidatingDiscount && (
-                              <p className="text-xs text-blue-600 flex items-center gap-1">
+                              <div className="text-xs text-blue-600 flex items-center gap-1">
                                 <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
                                 Memvalidasi kode diskon...
-                              </p>
+                              </div>
                             )}
-                            
+
                             <p className="text-xs text-slate-500">
                               Masukkan kode diskon dan klik "Apply" untuk mendapatkan potongan harga
                             </p>
@@ -593,11 +627,11 @@ export default function BookingSummaryPage() {
                       Pilih metode pembayaran untuk DP sebesar {formatPrice(getDpAmount())}
                     </CardDescription>
                   </CardHeader>
-                  
+
                   <CardContent>
                     {paymentMethods.length > 0 ? (
-                      <RadioGroup 
-                        value={selectedPaymentMethod} 
+                      <RadioGroup
+                        value={selectedPaymentMethod}
                         onValueChange={(value) => setValue('paymentMethod', value)}
                         className="space-y-2 sm:space-y-3"
                       >
@@ -606,8 +640,8 @@ export default function BookingSummaryPage() {
                           return (
                             <div key={method.id} className="flex items-center space-x-2 sm:space-x-3">
                               <RadioGroupItem value={method.id} id={method.id} className="h-4 w-4 sm:h-5 sm:w-5" />
-                              <Label 
-                                htmlFor={method.id} 
+                              <Label
+                                htmlFor={method.id}
                                 className="flex-1 flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg border hover:bg-slate-50 cursor-pointer text-xs sm:text-sm"
                               >
                                 <div className="text-lg sm:text-xl">{formattedMethod.icon}</div>
@@ -641,7 +675,7 @@ export default function BookingSummaryPage() {
                         <p>Metode pembayaran belum tersedia untuk studio ini</p>
                       </div>
                     )}
-                    
+
                     {errors.paymentMethod && (
                       <p className="text-xs sm:text-sm text-red-500 flex items-center gap-1 mt-2 sm:mt-3">
                         <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4" />
@@ -659,7 +693,7 @@ export default function BookingSummaryPage() {
                 transition={{ duration: 0.6, delay: 0.3 }}
                 className="lg:hidden"
               >
-                <Button 
+                <Button
                   type="submit"
                   disabled={isSubmitting}
                   className="w-full bg-gradient-to-r from-[#00052e] to-[#b0834d] hover:from-[#00052e]/90 hover:to-[#b0834d]/90 text-xs sm:text-base py-2 sm:py-3"
@@ -694,7 +728,7 @@ export default function BookingSummaryPage() {
                 <CardHeader>
                   <CardTitle className="text-lg sm:text-xl text-[#00052e]">Detail Booking</CardTitle>
                 </CardHeader>
-                
+
                 <CardContent className="space-y-3 sm:space-y-4">
                   {/* Package Info */}
                   <div className="space-y-2 sm:space-y-3">
@@ -710,7 +744,7 @@ export default function BookingSummaryPage() {
                       </div>
                       <p className="font-semibold text-[#b0834d] text-sm sm:text-base">{formatPrice(packageData.price)}</p>
                     </div>
-                    
+
                     <div className="grid grid-cols-2 gap-2 sm:gap-4 text-xs sm:text-sm">
                       <div className="flex items-center gap-1.5 sm:gap-2 text-slate-600">
                         <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
@@ -786,14 +820,14 @@ export default function BookingSummaryPage() {
                       </div>
                     </div>
                   )}
-                  
+
                   {/* Total */}
                   <div className="border-t pt-3 sm:pt-4 space-y-2 sm:space-y-3">
                     <div className="flex justify-between text-xs sm:text-sm">
                       <span className="text-slate-600">Subtotal</span>
                       <span className="font-medium">{formatPrice(getSubtotalPrice())}</span>
                     </div>
-                    
+
                     {discountAmount > 0 && (
                       <div className="flex justify-between text-xs sm:text-sm">
                         <span className="text-green-600 flex items-center gap-1">
@@ -804,14 +838,21 @@ export default function BookingSummaryPage() {
                       </div>
                     )}
                     
+                    {discountAmount > 0 && (
+                      <div className="flex justify-between text-sm sm:text-base font-semibold border-t pt-2">
+                        <span className="text-slate-800">Total Setelah Diskon</span>
+                        <span className="text-[#00052e]">{formatPrice(getTotalPrice())}</span>
+                      </div>
+                    )}
+
                     {selectedPaymentMethod && shouldDisplayFeesToCustomers() && calculateSelectedMethodFee() > 0 && (
                       <div className="flex justify-between text-xs sm:text-sm">
                         <span className="text-slate-600">Biaya Payment</span>
                         <span className="font-medium text-red-600">+{formatPrice(calculateSelectedMethodFee())}</span>
                       </div>
                     )}
-                    
-                    <div className="flex justify-between text-base sm:text-lg font-bold">
+
+                    <div className="flex justify-between text-base sm:text-lg font-bold border-t pt-2">
                       <span>DP ({packageData.dp_percentage}%)</span>
                       {shouldDisplayFeesToCustomers() && calculateSelectedMethodFee() > 0 ? (
                         <span className="text-[#b0834d]">{formatPrice(getDisplayTotal())}</span>
@@ -819,11 +860,11 @@ export default function BookingSummaryPage() {
                         <span className="text-[#b0834d]">{formatPrice(getDpAmount())}</span>
                       )}
                     </div>
-                    
+
                     <div className="text-xs text-slate-500 bg-slate-50 p-2 sm:p-3 rounded-lg">
                       <p className="font-medium mb-1">Catatan:</p>
                       <p>
-                        Sisa pembayaran {formatPrice(getTotalPrice() - getDpAmount())} akan dibayar 
+                        Sisa pembayaran {formatPrice(getTotalPrice() - getDpAmount())} akan dibayar
                         pada hari sesi foto.
                       </p>
                     </div>
@@ -833,7 +874,7 @@ export default function BookingSummaryPage() {
 
               {/* Submit Button for Desktop */}
               <div className="hidden lg:block">
-                <Button 
+                <Button
                   type="submit"
                   form="booking-form"
                   onClick={handleSubmit(onSubmit)}

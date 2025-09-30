@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
-import { Calendar, Clock, Search, MoreHorizontal, Eye, Edit, Trash, CheckCircle, XCircle, PlayCircle, Filter, Download, RefreshCw, DollarSign } from "lucide-react"
+import { Calendar, Clock, Search, MoreHorizontal, Eye, Filter, RefreshCw, DollarSign, XCircle, CheckCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -17,7 +17,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
@@ -36,17 +35,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
-import { usePaginatedReservations, useReservationStats, useUpdateReservationStatus, useDeleteReservation, useUpdateReservation, type ReservationStatus } from "@/hooks/use-reservations"
+import { usePaginatedReservations, useReservationStats, type ReservationStatus } from "@/hooks/use-reservations"
 import { type Reservation } from "@/actions/reservations"
 import { PaginationControls } from "@/components/pagination-controls"
 import { DEFAULT_PAGE_SIZE } from "@/lib/constants/pagination"
@@ -95,12 +84,6 @@ export default function ReservationsPage() {
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
 
-  // AlertDialog states
-  const [reservationToDelete, setReservationToDelete] = useState<Reservation | null>(null)
-  const [statusChangeData, setStatusChangeData] = useState<{
-    reservation: Reservation
-    newStatus: ReservationStatus
-  } | null>(null)
 
   // Get list of studios for selection (consistent with packages page)
   const { data: studios = [], isLoading: studiosLoading } = useStudios()
@@ -133,9 +116,6 @@ export default function ReservationsPage() {
   const reservations = paginatedResult?.data || []
   const pagination = paginatedResult?.pagination
 
-  const updateStatusMutation = useUpdateReservationStatus()
-  const deleteReservationMutation = useDeleteReservation()
-  const updateReservationMutation = useUpdateReservation()
 
   // Reset pagination when filters change
   useEffect(() => {
@@ -151,43 +131,12 @@ export default function ReservationsPage() {
     setCurrentPage(1)
   }
 
-  const handleStatusUpdate = async (reservation: Reservation, newStatus: ReservationStatus) => {
-    setStatusChangeData({ reservation, newStatus })
-  }
-
-  const confirmStatusUpdate = () => {
-    if (statusChangeData) {
-      updateStatusMutation.mutate({ id: statusChangeData.reservation.id, status: statusChangeData.newStatus }, {
-        onSuccess: () => {
-          setStatusChangeData(null)
-        }
-      })
-    }
-  }
-
-  const handleDelete = async (reservation: Reservation) => {
-    setReservationToDelete(reservation)
-  }
-
-  const confirmDelete = () => {
-    if (reservationToDelete) {
-      deleteReservationMutation.mutate(reservationToDelete.id, {
-        onSuccess: () => {
-          setReservationToDelete(null)
-        }
-      })
-    }
-  }
 
   const handleViewDetails = (reservation: Reservation) => {
     setSelectedReservation(reservation)
     setIsDetailModalOpen(true)
   }
 
-  const handleEdit = (reservation: Reservation) => {
-    // TODO: Implement reservation edit modal or navigate to edit page
-    alert(`Edit reservation: ${reservation.booking_code}`)
-  }
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -247,10 +196,6 @@ export default function ReservationsPage() {
           <Button variant="outline" onClick={() => refetch()}>
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
-          </Button>
-          <Button variant="outline">
-            <Download className="h-4 w-4 mr-2" />
-            Export
           </Button>
         </div>
       </div>
@@ -570,65 +515,6 @@ export default function ReservationsPage() {
                                 <Eye className="mr-2 h-4 w-4" />
                                 View Details
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleEdit(reservation)}>
-                                <Edit className="mr-2 h-4 w-4" />
-                                Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-
-                              {reservation.status === 'pending' && (
-                                <>
-                                  <DropdownMenuItem
-                                    onClick={() => handleStatusUpdate(reservation, 'confirmed')}
-                                  >
-                                    <CheckCircle className="mr-2 h-4 w-4" />
-                                    Confirm
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onClick={() => handleStatusUpdate(reservation, 'cancelled')}
-                                    className="text-red-600"
-                                  >
-                                    <XCircle className="mr-2 h-4 w-4" />
-                                    Cancel
-                                  </DropdownMenuItem>
-                                </>
-                              )}
-
-                              {reservation.status === 'confirmed' && (
-                                <>
-                                  <DropdownMenuItem
-                                    onClick={() => handleStatusUpdate(reservation, 'in_progress')}
-                                  >
-                                    <PlayCircle className="mr-2 h-4 w-4" />
-                                    Start Session
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onClick={() => handleStatusUpdate(reservation, 'cancelled')}
-                                    className="text-red-600"
-                                  >
-                                    <XCircle className="mr-2 h-4 w-4" />
-                                    Cancel
-                                  </DropdownMenuItem>
-                                </>
-                              )}
-
-                              {reservation.status === 'in_progress' && (
-                                <DropdownMenuItem
-                                  onClick={() => handleStatusUpdate(reservation, 'completed')}
-                                >
-                                  <CheckCircle className="mr-2 h-4 w-4" />
-                                  Complete
-                                </DropdownMenuItem>
-                              )}
-
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                onClick={() => handleDelete(reservation)}
-                                className="text-red-600"
-                              >
-                                <Trash className="mr-2 h-4 w-4" />
-                                Delete
-                              </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
@@ -860,206 +746,11 @@ export default function ReservationsPage() {
                 </CardContent>
               </Card>
 
-              {/* Actions */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Quick Actions</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedReservation.status === 'pending' && (
-                      <>
-                        <Button
-                          variant="default"
-                          size="sm"
-                          onClick={() => {
-                            handleStatusUpdate(selectedReservation, 'confirmed')
-                            setIsDetailModalOpen(false)
-                          }}
-                        >
-                          <CheckCircle className="mr-2 h-4 w-4" />
-                          Confirm Reservation
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => {
-                            handleStatusUpdate(selectedReservation, 'cancelled')
-                            setIsDetailModalOpen(false)
-                          }}
-                        >
-                          <XCircle className="mr-2 h-4 w-4" />
-                          Cancel Reservation
-                        </Button>
-                      </>
-                    )}
-
-                    {selectedReservation.status === 'confirmed' && (
-                      <>
-                        <Button
-                          variant="default"
-                          size="sm"
-                          onClick={() => {
-                            handleStatusUpdate(selectedReservation, 'in_progress')
-                            setIsDetailModalOpen(false)
-                          }}
-                        >
-                          <PlayCircle className="mr-2 h-4 w-4" />
-                          Start Session
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => {
-                            handleStatusUpdate(selectedReservation, 'cancelled')
-                            setIsDetailModalOpen(false)
-                          }}
-                        >
-                          <XCircle className="mr-2 h-4 w-4" />
-                          Cancel Reservation
-                        </Button>
-                      </>
-                    )}
-
-                    {selectedReservation.status === 'in_progress' && (
-                      <Button
-                        variant="default"
-                        size="sm"
-                        onClick={() => {
-                          handleStatusUpdate(selectedReservation, 'completed')
-                          setIsDetailModalOpen(false)
-                        }}
-                      >
-                        <CheckCircle className="mr-2 h-4 w-4" />
-                        Complete Session
-                      </Button>
-                    )}
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-red-600 hover:text-red-700"
-                      onClick={() => {
-                        handleDelete(selectedReservation)
-                        setIsDetailModalOpen(false)
-                      }}
-                    >
-                      <Trash className="mr-2 h-4 w-4" />
-                      Delete Reservation
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
             </div>
           )}
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={!!reservationToDelete} onOpenChange={() => setReservationToDelete(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Hapus Reservasi</AlertDialogTitle>
-            <AlertDialogDescription>
-              <div className="space-y-2">
-                <p className="font-semibold text-red-600">⚠️ PERINGATAN: Aksi ini tidak dapat dibatalkan!</p>
-                <p>
-                  Apakah Anda yakin ingin menghapus reservasi "{reservationToDelete?.booking_code}" secara permanen?
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Reservasi dan semua data terkaitnya (addon, pembayaran pending) akan dihapus dari database dan tidak dapat dipulihkan.
-                </p>
-                {reservationToDelete && (
-                  <div className="mt-3 p-3 bg-gray-50 rounded-lg">
-                    <div className="text-sm">
-                      <p><span className="font-medium">Customer:</span> {reservationToDelete.customer?.full_name || 'Unknown'}</p>
-                      <p><span className="font-medium">Tanggal:</span> {formatDate(reservationToDelete.reservation_date)}</p>
-                      <p><span className="font-medium">Total:</span> {formatCurrency(reservationToDelete.total_amount)}</p>
-                      <p><span className="font-medium">Status:</span> {statusLabels[reservationToDelete.status]}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Batal</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmDelete}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              Hapus Permanen
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Status Change Confirmation Dialog */}
-      <AlertDialog open={!!statusChangeData} onOpenChange={() => setStatusChangeData(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              Ubah Status Reservasi
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {statusChangeData && (
-                <div className="space-y-2">
-                  <p>
-                    Apakah Anda yakin ingin mengubah status reservasi "{statusChangeData.reservation.booking_code}"
-                    dari <span className="font-medium">{statusLabels[statusChangeData.reservation.status]}</span>
-                    menjadi <span className="font-medium">{statusLabels[statusChangeData.newStatus]}</span>?
-                  </p>
-
-                  {statusChangeData.newStatus === 'cancelled' && (
-                    <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                      <p className="text-yellow-800 text-sm font-medium">
-                        ⚠️ Perhatian: Pembatalan reservasi mungkin memerlukan pengembalian dana.
-                      </p>
-                    </div>
-                  )}
-
-                  {statusChangeData.newStatus === 'completed' && (
-                    <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                      <p className="text-green-800 text-sm font-medium">
-                        ✅ Session akan ditandai selesai dan tidak dapat diubah kembali.
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="mt-3 p-3 bg-gray-50 rounded-lg">
-                    <div className="text-sm">
-                      <p><span className="font-medium">Customer:</span> {statusChangeData.reservation.customer?.full_name || 'Unknown'}</p>
-                      <p><span className="font-medium">Tanggal:</span> {formatDate(statusChangeData.reservation.reservation_date)}</p>
-                      <p><span className="font-medium">Waktu:</span> {formatTime(statusChangeData.reservation.start_time)} - {formatTime(statusChangeData.reservation.end_time)}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Batal</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmStatusUpdate}
-              className={
-                statusChangeData?.newStatus === 'cancelled'
-                  ? "bg-red-600 hover:bg-red-700"
-                  : statusChangeData?.newStatus === 'completed'
-                    ? "bg-green-600 hover:bg-green-700"
-                    : statusChangeData?.newStatus === 'confirmed'
-                      ? "bg-blue-600 hover:bg-blue-700"
-                      : "bg-orange-600 hover:bg-orange-700"
-              }
-            >
-              {statusChangeData?.newStatus === 'cancelled' && 'Batalkan Reservasi'}
-              {statusChangeData?.newStatus === 'confirmed' && 'Konfirmasi'}
-              {statusChangeData?.newStatus === 'in_progress' && 'Mulai Session'}
-              {statusChangeData?.newStatus === 'completed' && 'Selesaikan'}
-              {statusChangeData?.newStatus === 'pending' && 'Kembalikan ke Pending'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   )
 }

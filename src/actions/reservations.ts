@@ -140,6 +140,28 @@ export interface ActionResult<T = any> {
   message?: string
 }
 
+export interface PaginatedReservationsParams {
+  studioId: string
+  page?: number
+  pageSize?: number
+  search?: string
+  status?: string
+  payment_status?: string
+  booking_type?: 'guest' | 'user' | 'all'
+  date_from?: string
+  date_to?: string
+}
+
+export interface PaginatedReservationsResult {
+  data: Reservation[]
+  pagination: {
+    page: number
+    pageSize: number
+    total: number
+    totalPages: number
+  }
+}
+
 // Helper function to generate booking code
 function generateBookingCode(): string {
   const timestamp = Date.now().toString()
@@ -155,6 +177,117 @@ function calculateEndTime(startTime: string, durationMinutes: number): string {
 
   const endDate = new Date(startDate.getTime() + durationMinutes * 60000)
   return format(endDate, 'HH:mm')
+}
+
+export async function getPaginatedReservationsAction(
+  params: PaginatedReservationsParams
+): Promise<ActionResult<PaginatedReservationsResult>> {
+  try {
+    const supabase = await createClient()
+    
+    // Get current user to check permissions
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return { success: false, error: 'Unauthorized' }
+    }
+    
+    // Get current user profile
+    const { data: currentProfile } = await supabase
+      .from('user_profiles')
+      .select('role, studio_id')
+      .eq('id', user.id)
+      .single()
+      
+    if (!currentProfile || !['admin', 'cs'].includes(currentProfile.role)) {
+      return { success: false, error: 'Insufficient permissions' }
+    }
+
+    // Set pagination defaults
+    const page = params.page || 1
+    const pageSize = params.pageSize || 10
+    const offset = (page - 1) * pageSize
+
+    // Build base query
+    let query = supabase
+      .from('reservations')
+      .select(`
+        *,
+        studio:studios(id, name),
+        customer:customers(id, full_name, email, phone),
+        package:packages(id, name, duration_minutes),
+        reservation_addons(
+          *,
+          addon:addons(id, name, description)
+        )
+      `, { count: 'exact' })
+
+    // Studio filter - CS users can only see their studio
+    if (currentProfile.role === 'cs') {
+      query = query.eq('studio_id', currentProfile.studio_id)
+    } else if (params.studioId) {
+      query = query.eq('studio_id', params.studioId)
+    }
+
+    // Search filter
+    if (params.search) {
+      const searchTerm = `%${params.search}%`
+      query = query.or(`booking_code.ilike.${searchTerm},guest_email.ilike.${searchTerm},guest_phone.ilike.${searchTerm},customer.full_name.ilike.${searchTerm},customer.email.ilike.${searchTerm},customer.phone.ilike.${searchTerm}`)
+    }
+
+    // Status filter
+    if (params.status && params.status !== 'all') {
+      query = query.eq('status', params.status)
+    }
+
+    // Payment status filter
+    if (params.payment_status && params.payment_status !== 'all') {
+      query = query.eq('payment_status', params.payment_status)
+    }
+
+    // Booking type filter
+    if (params.booking_type && params.booking_type !== 'all') {
+      const isGuest = params.booking_type === 'guest'
+      query = query.eq('is_guest_booking', isGuest)
+    }
+
+    // Date range filters
+    if (params.date_from) {
+      query = query.gte('reservation_date', params.date_from)
+    }
+    if (params.date_to) {
+      query = query.lte('reservation_date', params.date_to)
+    }
+
+    // Apply pagination and ordering
+    query = query
+      .order('created_at', { ascending: false })
+      .range(offset, offset + pageSize - 1)
+
+    const { data, error, count } = await query
+
+    if (error) {
+      console.error('Error fetching paginated reservations:', error)
+      return { success: false, error: error.message }
+    }
+
+    const totalPages = Math.ceil((count || 0) / pageSize)
+
+    return {
+      success: true,
+      data: {
+        data: data || [],
+        pagination: {
+          page,
+          pageSize,
+          total: count || 0,
+          totalPages
+        }
+      }
+    }
+  } catch (error: any) {
+    console.error('Error in getPaginatedReservationsAction:', error)
+    return { success: false, error: error.message || 'An error occurred' }
+  }
 }
 
 // Admin/Staff action to create manual reservation (for manual booking by CS/Admin)
@@ -381,7 +514,7 @@ export async function createReservationAction(data: CreateReservationData): Prom
     const addonsTotal = data.total_addons_price || 0
     const subtotal = packagePrice + addonsTotal
     const taxAmount = 0 // No tax for now
-    const discountAmount = 0 // No discount for now
+    const discountAmount = data.discount_amount || 0 // Use discount from form
     const totalAmount = subtotal + taxAmount - discountAmount
     const dpAmount = Math.round(totalAmount * data.dp_percentage / 100)
     const remainingAmount = totalAmount - dpAmount
@@ -428,7 +561,8 @@ export async function createReservationAction(data: CreateReservationData): Prom
         special_requests: data.special_requests || '',
         guest_email: data.customer_email || '',
         guest_phone: data.customer_phone,
-        is_guest_booking: data.is_guest_booking || true
+        is_guest_booking: data.is_guest_booking || true,
+        discount_id: data.discount_id
       })
       .select()
       .single()
@@ -457,6 +591,7 @@ export async function createReservationAction(data: CreateReservationData): Prom
         // Don't fail the entire operation for add-ons error
       }
     }
+
 
     // Fetch the created reservation with all relations
     const { data: createdReservation, error: fetchError } = await supabase

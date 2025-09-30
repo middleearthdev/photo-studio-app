@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
-import { Users, UserCheck, Search, MoreHorizontal, Eye, Edit, Trash, Plus, Download, RefreshCw, Calendar, DollarSign, TrendingUp } from "lucide-react"
+import { Users, UserCheck, Search, MoreHorizontal, Eye, Edit, Trash, Plus, RefreshCw, Calendar, DollarSign, TrendingUp } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -139,10 +139,6 @@ export default function CustomersPage() {
           <Button variant="outline" onClick={() => refetch()}>
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
-          </Button>
-          <Button variant="outline">
-            <Download className="h-4 w-4 mr-2" />
-            Export
           </Button>
           <Button>
             <Plus className="h-4 w-4 mr-2" />

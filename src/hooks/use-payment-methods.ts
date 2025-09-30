@@ -34,7 +34,7 @@ export function useActivePaymentMethods(studioId: string) {
       const allMethods = await getPaymentMethods(studioId)
       // Filter for customer booking: only Midtrans and Xendit providers
       return allMethods.filter(method =>
-        method.provider === 'Midtrans' || method.provider === 'Xendit'
+        method.provider !== 'Cash'
       )
     },
     enabled: !!studioId,

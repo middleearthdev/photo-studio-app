@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useCallback, useRef } from "react"
 import { Calendar, Clock, Search, MoreHorizontal, Eye, Edit, CheckCircle, XCircle, PlayCircle, Filter, Download, RefreshCw, DollarSign, MessageCircle, AlertTriangle, Zap, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   Dialog,
   DialogContent,
@@ -46,7 +47,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { usePaginatedReservations, useReservationStats, useUpdateReservationStatus, useDeleteReservation, type ReservationStatus } from "@/hooks/use-reservations"
+import { usePaginatedReservations, useReservationStats, useUpdateReservationStatus, useDeleteReservation, reservationKeys, type ReservationStatus } from "@/hooks/use-reservations"
+import { useQueryClient } from "@tanstack/react-query"
 import { type Reservation } from "@/actions/reservations"
 import { PaginationControls } from "@/components/pagination-controls"
 import { DEFAULT_PAGE_SIZE } from "@/lib/constants/pagination"
@@ -57,13 +59,16 @@ import {
   getCancellationInfo,
   getDeadlineInfo,
   getBookingPriority,
-  generateWhatsAppMessage,
-  getWhatsAppURL
+  getDaysUntilReservation
 } from "@/lib/utils/booking-rules"
 import { ManualBookingForm } from "@/components/cs/manual-booking-form"
 import { RescheduleBookingForm } from "@/components/cs/reschedule-booking-form"
 import { EditReservationForm } from "@/components/cs/edit-reservation-form"
 import { CompletePaymentDialog } from "@/components/cs/complete-payment-dialog"
+import { WhatsAppTemplateDialog } from "@/components/cs/whatsapp-template-dialog"
+import { BookingConfirmationDialog } from "@/components/cs/booking-confirmation-dialog"
+import { PaymentReminderNotification } from "@/components/cs/payment-reminder-notification"
+import { useAuthStore } from "@/stores/auth-store"
 
 const statusLabels: Record<ReservationStatus, string> = {
   pending: 'Pending',
@@ -96,6 +101,7 @@ const paymentStatusColors: Record<string, 'default' | 'secondary' | 'destructive
 }
 
 export default function ReservationsPage() {
+  const queryClient = useQueryClient()
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<string>('all')
@@ -106,6 +112,7 @@ export default function ReservationsPage() {
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [isManualBookingOpen, setIsManualBookingOpen] = useState(false)
   const [isRescheduleOpen, setIsRescheduleOpen] = useState(false)
   const [reservationToReschedule, setReservationToReschedule] = useState<Reservation | null>(null)
@@ -113,6 +120,10 @@ export default function ReservationsPage() {
   const [reservationToEdit, setReservationToEdit] = useState<Reservation | null>(null)
   const [isCompletePaymentOpen, setIsCompletePaymentOpen] = useState(false)
   const [reservationToComplete, setReservationToComplete] = useState<Reservation | null>(null)
+  const [isWhatsAppTemplateOpen, setIsWhatsAppTemplateOpen] = useState(false)
+  const [reservationForWhatsApp, setReservationForWhatsApp] = useState<Reservation | null>(null)
+  const [isBookingConfirmationOpen, setIsBookingConfirmationOpen] = useState(false)
+  const [reservationToConfirmBooking, setReservationToConfirmBooking] = useState<Reservation | null>(null)
 
   // AlertDialog states
   const [reservationToDelete, setReservationToDelete] = useState<Reservation | null>(null)
@@ -122,7 +133,8 @@ export default function ReservationsPage() {
   } | null>(null)
 
   // Get user profile to get studio_id
-  const { data: profile, isLoading: profileLoading, error: profileError } = useProfile()
+  const { profile } = useAuthStore()
+
   const studioId = profile?.studio_id
 
   // TanStack Query hooks with pagination
@@ -149,39 +161,59 @@ export default function ReservationsPage() {
   const updateStatusMutation = useUpdateReservationStatus()
   const deleteReservationMutation = useDeleteReservation()
 
+  // Last refresh timestamp to prevent spam clicking
+  const lastRefreshRef = useRef<number>(0)
+  const refreshCooldown = 2000 // 2 seconds cooldown
+
+  // Optimized refresh function with debouncing and parallel execution
+  const handleRefresh = useCallback(async () => {
+    const now = Date.now()
+
+    // Prevent spam clicking - enforce cooldown
+    if (now - lastRefreshRef.current < refreshCooldown) {
+      return
+    }
+
+    lastRefreshRef.current = now
+    setIsRefreshing(true)
+
+    try {
+      // Execute all invalidations in parallel instead of sequential await
+      const refreshPromises = [
+        queryClient.invalidateQueries({
+          queryKey: reservationKeys.all
+        })
+      ]
+
+      // Wait for all to complete in parallel
+      await Promise.allSettled(refreshPromises)
+
+    } catch (error) {
+      console.error('Refresh failed:', error)
+      // Don't throw - let component handle gracefully
+    } finally {
+      setIsRefreshing(false)
+    }
+  }, [refetch, queryClient, studioId])
+
   // Reset pagination when filters change
   useEffect(() => {
     setCurrentPage(1)
   }, [searchTerm, statusFilter, paymentStatusFilter, bookingTypeFilter, dateFromFilter, dateToFilter])
 
-
-  // Don't render if no studio_id
-  if (profileLoading) {
-    return (
-      <div className="flex-1 space-y-4 p-4">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-muted-foreground" />
-            <p className="text-lg font-medium text-gray-900">Loading profile...</p>
-            <p className="text-sm text-gray-500 mt-1">Fetching user information</p>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  if (profileError) {
-    return (
-      <div className="flex-1 space-y-4 p-4">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <p className="text-lg font-medium text-red-600">Error loading profile</p>
-            <p className="text-sm text-gray-500 mt-1">{profileError.message}</p>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  // Skeleton component for stats cards
+  const StatsCardSkeleton = () => (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <Skeleton className="h-4 w-32" />
+        <Skeleton className="h-4 w-4" />
+      </CardHeader>
+      <CardContent>
+        <Skeleton className="h-8 w-16 mb-2" />
+        <Skeleton className="h-3 w-24" />
+      </CardContent>
+    </Card>
+  )
 
   if (!studioId) {
     return (
@@ -250,9 +282,21 @@ export default function ReservationsPage() {
       return
     }
 
-    const message = generateWhatsAppMessage(reservation, type)
-    const whatsappURL = getWhatsAppURL(phone, message)
-    window.open(whatsappURL, '_blank')
+    // Use centralized templates
+    const { sendWhatsAppWithTemplate } = require('@/lib/services/whatsapp-templates')
+    const templateMap = {
+      payment: 'payment_reminder',
+      reschedule: 'reschedule_reminder',
+      confirmation: 'booking_confirmation'
+    }
+
+    try {
+      const whatsappURL = sendWhatsAppWithTemplate(reservation, templateMap[type], phone)
+      window.open(whatsappURL, '_blank')
+    } catch (error) {
+      console.error('Error opening WhatsApp:', error)
+      alert('Error opening WhatsApp: ' + (error instanceof Error ? error.message : 'Unknown error'))
+    }
   }
 
   const handleReschedule = (reservation: Reservation) => {
@@ -263,6 +307,16 @@ export default function ReservationsPage() {
   const handleCompletePayment = (reservation: Reservation) => {
     setReservationToComplete(reservation)
     setIsCompletePaymentOpen(true)
+  }
+
+  const handleWhatsAppTemplate = (reservation: Reservation) => {
+    setReservationForWhatsApp(reservation)
+    setIsWhatsAppTemplateOpen(true)
+  }
+
+  const handleBookingConfirmation = (reservation: Reservation) => {
+    setReservationToConfirmBooking(reservation)
+    setIsBookingConfirmationOpen(true)
   }
 
   const formatCurrency = (amount: number) => {
@@ -282,12 +336,8 @@ export default function ReservationsPage() {
     })
   }
 
-  const formatDateTime = (dateString: string) => {
+  const formatTime2 = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('id-ID', {
-      weekday: 'short',
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
     })
@@ -320,9 +370,18 @@ export default function ReservationsPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => refetch()}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
+          <Button
+            variant="outline"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="relative"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+            {isRefreshing ? 'Refreshing...' : 'Refresh'}
+            {/* Cooldown indicator */}
+            {isRefreshing && (
+              <div className="absolute inset-0 bg-primary/10 rounded-md animate-pulse" />
+            )}
           </Button>
           <Button onClick={() => setIsManualBookingOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
@@ -331,60 +390,80 @@ export default function ReservationsPage() {
         </div>
       </div>
 
+      {/* Payment Reminder Notifications */}
+      <div className={`relative ${isRefreshing ? 'opacity-50 pointer-events-none' : ''}`}>
+        <PaymentReminderNotification studioId={studioId} />
+        {isRefreshing && (
+          <div className="absolute inset-0 bg-white/50 flex items-center justify-center">
+            <RefreshCw className="h-6 w-6 animate-spin text-gray-400" />
+          </div>
+        )}
+      </div>
 
       {/* Statistics Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Menunggu Konfirmasi</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?.pending || 0}</div>
-            <p className="text-xs text-muted-foreground">
-              Perlu approval
-            </p>
-          </CardContent>
-        </Card>
+        {isRefreshing ? (
+          <>
+            <StatsCardSkeleton />
+            <StatsCardSkeleton />
+            <StatsCardSkeleton />
+            <StatsCardSkeleton />
+          </>
+        ) : (
+          <>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Menunggu Konfirmasi</CardTitle>
+                <Clock className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats?.pending || 0}</div>
+                <p className="text-xs text-muted-foreground">
+                  Perlu approval
+                </p>
+              </CardContent>
+            </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Booking</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?.total || 0}</div>
-            <p className="text-xs text-muted-foreground">
-              {stats?.thisMonth || 0} bulan ini
-            </p>
-          </CardContent>
-        </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Booking</CardTitle>
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats?.total || 0}</div>
+                <p className="text-xs text-muted-foreground">
+                  {stats?.thisMonth || 0} bulan ini
+                </p>
+              </CardContent>
+            </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Selesai</CardTitle>
-            <CheckCircle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?.completed || 0}</div>
-            <p className="text-xs text-muted-foreground">
-              Revenue: {formatCurrency(stats?.totalRevenue || 0)}
-            </p>
-          </CardContent>
-        </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Selesai</CardTitle>
+                <CheckCircle className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats?.completed || 0}</div>
+                <p className="text-xs text-muted-foreground">
+                  Revenue: {formatCurrency(stats?.totalRevenue || 0)}
+                </p>
+              </CardContent>
+            </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Payment</CardTitle>
-            <XCircle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(stats?.pendingPayments || 0)}</div>
-            <p className="text-xs text-muted-foreground">
-              Belum terbayar
-            </p>
-          </CardContent>
-        </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Pending Payment</CardTitle>
+                <XCircle className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{formatCurrency(stats?.pendingPayments || 0)}</div>
+                <p className="text-xs text-muted-foreground">
+                  Belum terbayar
+                </p>
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
 
       <Card>
@@ -481,6 +560,7 @@ export default function ReservationsPage() {
                   <TableHead>Customer</TableHead>
                   <TableHead>Package</TableHead>
                   <TableHead>Tanggal & Waktu</TableHead>
+                  <TableHead>Dibuat</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Payment</TableHead>
                   <TableHead>Total</TableHead>
@@ -488,10 +568,10 @@ export default function ReservationsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {loading ? (
+                {loading || isRefreshing ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i}>
-                      <TableCell colSpan={9}>
+                      <TableCell colSpan={10}>
                         <div className="flex items-center space-x-4">
                           <div className="space-y-2 flex-1">
                             <div className="h-4 w-32 bg-gray-200 rounded animate-pulse" />
@@ -503,7 +583,7 @@ export default function ReservationsPage() {
                   ))
                 ) : reservations.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8">
+                    <TableCell colSpan={10} className="text-center py-8">
                       <Calendar className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
                       <p className="text-muted-foreground">Tidak ada booking ditemukan</p>
                     </TableCell>
@@ -566,6 +646,16 @@ export default function ReservationsPage() {
                           </div>
                         </TableCell>
                         <TableCell>
+                          <div>
+                            <div className="text-sm font-medium">
+                              {formatDate(reservation.created_at)}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {formatTime2(reservation.created_at)}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
                           <Badge variant={statusColors[reservation.status] || 'outline'}>
                             {statusLabels[reservation.status] || reservation.status}
                           </Badge>
@@ -604,7 +694,14 @@ export default function ReservationsPage() {
                                 <Edit className="mr-2 h-4 w-4" />
                                 Edit
                               </DropdownMenuItem>
-                              {reservation.payment_status !== 'completed' && reservation.remaining_amount > 0 && (
+                              {/* Payment Actions - conditional based on payment status */}
+                              {reservation.payment_status === 'pending' && (
+                                <DropdownMenuItem onClick={() => handleBookingConfirmation(reservation)}>
+                                  <CheckCircle className="mr-2 h-4 w-4" />
+                                  Konfirmasi Booking
+                                </DropdownMenuItem>
+                              )}
+                              {reservation.payment_status === 'partial' && reservation.status != 'cancelled' && reservation.remaining_amount > 0 && (
                                 <DropdownMenuItem onClick={() => handleCompletePayment(reservation)}>
                                   <DollarSign className="mr-2 h-4 w-4" />
                                   Konfirmasi Pelunasan
@@ -675,13 +772,7 @@ export default function ReservationsPage() {
                               <DropdownMenuSeparator />
                               {(reservation.customer?.phone || reservation.guest_phone) && (
                                 <DropdownMenuItem
-                                  onClick={() => {
-                                    const phone = reservation.customer?.phone || reservation.guest_phone
-                                    if (phone) {
-                                      const cleanPhone = phone.replace(/\D/g, '')
-                                      window.open(`https://wa.me/${cleanPhone}`, '_blank')
-                                    }
-                                  }}
+                                  onClick={() => handleWhatsAppTemplate(reservation)}
                                   className="text-green-600"
                                 >
                                   <MessageCircle className="mr-2 h-4 w-4" />
@@ -828,18 +919,15 @@ export default function ReservationsPage() {
                                   Confirmation
                                 </Button>
                               )}
-                              
+
                               {/* Direct WhatsApp Button */}
                               {(selectedReservation.customer?.phone || selectedReservation.guest_phone) && (
                                 <Button
                                   size="sm"
                                   variant="outline"
                                   onClick={() => {
-                                    const phone = selectedReservation.customer?.phone || selectedReservation.guest_phone
-                                    if (phone) {
-                                      const whatsappUrl = `https://wa.me/${phone.replace(/\D/g, '')}`
-                                      window.open(whatsappUrl, '_blank')
-                                    }
+                                    handleWhatsAppTemplate(selectedReservation)
+                                    setIsDetailModalOpen(false)
                                   }}
                                   className="bg-green-50 hover:bg-green-100 border-green-200"
                                 >
@@ -1135,7 +1223,19 @@ export default function ReservationsPage() {
                   <div className="flex flex-wrap gap-2">
                     {selectedReservation.status === 'pending' && (
                       <>
-                        {(selectedReservation.payment_status === 'partial' || selectedReservation.payment_status === 'completed') ? (
+                        {selectedReservation.payment_status === 'pending' ? (
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={() => {
+                              handleBookingConfirmation(selectedReservation)
+                              setIsDetailModalOpen(false)
+                            }}
+                          >
+                            <CheckCircle className="mr-2 h-4 w-4" />
+                            Konfirmasi Booking
+                          </Button>
+                        ) : (selectedReservation.payment_status === 'partial' || selectedReservation.payment_status === 'completed') ? (
                           <Button
                             variant="default"
                             size="sm"
@@ -1145,15 +1245,9 @@ export default function ReservationsPage() {
                             }}
                           >
                             <CheckCircle className="mr-2 h-4 w-4" />
-                            Confirm Booking
+                            Confirm Status Only
                           </Button>
-                        ) : (
-                          <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                            <p className="text-yellow-800 text-sm font-medium">
-                              ⚠️ Konfirmasi booking hanya tersedia setelah customer melakukan pembayaran DP (minimal partial payment).
-                            </p>
-                          </div>
-                        )}
+                        ) : null}
                         <Button
                           variant="destructive"
                           size="sm"
@@ -1333,8 +1427,13 @@ export default function ReservationsPage() {
       {/* Manual Booking Form */}
       <ManualBookingForm
         isOpen={isManualBookingOpen}
-        onClose={() => setIsManualBookingOpen(false)}
-        onSuccess={() => refetch()}
+        onClose={() => {
+          setIsManualBookingOpen(false)
+          // Invalidate queries after closing (assuming success)
+          queryClient.invalidateQueries({ queryKey: reservationKeys.all })
+          queryClient.invalidateQueries({ queryKey: ['reservation-stats', studioId] })
+          queryClient.invalidateQueries({ queryKey: ['payment-reminders', studioId] })
+        }}
         studioId={studioId || ''}
       />
 
@@ -1345,10 +1444,10 @@ export default function ReservationsPage() {
           setIsRescheduleOpen(false)
           setReservationToReschedule(null)
         }}
-        onSuccess={async () => {
-          console.log('Reschedule success - refreshing data...')
-          await refetch()
-          console.log('Data refreshed')
+        onSuccess={() => {
+          // Invalidate queries instead of handleRefresh
+          queryClient.invalidateQueries({ queryKey: reservationKeys.all })
+          queryClient.invalidateQueries({ queryKey: ['reservation-stats', studioId] })
         }}
         reservation={reservationToReschedule}
       />
@@ -1360,7 +1459,11 @@ export default function ReservationsPage() {
           setIsEditOpen(false)
           setReservationToEdit(null)
         }}
-        onSuccess={() => refetch()}
+        onSuccess={() => {
+          // Invalidate queries instead of handleRefresh
+          queryClient.invalidateQueries({ queryKey: reservationKeys.all })
+          queryClient.invalidateQueries({ queryKey: ['reservation-stats', studioId] })
+        }}
         reservation={reservationToEdit}
       />
 
@@ -1370,9 +1473,36 @@ export default function ReservationsPage() {
         onClose={() => {
           setIsCompletePaymentOpen(false)
           setReservationToComplete(null)
+          // Invalidate queries after closing (assuming success)
+          queryClient.invalidateQueries({ queryKey: reservationKeys.all })
+          queryClient.invalidateQueries({ queryKey: ['reservation-stats', studioId] })
+          queryClient.invalidateQueries({ queryKey: ['payment-reminders', studioId] })
         }}
-        onSuccess={() => refetch()}
         reservation={reservationToComplete}
+      />
+
+      {/* WhatsApp Template Dialog */}
+      <WhatsAppTemplateDialog
+        isOpen={isWhatsAppTemplateOpen}
+        onClose={() => {
+          setIsWhatsAppTemplateOpen(false)
+          setReservationForWhatsApp(null)
+        }}
+        reservation={reservationForWhatsApp}
+      />
+
+      {/* Booking Confirmation Dialog */}
+      <BookingConfirmationDialog
+        isOpen={isBookingConfirmationOpen}
+        onClose={() => {
+          setIsBookingConfirmationOpen(false)
+          setReservationToConfirmBooking(null)
+          // Invalidate queries after closing (assuming success)
+          queryClient.invalidateQueries({ queryKey: reservationKeys.all })
+          queryClient.invalidateQueries({ queryKey: ['reservation-stats', studioId] })
+          queryClient.invalidateQueries({ queryKey: ['payment-reminders', studioId] })
+        }}
+        reservation={reservationToConfirmBooking}
       />
     </div>
   )

@@ -54,10 +54,13 @@ import { NavigationProgress } from "@/components/ui/navigation-progress"
 import { useProfile } from "@/hooks/use-profile"
 import { signOutAction } from "@/actions/auth"
 import { toast } from "sonner"
+import { useAuthStore } from "@/stores/auth-store"
 
 interface AdminLayoutProps {
   children: React.ReactNode
 }
+
+
 
 const menuItems = [
   {
@@ -98,7 +101,7 @@ const menuItems = [
   {
     title: "Discounts",
     icon: Tag,
-    href: "/admin/disconts",
+    href: "/admin/discounts",
   },
   {
     title: "Reservations",
@@ -135,7 +138,8 @@ const menuItems = [
 
 export default function AdminLayout({ children }: AdminLayoutProps) {
   const pathname = usePathname()
-  const { data: profile } = useProfile()
+  const { profile } = useAuthStore()
+
 
   const handleSignOut = async () => {
     try {

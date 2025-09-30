@@ -90,11 +90,23 @@ export default function PaymentMethodsPage() {
     name: "",
     type: "bank_transfer",
     provider: "",
-    account_details: "{}",
-    xendit_config: "{}",
-    fee_type: "percentage", // New field
+    // Account details fields
+    account_number: "",
+    account_name: "",
+    bank_name: "",
+    bank_code: "",
+    instructions: "",
+    // E-wallet specific
+    phone_number: "",
+    // QR specific  
+    qr_image_url: "",
+    // Xendit config
+    xendit_api_key: "",
+    xendit_callback_url: "",
+    xendit_public_key: "",
+    fee_type: "percentage",
     fee_percentage: 0,
-    fee_amount: 0, // New field
+    fee_amount: 0,
     is_active: true,
   })
 
@@ -147,8 +159,20 @@ export default function PaymentMethodsPage() {
       name: "",
       type: "bank_transfer",
       provider: "",
-      account_details: "{}",
-      xendit_config: "{}",
+      // Account details fields
+      account_number: "",
+      account_name: "",
+      bank_name: "",
+      bank_code: "",
+      instructions: "",
+      // E-wallet specific
+      phone_number: "",
+      // QR specific  
+      qr_image_url: "",
+      // Xendit config
+      xendit_api_key: "",
+      xendit_callback_url: "",
+      xendit_public_key: "",
       fee_type: "percentage",
       fee_percentage: 0,
       fee_amount: 0,
@@ -160,12 +184,29 @@ export default function PaymentMethodsPage() {
   const handleEdit = (method: ExtendedPaymentMethod) => {
     setEditingMethod(method)
     setIsSaving(false)
+    
+    // Parse account details
+    const accountDetails = method.account_details || {}
+    const xenditConfig = method.xendit_config || {}
+    
     setFormData({
       name: method.name,
       type: method.type,
       provider: method.provider,
-      account_details: JSON.stringify(method.account_details, null, 2),
-      xendit_config: JSON.stringify(method.xendit_config || {}, null, 2),
+      // Account details fields (only for bank_transfer)
+      account_number: accountDetails.account_number || "",
+      account_name: accountDetails.account_name || "",
+      bank_name: accountDetails.bank_name || "",
+      bank_code: accountDetails.bank_code || "",
+      instructions: accountDetails.instructions || "",
+      // E-wallet specific (not used in UI anymore)
+      phone_number: "",
+      // QR specific (not used in UI anymore)  
+      qr_image_url: "",
+      // Xendit config
+      xendit_api_key: xenditConfig.api_key || "",
+      xendit_callback_url: xenditConfig.callback_url || "",
+      xendit_public_key: xenditConfig.public_key || "",
       fee_type: method.fee_type || "percentage",
       fee_percentage: method.fee_percentage,
       fee_amount: method.fee_amount || 0,
@@ -205,24 +246,57 @@ export default function PaymentMethodsPage() {
         return
       }
 
-      // Validate Xendit config if provider is Xendit
-      if (formData.provider === 'Xendit') {
-        try {
-          JSON.parse(formData.xendit_config)
-        } catch (e) {
-          toast.error("Invalid Xendit configuration JSON")
+      // Build account details object based on payment type
+      let accountDetails: any = {}
+      
+      if (formData.type === 'bank_transfer') {
+        accountDetails = {
+          account_number: formData.account_number,
+          account_name: formData.account_name,
+          bank_name: formData.bank_name,
+          bank_code: formData.bank_code,
+          instructions: formData.instructions
+        }
+        
+        // Validate required fields for bank transfer
+        if (!formData.account_number.trim()) {
+          toast.error("Account number is required for bank transfer")
           setIsSaving(false)
           return
         }
+        if (!formData.account_name.trim()) {
+          toast.error("Account name is required for bank transfer")
+          setIsSaving(false)
+          return
+        }
+        if (!formData.bank_name.trim()) {
+          toast.error("Bank name is required for bank transfer")
+          setIsSaving(false)
+          return
+        }
+      } else {
+        // For all other payment types (virtual_account, e_wallet, qr_code, cash, credit_card)
+        // Only store instructions, no specific account details needed
+        accountDetails = {
+          instructions: formData.instructions || `Payment via ${formData.type.replace('_', ' ')}`
+        }
       }
 
-      // Validate account details JSON
-      try {
-        JSON.parse(formData.account_details)
-      } catch (e) {
-        toast.error("Invalid account details JSON")
-        setIsSaving(false)
-        return
+      // Build Xendit config object
+      let xenditConfig: any = {}
+      if (formData.provider === 'Xendit') {
+        xenditConfig = {
+          api_key: formData.xendit_api_key,
+          callback_url: formData.xendit_callback_url,
+          public_key: formData.xendit_public_key
+        }
+        
+        // Validate Xendit config
+        if (!formData.xendit_api_key.trim()) {
+          toast.error("Xendit API key is required")
+          setIsSaving(false)
+          return
+        }
       }
 
       const paymentMethodData = {
@@ -230,8 +304,8 @@ export default function PaymentMethodsPage() {
         name: formData.name.trim(),
         type: formData.type,
         provider: formData.provider,
-        account_details: JSON.parse(formData.account_details),
-        xendit_config: formData.provider === 'Xendit' ? JSON.parse(formData.xendit_config) : {},
+        account_details: accountDetails,
+        xendit_config: xenditConfig,
         fee_type: formData.fee_type,
         fee_percentage: formData.fee_type === "percentage" ? formData.fee_percentage : 0,
         fee_amount: formData.fee_type === "fixed" ? formData.fee_amount : 0,
@@ -636,34 +710,133 @@ export default function PaymentMethodsPage() {
               )}
             </div>
 
+            {/* Account Details Fields Based on Payment Type */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Account Details</h3>
+              
+              {formData.type === 'bank_transfer' && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="account_number">Account Number *</Label>
+                    <Input
+                      id="account_number"
+                      value={formData.account_number}
+                      onChange={(e) => setFormData({ ...formData, account_number: e.target.value })}
+                      placeholder="1234567890"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="account_name">Account Name *</Label>
+                    <Input
+                      id="account_name"
+                      value={formData.account_name}
+                      onChange={(e) => setFormData({ ...formData, account_name: e.target.value })}
+                      placeholder="Studio Photo Keren"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="bank_name">Bank Name *</Label>
+                    <Select
+                      value={formData.bank_name}
+                      onValueChange={(value) => setFormData({ ...formData, bank_name: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select bank" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="BCA">Bank Central Asia (BCA)</SelectItem>
+                        <SelectItem value="BRI">Bank Rakyat Indonesia (BRI)</SelectItem>
+                        <SelectItem value="BNI">Bank Negara Indonesia (BNI)</SelectItem>
+                        <SelectItem value="Mandiri">Bank Mandiri</SelectItem>
+                        <SelectItem value="CIMB">CIMB Niaga</SelectItem>
+                        <SelectItem value="Danamon">Bank Danamon</SelectItem>
+                        <SelectItem value="Permata">Bank Permata</SelectItem>
+                        <SelectItem value="BSI">Bank Syariah Indonesia (BSI)</SelectItem>
+                        <SelectItem value="Other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="bank_code">Bank Code (Optional)</Label>
+                    <Input
+                      id="bank_code"
+                      value={formData.bank_code}
+                      onChange={(e) => setFormData({ ...formData, bank_code: e.target.value })}
+                      placeholder="014 (for BCA)"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {formData.type !== 'bank_transfer' && (
+                <div className="space-y-2">
+                  <Label htmlFor="instructions">Payment Instructions</Label>
+                  <Textarea
+                    id="instructions"
+                    value={formData.instructions}
+                    onChange={(e) => setFormData({ ...formData, instructions: e.target.value })}
+                    placeholder="Enter step-by-step payment instructions for customers..."
+                    rows={3}
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Instructions will be shown to customers when they select this payment method
+                  </p>
+                </div>
+              )}
+
+              {formData.type === 'bank_transfer' && (
+                <div className="space-y-2">
+                  <Label htmlFor="instructions">Payment Instructions</Label>
+                  <Textarea
+                    id="instructions"
+                    value={formData.instructions}
+                    onChange={(e) => setFormData({ ...formData, instructions: e.target.value })}
+                    placeholder="Enter step-by-step payment instructions for customers..."
+                    rows={3}
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Instructions will be shown to customers when they select this payment method
+                  </p>
+                </div>
+              )}
+            </div>
+
             {/* Xendit Configuration */}
             {formData.provider === 'Xendit' && (
-              <div className="space-y-2">
-                <Label htmlFor="xendit-config">Xendit Configuration (JSON)</Label>
-                <Textarea
-                  id="xendit-config"
-                  value={formData.xendit_config}
-                  onChange={(e) => setFormData({ ...formData, xendit_config: e.target.value })}
-                  placeholder='{"api_key": "your_api_key", "callback_url": "https://yourdomain.com/api/webhooks/xendit"}'
-                  className="font-mono text-sm"
-                  rows={4}
-                />
-                <p className="text-sm text-muted-foreground">
-                  Masukkan konfigurasi khusus Xendit dalam format JSON
-                </p>
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium">Xendit Configuration</h3>
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="xendit_api_key">API Key *</Label>
+                    <Input
+                      id="xendit_api_key"
+                      type="password"
+                      value={formData.xendit_api_key}
+                      onChange={(e) => setFormData({ ...formData, xendit_api_key: e.target.value })}
+                      placeholder="xnd_development_..."
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="xendit_callback_url">Callback URL</Label>
+                    <Input
+                      id="xendit_callback_url"
+                      value={formData.xendit_callback_url}
+                      onChange={(e) => setFormData({ ...formData, xendit_callback_url: e.target.value })}
+                      placeholder="https://yourdomain.com/api/webhooks/xendit"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="xendit_public_key">Public Key (Optional)</Label>
+                    <Input
+                      id="xendit_public_key"
+                      value={formData.xendit_public_key}
+                      onChange={(e) => setFormData({ ...formData, xendit_public_key: e.target.value })}
+                      placeholder="xnd_public_development_..."
+                    />
+                  </div>
+                </div>
               </div>
             )}
-
-            <div className="space-y-2">
-              <Label htmlFor="account_details">Account Details (JSON)</Label>
-              <Textarea
-                id="account_details"
-                value={formData.account_details}
-                onChange={(e) => setFormData({ ...formData, account_details: e.target.value })}
-                placeholder='{"account_number": "1234567890", "account_name": "Studio Name"}'
-                className="min-h-[100px] font-mono text-sm"
-              />
-            </div>
 
             <div className="flex items-center space-x-2">
               <Switch

@@ -69,6 +69,26 @@ function ImageUploadComponent({ studioId, value, onChange }: {
         .getPublicUrl(fileName)
       
       return publicUrl
+    } else if (destination === 'vercel') {
+      // Upload to Vercel Blob Store
+      const fileName = `portfolio-images/${studioId}/${Date.now()}-${file.name}`
+      
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('filename', fileName)
+      
+      const response = await fetch('/api/upload/vercel', {
+        method: 'POST',
+        body: formData
+      })
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Vercel upload failed')
+      }
+      
+      const result = await response.json()
+      return result.url
     } else {
       // Upload to server
       const formData = new FormData()
@@ -139,6 +159,11 @@ function ImageUploadComponent({ studioId, value, onChange }: {
   }
 
   const destination = process.env.NEXT_PUBLIC_UPLOAD_DESTINATION || 'server'
+  const destinationDisplay = {
+    server: 'Local Server',
+    supabase: 'Supabase Storage', 
+    vercel: 'Vercel Blob Store'
+  }[destination] || destination
 
   return (
     <div className="space-y-4">
@@ -154,7 +179,7 @@ function ImageUploadComponent({ studioId, value, onChange }: {
         <div className="text-center space-y-4">
           <Loader2 className="h-8 w-8 animate-spin mx-auto" />
           <div>
-            <p className="text-sm font-medium">Uploading to {destination}...</p>
+            <p className="text-sm font-medium">Uploading to {destinationDisplay}...</p>
             <div className="bg-gray-200 rounded-full h-2 mt-2">
               <div 
                 className="bg-blue-600 h-2 rounded-full transition-all duration-300"
@@ -173,7 +198,7 @@ function ImageUploadComponent({ studioId, value, onChange }: {
         >
           <Upload className="h-8 w-8 mx-auto mb-2 text-gray-400" />
           <p className="text-sm font-medium">Click to upload or drag and drop</p>
-          <p className="text-xs text-gray-500">Upload to: {destination}</p>
+          <p className="text-xs text-gray-500">Upload to: {destinationDisplay}</p>
         </div>
       )}
 

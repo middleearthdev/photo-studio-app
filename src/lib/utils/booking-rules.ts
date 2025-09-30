@@ -125,7 +125,7 @@ export function getDeadlineInfo(reservation: Reservation): DeadlineInfo {
   let isPastDeadline = false
 
   if (daysRemaining < 0) {
-    message = `Event sudah lewat ${Math.abs(daysRemaining)} hari`
+    message = `Event sudah lewat`
     isPastDeadline = true
     isUrgent = true
   } else if (daysRemaining === 0) {
@@ -155,124 +155,13 @@ export function getDeadlineInfo(reservation: Reservation): DeadlineInfo {
 }
 
 /**
- * Generate WhatsApp reminder messages
+ * Legacy function - now delegates to centralized templates
+ * @deprecated Use centralized WhatsApp templates service instead
  */
 export function generateWhatsAppMessage(reservation: Reservation, type: 'payment' | 'reschedule' | 'confirmation'): string {
-  const customerName = reservation.customer?.full_name || 'Customer'
-  const bookingCode = reservation.booking_code
-  const eventDate = new Date(reservation.reservation_date).toLocaleDateString('id-ID', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  })
-  const eventTime = `${reservation.start_time} - ${reservation.end_time}`
-  const daysRemaining = getDaysUntilReservation(reservation.reservation_date)
-
-  const baseMessage = `Halo ${customerName}!\n\n` +
-    `Booking Code: *${bookingCode}*\n` +
-    `Tanggal: *${eventDate}*\n` +
-    `Waktu: *${eventTime}*\n\n`
-
-  switch (type) {
-    case 'payment':
-      let paymentDeadlineText = ''
-      let urgencyMessage = ''
-      
-      if (daysRemaining < 0) {
-        // Event sudah lewat
-        paymentDeadlineText = `*⚠️ EVENT SUDAH LEWAT ${Math.abs(daysRemaining)} HARI*`
-        urgencyMessage = `Booking Anda sudah melewati tanggal acara. Silakan hubungi kami untuk penyelesaian lebih lanjut.`
-      } else if (daysRemaining === 0) {
-        // Event hari ini
-        paymentDeadlineText = '*⚠️ EVENT HARI INI - BATAS PELUNASAN SUDAH TERLEWAT*'
-        urgencyMessage = `Booking Anda hari ini namun belum lunas. Silakan hubungi kami segera untuk konfirmasi.`
-      } else if (daysRemaining === 1) {
-        // H-1, sudah melewati batas H-3
-        paymentDeadlineText = '*⚠️ BATAS PELUNASAN SUDAH TERLEWAT*'
-        urgencyMessage = `Batas waktu pelunasan (H-3) sudah terlewat. Event besok namun belum lunas. Silakan hubungi kami segera.`
-      } else if (daysRemaining === 2) {
-        // H-2, sudah melewati batas H-3
-        paymentDeadlineText = '*⚠️ BATAS PELUNASAN SUDAH TERLEWAT*'
-        urgencyMessage = `Batas waktu pelunasan (H-3) sudah terlewat. Silakan hubungi kami segera untuk konfirmasi.`
-      } else if (daysRemaining === 3) {
-        // H-3, hari terakhir pelunasan
-        paymentDeadlineText = '*BATAS WAKTU PELUNASAN HARI INI*'
-        urgencyMessage = `Mohon segera lakukan pelunasan agar booking Anda terkonfirmasi.`
-      } else if (daysRemaining === 4) {
-        // H-4, besok deadline
-        paymentDeadlineText = '*BATAS WAKTU PELUNASAN BESOK*'
-        urgencyMessage = `Mohon segera lakukan pelunasan agar booking Anda terkonfirmasi.`
-      } else if (daysRemaining === 5) {
-        // H-5, 2 hari lagi deadline
-        paymentDeadlineText = '*Batas waktu pelunasan: 2 hari lagi*'
-        urgencyMessage = `Mohon segera lakukan pelunasan agar booking Anda terkonfirmasi.`
-      } else {
-        // Masih ada waktu
-        const deadlineDays = daysRemaining - 3
-        paymentDeadlineText = `*Batas waktu pelunasan: ${deadlineDays} hari lagi*`
-        urgencyMessage = `Mohon segera lakukan pelunasan agar booking Anda terkonfirmasi.`
-      }
-      
-      return baseMessage +
-        `💰 *REMINDER PELUNASAN*\n\n` +
-        `Sisa pembayaran: *${formatCurrency(reservation.remaining_amount)}*\n` +
-        `${paymentDeadlineText}\n\n` +
-        `${urgencyMessage}\n\n` +
-        `Terima kasih! 🙏`
-
-    case 'reschedule':
-      let rescheduleDeadlineText = ''
-      let rescheduleMessage = ''
-      
-      if (daysRemaining < 0) {
-        // Event sudah lewat
-        rescheduleDeadlineText = `*⚠️ EVENT SUDAH LEWAT ${Math.abs(daysRemaining)} HARI*`
-        rescheduleMessage = `Booking Anda sudah melewati tanggal acara. Reschedule tidak dapat dilakukan.`
-      } else if (daysRemaining === 0) {
-        // Event hari ini
-        rescheduleDeadlineText = '*⚠️ EVENT HARI INI - RESCHEDULE TIDAK DAPAT DILAKUKAN*'
-        rescheduleMessage = `Event Anda hari ini. Reschedule sudah tidak memungkinkan. Silakan hubungi kami jika ada kendala.`
-      } else if (daysRemaining === 1) {
-        // H-1, sudah melewati batas H-3
-        rescheduleDeadlineText = '*⚠️ BATAS RESCHEDULE SUDAH TERLEWAT*'
-        rescheduleMessage = `Batas waktu reschedule (H-3) sudah terlewat. Event besok dan reschedule tidak dapat dilakukan.`
-      } else if (daysRemaining === 2) {
-        // H-2, sudah melewati batas H-3
-        rescheduleDeadlineText = '*⚠️ BATAS RESCHEDULE SUDAH TERLEWAT*'
-        rescheduleMessage = `Batas waktu reschedule (H-3) sudah terlewat. Reschedule tidak dapat dilakukan.`
-      } else if (daysRemaining === 3) {
-        // H-3, hari terakhir reschedule
-        rescheduleDeadlineText = '*BATAS RESCHEDULE HARI INI*'
-        rescheduleMessage = `Jika Anda perlu mengubah jadwal, mohon konfirmasi hari ini juga (batas H-3).`
-      } else if (daysRemaining === 4) {
-        // H-4, besok deadline reschedule
-        rescheduleDeadlineText = '*BATAS RESCHEDULE BESOK*'
-        rescheduleMessage = `Jika Anda perlu mengubah jadwal, mohon konfirmasi maksimal besok (batas H-3).`
-      } else {
-        // Masih ada waktu
-        const deadlineDays = daysRemaining - 3
-        rescheduleDeadlineText = `*Batas reschedule: ${deadlineDays} hari lagi*`
-        rescheduleMessage = `Jika Anda perlu mengubah jadwal, mohon konfirmasi maksimal H-3 (${deadlineDays} hari lagi).`
-      }
-      
-      return baseMessage +
-        `📅 *INFO RESCHEDULE*\n\n` +
-        `${rescheduleDeadlineText}\n\n` +
-        `${rescheduleMessage}\n\n` +
-        `Hubungi kami untuk reschedule. Terima kasih! 🙏`
-
-    case 'confirmation':
-      return baseMessage +
-        `✅ *KONFIRMASI BOOKING*\n\n` +
-        `Booking Anda telah dikonfirmasi!\n` +
-        `Mohon datang tepat waktu pada jadwal yang telah ditentukan.\n\n` +
-        `Jika ada pertanyaan, jangan ragu untuk menghubungi kami.\n\n` +
-        `Terima kasih! 🙏`
-
-    default:
-      return baseMessage + `Terima kasih atas booking Anda! 🙏`
-  }
+  // Import here to avoid circular dependency
+  const { generateWhatsAppMessage: centralizedGenerator } = require('@/lib/services/whatsapp-templates')
+  return centralizedGenerator(reservation, type)
 }
 
 /**

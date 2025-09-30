@@ -22,7 +22,8 @@ import {
   Camera,
   Gift,
   Printer,
-  Copy
+  Copy,
+  AlertCircle
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -61,6 +62,7 @@ function BookingSuccessPageContent() {
   const [isDownloading, setIsDownloading] = useState(false)
   const [isVerifying, setIsVerifying] = useState(true)
   const [verificationError, setVerificationError] = useState<string | null>(null)
+  const [paymentStatus, setPaymentStatus] = useState<string>('')
 
   useEffect(() => {
     const verifyBookingAndPayment = async () => {
@@ -69,14 +71,16 @@ function BookingSuccessPageContent() {
         setVerificationError(null)
 
         // Get parameters from URL - simplified to just payment and booking
-        const paymentStatus = searchParams.get('payment')
+        const paymentStatusParam = searchParams.get('payment')
         const bookingCode = searchParams.get('booking')
 
         // Validate required parameters
-        if (paymentStatus !== 'completed' || !bookingCode) {
+        if (!['completed', 'pending_confirmation'].includes(paymentStatusParam!) || !bookingCode) {
           setVerificationError('Parameter tidak valid. Akses tidak sah.')
           return
         }
+
+        setPaymentStatus(paymentStatusParam!)
 
         // Fetch reservation data
         const reservationResult = await getReservationByBookingCodeAction(bookingCode)
@@ -94,15 +98,23 @@ function BookingSuccessPageContent() {
           return
         }
 
-        // Find the most recent completed payment
-        const completedPayments = paymentsResult.data.filter(p => p.status === 'completed')
-        if (completedPayments.length === 0) {
-          setVerificationError('Belum ada pembayaran yang selesai untuk reservasi ini.')
-          return
+        // Find the most recent payment based on status
+        let latestPayment: any
+        if (paymentStatusParam === 'completed') {
+          const completedPayments = paymentsResult.data.filter(p => p.status === 'completed')
+          if (completedPayments.length === 0) {
+            setVerificationError('Belum ada pembayaran yang selesai untuk reservasi ini.')
+            return
+          }
+          latestPayment = completedPayments[0]
+        } else if (paymentStatusParam === 'pending_confirmation') {
+          const pendingPayments = paymentsResult.data.filter(p => p.status === 'pending_confirmation')
+          if (pendingPayments.length === 0) {
+            setVerificationError('Data pembayaran pending tidak ditemukan.')
+            return
+          }
+          latestPayment = pendingPayments[0]
         }
-
-        // Get the most recent completed payment
-        const latestPayment = completedPayments[0] // Already ordered by created_at desc
 
         // Verify payment was completed recently (within last 24 hours) to prevent old links
         const paymentDate = new Date(latestPayment.paid_at || latestPayment.created_at)
@@ -338,9 +350,17 @@ function BookingSuccessPageContent() {
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ duration: 0.6, delay: 0.2 }}
-              className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-r from-[#00052e] to-[#b0834d] rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6 shadow-lg"
+              className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6 shadow-lg ${
+                paymentStatus === 'completed' 
+                  ? 'bg-gradient-to-r from-[#00052e] to-[#b0834d]'
+                  : 'bg-gradient-to-r from-amber-500 to-orange-500'
+              }`}
             >
-              <CheckCircle className="h-8 w-8 sm:h-12 sm:w-12 text-white" />
+              {paymentStatus === 'completed' ? (
+                <CheckCircle className="h-8 w-8 sm:h-12 sm:w-12 text-white" />
+              ) : (
+                <AlertCircle className="h-8 w-8 sm:h-12 sm:w-12 text-white" />
+              )}
             </motion.div>
 
             <motion.div
@@ -349,10 +369,13 @@ function BookingSuccessPageContent() {
               transition={{ duration: 0.6, delay: 0.4 }}
             >
               <h1 className="text-2xl sm:text-4xl md:text-5xl font-bold text-[#00052e] mb-2 sm:mb-4">
-                Booking Berhasil!
+                {paymentStatus === 'completed' ? 'Booking Berhasil!' : 'Booking Dikonfirmasi!'}
               </h1>
               <p className="text-base sm:text-xl text-slate-600 mb-4 sm:mb-6">
-                Terima kasih atas kepercayaan Anda. Kami akan segera mengkonfirmasi detail sesi foto.
+                {paymentStatus === 'completed' 
+                  ? 'Terima kasih atas kepercayaan Anda. Kami akan segera mengkonfirmasi detail sesi foto.'
+                  : 'Konfirmasi transfer Anda telah diterima. Admin akan memverifikasi pembayaran dalam 1x24 jam.'
+                }
               </p>
 
               <div className="flex items-center justify-center gap-2 sm:gap-4 flex-wrap">
@@ -369,9 +392,22 @@ function BookingSuccessPageContent() {
                   </Button>
                 </div>
 
-                <Badge className="bg-green-100 text-green-800 hover:bg-green-100 text-xs sm:text-sm py-0.5 px-2">
-                  <CheckCircle className="h-3 w-3 mr-1" />
-                  Pembayaran Berhasil
+                <Badge className={`text-xs sm:text-sm py-0.5 px-2 ${
+                  paymentStatus === 'completed' 
+                    ? 'bg-green-100 text-green-800 hover:bg-green-100'
+                    : 'bg-amber-100 text-amber-800 hover:bg-amber-100'
+                }`}>
+                  {paymentStatus === 'completed' ? (
+                    <>
+                      <CheckCircle className="h-3 w-3 mr-1" />
+                      Pembayaran Berhasil
+                    </>
+                  ) : (
+                    <>
+                      <AlertCircle className="h-3 w-3 mr-1" />
+                      Menunggu Verifikasi
+                    </>
+                  )}
                 </Badge>
               </div>
             </motion.div>

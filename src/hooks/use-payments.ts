@@ -2,11 +2,11 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { 
+import {
   getPaginatedPayments,
   getPaymentById,
-  createPayment, 
-  updatePayment, 
+  createPayment,
+  updatePayment,
   updatePaymentStatus,
   deletePayment,
   getPaymentStats,
@@ -17,6 +17,7 @@ import {
   type PaymentStatus
 } from '@/actions/payments'
 import { PaginationParams } from '@/lib/constants/pagination'
+import { reservationKeys } from './use-reservations'
 
 // Query keys
 export const paymentKeys = {
@@ -84,7 +85,7 @@ export function usePaymentMethods(studioId?: string) {
 // Create payment mutation
 export function useCreatePayment() {
   const queryClient = useQueryClient()
-  
+
   return useMutation({
     mutationFn: createPayment,
     onSuccess: (data) => {
@@ -103,9 +104,9 @@ export function useCreatePayment() {
 // Update payment mutation
 export function useUpdatePayment() {
   const queryClient = useQueryClient()
-  
+
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: UpdatePaymentData }) => 
+    mutationFn: ({ id, data }: { id: string; data: UpdatePaymentData }) =>
       updatePayment(id, data),
     onSuccess: (data) => {
       toast.success('Payment berhasil diperbarui')
@@ -124,9 +125,9 @@ export function useUpdatePayment() {
 // Update payment status mutation
 export function useUpdatePaymentStatus() {
   const queryClient = useQueryClient()
-  
+
   return useMutation({
-    mutationFn: ({ id, status }: { id: string; status: PaymentStatus }) => 
+    mutationFn: ({ id, status }: { id: string; status: PaymentStatus }) =>
       updatePaymentStatus(id, status),
     onSuccess: (data) => {
       const statusMessages = {
@@ -136,7 +137,7 @@ export function useUpdatePaymentStatus() {
         partial: 'Payment ditandai sebagai partial'
       }
       toast.success(statusMessages[data.status] || 'Status payment berhasil diperbarui')
-      
+
       // Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: paymentKeys.lists() })
       queryClient.invalidateQueries({ queryKey: paymentKeys.paginatedLists() })
@@ -152,7 +153,7 @@ export function useUpdatePaymentStatus() {
 // Delete payment mutation
 export function useDeletePayment() {
   const queryClient = useQueryClient()
-  
+
   return useMutation({
     mutationFn: deletePayment,
     onSuccess: () => {
@@ -169,16 +170,16 @@ export function useDeletePayment() {
 // Complete payment (Lunas) mutation
 export function useCompletePayment() {
   const queryClient = useQueryClient()
-  
+
   return useMutation({
-    mutationFn: ({ reservationId, paymentMethodId }: { reservationId: string; paymentMethodId?: string }) => 
+    mutationFn: ({ reservationId, paymentMethodId }: { reservationId: string; paymentMethodId?: string }) =>
       completePaymentAction(reservationId, paymentMethodId),
     onSuccess: (result) => {
       if (result.success) {
         toast.success('Pembayaran berhasil diselesaikan (Lunas)')
         // Invalidate all relevant queries
         queryClient.invalidateQueries({ queryKey: paymentKeys.all })
-        queryClient.invalidateQueries({ queryKey: ['reservations'] }) // Also invalidate reservations
+        queryClient.invalidateQueries({ queryKey: reservationKeys.all }) // Also invalidate reservations
       } else {
         toast.error(result.error || 'Gagal menyelesaikan pembayaran')
       }

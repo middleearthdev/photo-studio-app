@@ -47,8 +47,8 @@ export default function AdminDashboard() {
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-muted-foreground" />
-            <p className="text-lg font-medium text-gray-900">Loading Dashboard...</p>
-            <p className="text-sm text-gray-500 mt-1">Fetching studio data and analytics</p>
+            <p className="text-lg font-medium text-gray-900">Memuat Dashboard...</p>
+            <p className="text-sm text-gray-500 mt-1">Mengambil data studio dan analitik</p>
           </div>
         </div>
       </div>
@@ -60,12 +60,12 @@ export default function AdminDashboard() {
       <div className="flex-1 space-y-6 p-6">
         <div className="text-center py-12">
           <AlertTriangle className="h-16 w-16 mx-auto mb-4 text-yellow-500" />
-          <h2 className="text-2xl font-bold mb-2">No Studios Found</h2>
+          <h2 className="text-2xl font-bold mb-2">Tidak Ada Studio Ditemukan</h2>
           <p className="text-muted-foreground mb-6">
-            You need to create at least one studio to view the dashboard.
+            Anda perlu membuat setidaknya satu studio untuk melihat dashboard.
           </p>
           <Button asChild>
-            <Link href="/admin/studio">Create Studio</Link>
+            <Link href="/admin/studio">Buat Studio</Link>
           </Button>
         </div>
       </div>
@@ -79,7 +79,7 @@ export default function AdminDashboard() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Studio Dashboard</h2>
+          <h2 className="text-3xl font-bold tracking-tight">Dashboard Studio</h2>
           <p className="text-muted-foreground">
             Overview dan analisis kinerja studio {selectedStudio?.name || 'Anda'}
           </p>
@@ -88,13 +88,13 @@ export default function AdminDashboard() {
           <Button variant="outline" asChild>
             <Link href="/admin/reports" className="flex items-center gap-2">
               <FileText className="h-4 w-4" />
-              View Reports
+              Lihat Laporan
             </Link>
           </Button>
           <Button asChild>
             <Link href="/admin/reservations" className="flex items-center gap-2">
               <Calendar className="h-4 w-4" />
-              Manage Bookings
+              Kelola Reservasi
             </Link>
           </Button>
         </div>
@@ -104,10 +104,10 @@ export default function AdminDashboard() {
       {studios.length > 1 && (
         <div className="flex items-center space-x-4">
           <div className="flex-1 max-w-sm">
-            <label className="text-sm font-medium mb-2 block">Select Studio:</label>
+            <label className="text-sm font-medium mb-2 block">Pilih Studio:</label>
             <Select value={selectedStudioId} onValueChange={setSelectedStudioId}>
               <SelectTrigger>
-                <SelectValue placeholder="Select studio..." />
+                <SelectValue placeholder="Pilih studio..." />
               </SelectTrigger>
               <SelectContent>
                 {studios.map((studio) => (
@@ -141,10 +141,10 @@ export default function AdminDashboard() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Settings className="h-5 w-5" />
-            Quick Actions
+            Aksi Cepat
           </CardTitle>
           <CardDescription>
-            Common management tasks for your studio
+            Tugas manajemen umum untuk studio Anda
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -154,9 +154,9 @@ export default function AdminDashboard() {
                 <CardContent className="pt-6">
                   <div className="text-center">
                     <Calendar className="h-8 w-8 mx-auto text-blue-600 group-hover:scale-110 transition-transform" />
-                    <CardTitle className="text-lg mt-3">View Calendar</CardTitle>
+                    <CardTitle className="text-lg mt-3">Lihat Kalender</CardTitle>
                     <CardDescription className="mt-2">
-                      See all bookings in calendar view
+                      Lihat semua reservasi dalam tampilan kalender
                     </CardDescription>
                   </div>
                 </CardContent>
@@ -168,9 +168,9 @@ export default function AdminDashboard() {
                 <CardContent className="pt-6">
                   <div className="text-center">
                     <Users className="h-8 w-8 mx-auto text-green-600 group-hover:scale-110 transition-transform" />
-                    <CardTitle className="text-lg mt-3">Manage Customers</CardTitle>
+                    <CardTitle className="text-lg mt-3">Kelola Customer</CardTitle>
                     <CardDescription className="mt-2">
-                      View and manage customer profiles
+                      Lihat dan kelola profil customer
                     </CardDescription>
                   </div>
                 </CardContent>
@@ -182,9 +182,9 @@ export default function AdminDashboard() {
                 <CardContent className="pt-6">
                   <div className="text-center">
                     <Package className="h-8 w-8 mx-auto text-purple-600 group-hover:scale-110 transition-transform" />
-                    <CardTitle className="text-lg mt-3">Photo Packages</CardTitle>
+                    <CardTitle className="text-lg mt-3">Paket Foto</CardTitle>
                     <CardDescription className="mt-2">
-                      Manage packages and pricing
+                      Kelola paket dan harga
                     </CardDescription>
                   </div>
                 </CardContent>
@@ -196,9 +196,9 @@ export default function AdminDashboard() {
                 <CardContent className="pt-6">
                   <div className="text-center">
                     <BarChart3 className="h-8 w-8 mx-auto text-orange-600 group-hover:scale-110 transition-transform" />
-                    <CardTitle className="text-lg mt-3">Advanced Analytics</CardTitle>
+                    <CardTitle className="text-lg mt-3">Analitik Lanjutan</CardTitle>
                     <CardDescription className="mt-2">
-                      View detailed performance insights
+                      Lihat wawasan kinerja detail
                     </CardDescription>
                   </div>
                 </CardContent>
@@ -213,10 +213,10 @@ export default function AdminDashboard() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <BarChart3 className="h-5 w-5" />
-            Advanced Analytics & Real-time Data
+            Analitik Lanjutan & Data Real-time
           </CardTitle>
           <CardDescription>
-            Detailed performance metrics and live dashboard updates
+            Metrik kinerja detail dan pembaruan dashboard langsung
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -230,29 +230,29 @@ export default function AdminDashboard() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Camera className="h-5 w-5" />
-              Studio Information
+              Informasi Studio
             </CardTitle>
             <CardDescription>
-              Basic information about {selectedStudio.name}
+              Informasi dasar tentang {selectedStudio.name}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               <div className="space-y-2">
-                <p className="text-sm font-medium text-muted-foreground">Studio Name</p>
+                <p className="text-sm font-medium text-muted-foreground">Nama Studio</p>
                 <p className="text-lg font-semibold">{selectedStudio.name}</p>
               </div>
               
               {selectedStudio.address && (
                 <div className="space-y-2">
-                  <p className="text-sm font-medium text-muted-foreground">Address</p>
+                  <p className="text-sm font-medium text-muted-foreground">Alamat</p>
                   <p className="text-sm">{selectedStudio.address}</p>
                 </div>
               )}
               
               {selectedStudio.phone && (
                 <div className="space-y-2">
-                  <p className="text-sm font-medium text-muted-foreground">Phone</p>
+                  <p className="text-sm font-medium text-muted-foreground">Telepon</p>
                   <p className="text-sm font-mono">{selectedStudio.phone}</p>
                 </div>
               )}
@@ -263,12 +263,12 @@ export default function AdminDashboard() {
                   <div className={`w-2 h-2 rounded-full ${
                     selectedStudio.is_active ? 'bg-green-500' : 'bg-red-500'
                   }`} />
-                  <p className="text-sm">{selectedStudio.is_active ? 'Active' : 'Inactive'}</p>
+                  <p className="text-sm">{selectedStudio.is_active ? 'Aktif' : 'Tidak Aktif'}</p>
                 </div>
               </div>
               
               <div className="space-y-2">
-                <p className="text-sm font-medium text-muted-foreground">Created</p>
+                <p className="text-sm font-medium text-muted-foreground">Dibuat</p>
                 <p className="text-sm">{new Date(selectedStudio.created_at).toLocaleDateString('id-ID')}</p>
               </div>
             </div>
@@ -276,12 +276,12 @@ export default function AdminDashboard() {
             <div className="flex gap-2 mt-6">
               <Button variant="outline" size="sm" asChild>
                 <Link href="/admin/studio">
-                  Edit Studio Details
+                  Edit Detail Studio
                 </Link>
               </Button>
               <Button variant="outline" size="sm" asChild>
                 <Link href="/admin/facilities">
-                  Manage Facilities
+                  Kelola Fasilitas
                 </Link>
               </Button>
             </div>

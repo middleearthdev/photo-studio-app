@@ -23,6 +23,7 @@ import {
   Send,
   Check,
   X,
+  XCircle,
   ExternalLink,
   Filter
 } from "lucide-react"
@@ -30,17 +31,23 @@ import { usePaginatedReservations, useReservationStats } from "@/hooks/use-reser
 import { format, parseISO, isToday, addDays } from "date-fns"
 import { formatCurrency } from "@/lib/utils"
 import {
-  generateWhatsAppMessage,
-  getWhatsAppURL,
   getDaysUntilReservation,
   getBookingPriority
 } from "@/lib/utils/booking-rules"
+import {
+  sendWhatsAppWithTemplate
+} from "@/lib/services/whatsapp-templates"
 import type { Reservation } from "@/actions/reservations"
+import { updateReservationStatusAction } from "@/actions/reservations"
+import { useQueryClient } from "@tanstack/react-query"
+import { reservationKeys } from "@/hooks/use-reservations"
+import { toast } from "sonner"
 import { useProfile } from "@/hooks/use-profile"
+import { useAuthStore } from "@/stores/auth-store"
 
 interface ReminderTask {
   id: string
-  type: 'payment_followup' | 'schedule_today' | 'general_reminders' | 'feedback'
+  type: 'payment_followup' | 'pelunasan_followup' | 'schedule_today'
   priority: 'urgent' | 'high' | 'medium' | 'low'
   reservation: Reservation
   title: string
@@ -52,35 +59,31 @@ interface ReminderTask {
   status: 'pending' | 'sent' | 'completed' | 'skipped'
   lastAction?: string
   amount?: number
+  canCancel?: boolean
+  minutesSinceCreated?: number
 }
 
-type TabType = 'payment_followup' | 'schedule_today' | 'general_reminders' | 'feedback'
+type TabType = 'payment_followup' | 'pelunasan_followup' | 'schedule_today'
 type FilterType = 'all' | 'urgent'
 
 const TAB_CONFIG = {
   payment_followup: {
     label: 'Follow Up Pembayaran',
-    description: 'Customer yang perlu diingatkan untuk pelunasan',
+    description: 'Reminder pembayaran untuk reservasi pending',
     icon: DollarSign,
     color: 'text-yellow-600'
+  },
+  pelunasan_followup: {
+    label: 'Follow Up Pelunasan',
+    description: 'Reminder pelunasan H-3 untuk reservasi confirmed',
+    icon: Bell,
+    color: 'text-orange-600'
   },
   schedule_today: {
     label: 'Jadwal Hari Ini',
     description: 'Booking yang akan berlangsung hari ini',
     icon: Calendar,
     color: 'text-blue-600'
-  },
-  general_reminders: {
-    label: 'Reminder Umum',
-    description: 'Konfirmasi booking dan reminder lainnya',
-    icon: Bell,
-    color: 'text-orange-600'
-  },
-  feedback: {
-    label: 'Request Feedback',
-    description: 'Customer yang sudah selesai sesi untuk diminta feedback',
-    icon: Star,
-    color: 'text-green-600'
   }
 }
 
@@ -96,10 +99,12 @@ export default function RemindersPage() {
   const [filter, setFilter] = useState<FilterType>('all')
   const [reminders, setReminders] = useState<ReminderTask[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [cancellingReservationId, setCancellingReservationId] = useState<string | null>(null)
 
   // Get user profile to get studio_id
-  const { data: profile } = useProfile()
+  const { profile } = useAuthStore()
   const studioId = profile?.studio_id
+  const queryClient = useQueryClient()
 
   // Fetch reservations data
   const {
@@ -126,26 +131,38 @@ export default function RemindersPage() {
         const customerPhone = reservation.customer?.phone || reservation.guest_phone || ''
         const reservationDate = parseISO(reservation.reservation_date)
 
-        // 1. Payment Follow-up Tasks
-        if (reservation.payment_status !== 'completed' && reservation.remaining_amount > 0) {
+        // 1. Payment Follow-up Tasks (only for pending reservations with pending payment)
+        if (reservation.status === 'pending' && reservation.payment_status === 'pending') {
+          // Calculate minutes since reservation created
+          const createdAt = new Date(reservation.created_at)
+          const now = new Date()
+          const minutesSinceCreated = Math.floor((now.getTime() - createdAt.getTime()) / (1000 * 60))
+          
           let taskPriority: 'urgent' | 'high' | 'medium' | 'low' = 'medium'
-          let title = 'Reminder Pelunasan'
+          let title = 'Follow Up Pembayaran'
+          let canCancel = false
 
-          if (daysUntil <= 0) {
-            taskPriority = 'urgent'
-            title = 'URGENT: Pelunasan Terlambat'
-          } else if (daysUntil <= 3) {
-            taskPriority = 'urgent'
-            if (daysUntil === 3) {
-              title = 'URGENT: Batas terakhir pelunasan hari ini'
-            } else if (daysUntil === 2) {
-              title = 'URGENT: Melewati batas H-3, pelunasan terlambat'
-            } else {
-              title = 'URGENT: Melewati batas H-3, pelunasan terlambat'
-            }
-          } else if (daysUntil <= 5) {
+          // 15-minute rule: High priority first 15 minutes, then urgent with cancel option
+          if (minutesSinceCreated <= 15) {
             taskPriority = 'high'
-            title = 'Priority: Reminder Pelunasan'
+            title = 'Menunggu Pembayaran DP'
+            canCancel = false
+          } else {
+            taskPriority = 'urgent'
+            title = 'URGENT: Batas Waktu Pembayaran Terlewat'
+            canCancel = true
+          }
+
+          // Additional urgency based on event date
+          if (daysUntil <= 1) {
+            taskPriority = 'urgent'
+            title = 'URGENT: Event besok - segera bayar DP'
+            canCancel = true
+          } else if (daysUntil <= 3) {
+            if (minutesSinceCreated > 15) {
+              taskPriority = 'urgent'
+              title = 'URGENT: Event H-3 - batas pembayaran terlewat'
+            }
           }
 
           tasks.push({
@@ -154,7 +171,27 @@ export default function RemindersPage() {
             priority: taskPriority,
             reservation,
             title,
-            description: `Sisa pembayaran ${formatCurrency(reservation.remaining_amount)} untuk booking ${reservation.package?.name || 'Custom'}. ${daysUntil === 3 ? 'Batas terakhir hari ini' : daysUntil === 2 ? 'Batas terakhir besok' : daysUntil <= 0 ? 'Sudah melewati deadline' : `Batas ${format(addDays(parseISO(reservation.reservation_date), -3), 'dd MMM yyyy')}`}`,
+            description: `Pembayaran DP ${formatCurrency(reservation.dp_amount)} untuk booking ${reservation.package?.name || 'Custom'} ${minutesSinceCreated <= 15 ? 'menunggu pembayaran' : `terlewat ${minutesSinceCreated} menit`}`,
+            dueDate: reservation.reservation_date,
+            customerName,
+            customerPhone,
+            bookingCode: reservation.booking_code,
+            status: 'pending',
+            amount: reservation.dp_amount,
+            canCancel,
+            minutesSinceCreated
+          })
+        }
+
+        // 2. Pelunasan Follow-up Tasks (only for confirmed reservations with partial payment, exactly H-3)
+        if (reservation.status === 'confirmed' && reservation.payment_status === 'partial' && daysUntil === 3) {
+          tasks.push({
+            id: `pelunasan-${reservation.id}`,
+            type: 'pelunasan_followup',
+            priority: 'urgent',
+            reservation,
+            title: 'URGENT: Batas Terakhir Pelunasan H-3',
+            description: `Sisa pembayaran ${formatCurrency(reservation.remaining_amount)} untuk booking ${reservation.package?.name || 'Custom'}. Batas terakhir pelunasan hari ini`,
             dueDate: reservation.reservation_date,
             customerName,
             customerPhone,
@@ -164,7 +201,7 @@ export default function RemindersPage() {
           })
         }
 
-        // 2. Today's Schedule Tasks
+        // 3. Today's Schedule Tasks
         if (isToday(reservationDate) && ['confirmed', 'in_progress'].includes(reservation.status)) {
           tasks.push({
             id: `today-${reservation.id}`,
@@ -179,65 +216,6 @@ export default function RemindersPage() {
             bookingCode: reservation.booking_code,
             status: 'pending'
           })
-        }
-
-        // 3. General Reminders
-        // Booking confirmation reminders
-        if (reservation.status === 'pending') {
-          let taskPriority: 'urgent' | 'high' | 'medium' = 'medium'
-          if (daysUntil <= 1) taskPriority = 'urgent'
-          else if (daysUntil <= 3) taskPriority = 'high'
-
-          tasks.push({
-            id: `confirm-${reservation.id}`,
-            type: 'general_reminders',
-            priority: taskPriority,
-            reservation,
-            title: 'Konfirmasi Booking Diperlukan',
-            description: `Booking ${reservation.package?.name || 'Custom'} belum dikonfirmasi`,
-            dueDate: reservation.reservation_date,
-            customerName,
-            customerPhone,
-            bookingCode: reservation.booking_code,
-            status: 'pending'
-          })
-        }
-
-        // Reschedule deadline reminder
-        if (['confirmed', 'pending'].includes(reservation.status) && daysUntil === 3) {
-          tasks.push({
-            id: `reschedule-${reservation.id}`,
-            type: 'general_reminders',
-            priority: 'high',
-            reservation,
-            title: 'Batas Terakhir Reschedule',
-            description: 'Batas terakhir reschedule hari ini',
-            dueDate: reservation.reservation_date,
-            customerName,
-            customerPhone,
-            bookingCode: reservation.booking_code,
-            status: 'pending'
-          })
-        }
-
-        // 4. Feedback Requests
-        if (reservation.status === 'completed') {
-          const daysSinceCompleted = Math.abs(daysUntil)
-          if (daysSinceCompleted >= 1 && daysSinceCompleted <= 7) {
-            tasks.push({
-              id: `feedback-${reservation.id}`,
-              type: 'feedback',
-              priority: 'low',
-              reservation,
-              title: 'Request Customer Feedback',
-              description: `Sesi selesai ${daysSinceCompleted} hari lalu - minta review/feedback`,
-              dueDate: format(addDays(reservationDate, 7), 'yyyy-MM-dd'),
-              customerName,
-              customerPhone,
-              bookingCode: reservation.booking_code,
-              status: 'pending'
-            })
-          }
         }
       })
 
@@ -281,21 +259,55 @@ export default function RemindersPage() {
   // Handle reminder actions
   const handleSendReminder = async (reminder: ReminderTask) => {
     try {
-      let messageType: 'payment' | 'reschedule' | 'confirmation' = 'confirmation'
+      let templateId = 'booking_confirmation'
 
       if (reminder.type === 'payment_followup') {
-        messageType = 'payment'
-      } else if (reminder.title.includes('Reschedule')) {
-        messageType = 'reschedule'
+        templateId = 'follow_up_payment'
+      } else if (reminder.type === 'pelunasan_followup') {
+        templateId = 'payment_reminder'
       }
 
-      const message = generateWhatsAppMessage(reminder.reservation, messageType)
-      const whatsappUrl = getWhatsAppURL(reminder.customerPhone, message)
+      const whatsappUrl = sendWhatsAppWithTemplate(reminder.reservation, templateId, reminder.customerPhone)
 
       // Open WhatsApp
       window.open(whatsappUrl, '_blank')
     } catch (error) {
       console.error('Error sending reminder:', error)
+    }
+  }
+
+  // Handle cancel booking
+  const handleCancelBooking = async (reminder: ReminderTask) => {
+    if (!reminder.canCancel) {
+      toast.error('Booking ini tidak dapat dibatalkan')
+      return
+    }
+
+    setCancellingReservationId(reminder.reservation.id)
+
+    try {
+      const result = await updateReservationStatusAction(
+        reminder.reservation.id,
+        'cancelled',
+        `Auto-cancelled after 15 minutes - no payment received`
+      )
+
+      if (result.success) {
+        toast.success('Booking berhasil dibatalkan')
+        
+        // Invalidate reservations query to refresh data
+        queryClient.invalidateQueries({ queryKey: reservationKeys.all })
+        
+        // Refresh reminders data
+        refreshReservations()
+      } else {
+        toast.error(result.error || 'Gagal membatalkan booking')
+      }
+    } catch (error) {
+      console.error('Error cancelling booking:', error)
+      toast.error('Terjadi error saat membatalkan booking')
+    } finally {
+      setCancellingReservationId(null)
     }
   }
 
@@ -328,6 +340,21 @@ export default function RemindersPage() {
                       {formatCurrency(reminder.amount)}
                     </p>
                   )}
+                  
+                  {/* 15-minute countdown for payment_followup */}
+                  {reminder.type === 'payment_followup' && reminder.minutesSinceCreated !== undefined && (
+                    <div className={`text-xs p-2 rounded-md ${
+                      reminder.minutesSinceCreated <= 15 
+                        ? 'bg-blue-50 text-blue-700' 
+                        : 'bg-red-50 text-red-700'
+                    }`}>
+                      {reminder.minutesSinceCreated <= 15 
+                        ? `⏱️ Sisa waktu: ${15 - reminder.minutesSinceCreated} menit`
+                        : `⚠️ Terlewat ${reminder.minutesSinceCreated - 15} menit dari batas waktu`
+                      }
+                    </div>
+                  )}
+                  
                   <div className="flex items-center gap-4 text-xs text-gray-500">
                     <span>#{reminder.bookingCode}</span>
                     <span>Target: {format(parseISO(reminder.dueDate), 'dd MMM yyyy')}</span>
@@ -352,6 +379,29 @@ export default function RemindersPage() {
                 <Send className="h-3 w-3 mr-1" />
                 Kirim
               </Button>
+              
+              {/* Cancel button for payment_followup after 15 minutes */}
+              {reminder.type === 'payment_followup' && reminder.canCancel && (
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => handleCancelBooking(reminder)}
+                  className="h-8 text-xs"
+                  disabled={cancellingReservationId === reminder.reservation.id}
+                >
+                  {cancellingReservationId === reminder.reservation.id ? (
+                    <>
+                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1" />
+                      Cancelling...
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="h-3 w-3 mr-1" />
+                      Cancel
+                    </>
+                  )}
+                </Button>
+              )}
             </div>
           </div>
         </CardContent>
@@ -393,7 +443,7 @@ export default function RemindersPage() {
       </div>
 
       {/* Summary Stats */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
@@ -409,34 +459,22 @@ export default function RemindersPage() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
+              <Bell className="h-5 w-5 text-orange-600" />
+              <div>
+                <div className="text-2xl font-bold">{getTabStats('pelunasan_followup').total}</div>
+                <div className="text-sm text-gray-600">Follow-up Pelunasan</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
               <Calendar className="h-5 w-5 text-blue-600" />
               <div>
                 <div className="text-2xl font-bold">{getTabStats('schedule_today').total}</div>
                 <div className="text-sm text-gray-600">Jadwal Hari Ini</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <Bell className="h-5 w-5 text-orange-600" />
-              <div>
-                <div className="text-2xl font-bold">{getTabStats('general_reminders').total}</div>
-                <div className="text-sm text-gray-600">Reminder Umum</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <Star className="h-5 w-5 text-green-600" />
-              <div>
-                <div className="text-2xl font-bold">{getTabStats('feedback').total}</div>
-                <div className="text-sm text-gray-600">Request Feedback</div>
               </div>
             </div>
           </CardContent>

@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
-import { DollarSign, CheckCircle, XCircle, Clock, Search, MoreHorizontal, Eye, Edit, RefreshCw, Download, Filter, AlertTriangle } from "lucide-react"
+import { DollarSign, CheckCircle, XCircle, Clock, Search, MoreHorizontal, Eye, RefreshCw, Filter, AlertTriangle, Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -52,6 +52,7 @@ import { type PaymentStatus, type Payment } from "@/actions/payments"
 import { PaginationControls } from "@/components/pagination-controls"
 import { DEFAULT_PAGE_SIZE } from "@/lib/constants/pagination"
 import { useProfile } from "@/hooks/use-profile"
+import { useAuthStore } from "@/stores/auth-store"
 
 const statusLabels = {
   pending: 'Menunggu Verifikasi',
@@ -92,7 +93,8 @@ export default function PaymentsPage() {
   } | null>(null)
 
   // Get user profile to get studio_id
-  const { data: profile } = useProfile()
+  const { profile } = useAuthStore()
+
   const studioId = profile?.studio_id
 
   // TanStack Query hooks with pagination
@@ -180,10 +182,6 @@ export default function PaymentsPage() {
     setIsDetailModalOpen(true)
   }
 
-  const handleEdit = (payment: Payment) => {
-    // TODO: Implement payment edit modal or navigate to edit page
-    alert(`Edit payment: ${payment.id}`)
-  }
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -239,10 +237,6 @@ export default function PaymentsPage() {
           <Button variant="outline" onClick={() => refetch()}>
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
-          </Button>
-          <Button variant="outline">
-            <Download className="h-4 w-4 mr-2" />
-            Export
           </Button>
         </div>
       </div>
@@ -482,10 +476,6 @@ export default function PaymentsPage() {
                               <Eye className="mr-2 h-4 w-4" />
                               View Details
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleEdit(payment)}>
-                              <Edit className="mr-2 h-4 w-4" />
-                              Edit
-                            </DropdownMenuItem>
                             <DropdownMenuSeparator />
 
                             {payment.status === 'pending' && (
@@ -508,14 +498,18 @@ export default function PaymentsPage() {
                             )}
 
 
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={() => handleDelete(payment)}
-                              className="text-red-600"
-                            >
-                              <XCircle className="mr-2 h-4 w-4" />
-                              Delete
-                            </DropdownMenuItem>
+                            {payment.status !== 'completed' && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() => handleDelete(payment)}
+                                  className="text-red-600"
+                                >
+                                  <XCircle className="mr-2 h-4 w-4" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>

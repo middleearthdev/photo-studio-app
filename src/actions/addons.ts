@@ -42,10 +42,10 @@ export interface ActionResult<T = any> {
 
 // Check if facility-based addon is available for specific time slot
 export async function checkAddonFacilityAvailabilityAction(
-  addonId: string, 
-  studioId: string, 
-  date: string, 
-  startTime: string, 
+  addonId: string,
+  studioId: string,
+  date: string,
+  startTime: string,
   endTime: string
 ): Promise<ActionResult<boolean>> {
   try {
@@ -79,7 +79,7 @@ export async function checkAddonFacilityAvailabilityAction(
       .eq('studio_id', studioId)
       .eq('reservation_date', date)
       .eq('reservation_addons.addon.facility_id', addon.facility_id)
-      .in('status', ['confirmed', 'in_progress'])
+      .in('status', ['pending', 'confirmed', 'in_progress'])
 
     // Check for time conflicts
     const hasConflict = conflictingReservations?.some(reservation => {
@@ -157,7 +157,7 @@ export async function getPackageAddonsAction(packageId: string): Promise<ActionR
     const addons: Addon[] = (packageAddons || []).map(pa => {
       const addon = pa.addon
       const finalPrice = addon.price * (1 - pa.discount_percentage / 100)
-      
+
       return {
         ...addon,
         package_addon: {
@@ -178,10 +178,10 @@ export async function getPackageAddonsAction(packageId: string): Promise<ActionR
 }
 
 // Public action to get package addons grouped by category
-export async function getPackageAddonsGroupedAction(packageId: string): Promise<ActionResult<{[key: string]: Addon[]}>> {
+export async function getPackageAddonsGroupedAction(packageId: string): Promise<ActionResult<{ [key: string]: Addon[] }>> {
   try {
     const result = await getPackageAddonsAction(packageId)
-    
+
     if (!result.success || !result.data) {
       return {
         success: false,
@@ -190,11 +190,11 @@ export async function getPackageAddonsGroupedAction(packageId: string): Promise<
     }
 
     // Group addons by type with same logic as before
-    const grouped: {[key: string]: Addon[]} = {}
-    
+    const grouped: { [key: string]: Addon[] } = {}
+
     result.data.forEach(addon => {
       let category = 'other'
-      
+
       // Priority 1: Check addon type field first
       if (addon.type) {
         const type = addon.type.toLowerCase()
@@ -251,10 +251,10 @@ export async function getPackageAddonsGroupedAction(packageId: string): Promise<
 }
 
 // Public action to get addons grouped by type/category (DEPRECATED - use package-specific instead)
-export async function getPublicAddonsGroupedAction(studioId?: string): Promise<ActionResult<{[key: string]: Addon[]}>> {
+export async function getPublicAddonsGroupedAction(studioId?: string): Promise<ActionResult<{ [key: string]: Addon[] }>> {
   try {
     const result = await getPublicAddonsAction(studioId)
-    
+
     if (!result.success || !result.data) {
       return {
         success: false,
@@ -263,12 +263,12 @@ export async function getPublicAddonsGroupedAction(studioId?: string): Promise<A
     }
 
     // Group addons by type (using facility name or type field)
-    const grouped: {[key: string]: Addon[]} = {}
-    
+    const grouped: { [key: string]: Addon[] } = {}
+
     result.data.forEach(addon => {
       // Determine category with priority: type field > addon name > facility name
       let category = 'other'
-      
+
       // Priority 1: Check addon type field first
       if (addon.type) {
         const type = addon.type.toLowerCase()
@@ -370,9 +370,9 @@ export async function assignAddonToPackageAction(
         .eq('id', addonId)
         .single()
 
-      if (!packageData || !addonData || 
-          packageData.studio_id !== currentProfile.studio_id ||
-          addonData.studio_id !== currentProfile.studio_id) {
+      if (!packageData || !addonData ||
+        packageData.studio_id !== currentProfile.studio_id ||
+        addonData.studio_id !== currentProfile.studio_id) {
         return { success: false, error: 'Insufficient permissions for this studio' }
       }
     }
@@ -537,7 +537,7 @@ export async function bulkAssignAddonsToPackageAction(
     }
 
     const existingAddonIds = new Set(existingAssignments?.map(item => item.addon_id) || [])
-    
+
     // Filter out already assigned addons
     const availableAddons = allAddons.filter(addon => !existingAddonIds.has(addon.id))
 
@@ -565,11 +565,11 @@ export async function bulkAssignAddonsToPackageAction(
     }
 
     revalidatePath('/admin/packages')
-    return { 
-      success: true, 
-      data: { 
-        assigned: availableAddons.length, 
-        skipped: existingAddonIds.size 
+    return {
+      success: true,
+      data: {
+        assigned: availableAddons.length,
+        skipped: existingAddonIds.size
       }
     }
   } catch (error: any) {
@@ -645,7 +645,7 @@ export async function getPaginatedAddonsAction(
 ): Promise<ActionResult<PaginatedResult<Addon>>> {
   try {
     const supabase = await createClient()
-    
+
     const {
       studioId,
       page = 1,
@@ -655,7 +655,7 @@ export async function getPaginatedAddonsAction(
       type,
       facilityId
     } = params
-    
+
     const { offset, pageSize: validPageSize } = calculatePagination(page, pageSize, 0)
 
     // Get current user to check permissions

@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { 
+import {
   createReservationAction,
   getReservationByBookingCodeAction,
   getReservationsAction,
@@ -14,6 +14,7 @@ import {
   type Reservation
 } from '@/actions/reservations'
 import { PaginationParams } from '@/lib/constants/pagination'
+import { paymentKeys } from './use-payments'
 
 // Local types
 export type ReservationStatus = 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled'
@@ -36,7 +37,7 @@ export const reservationKeys = {
 
 // Helper functions to wrap server actions
 const getPaginatedReservations = async (
-  studioId: string, 
+  studioId: string,
   params: PaginationParams & {
     search?: string
     status?: string
@@ -50,17 +51,17 @@ const getPaginatedReservations = async (
   if (!result.success) {
     throw new Error(result.error || 'Failed to fetch reservations')
   }
-  
+
   // Filter reservations based on parameters
   const reservations = result.data || []
-  let filteredReservations = reservations.filter((r: Reservation) => 
+  let filteredReservations = reservations.filter((r: Reservation) =>
     r.studio_id === studioId
   )
-  
+
   // Apply search filter
   if (params.search) {
     const searchLower = params.search.toLowerCase()
-    filteredReservations = filteredReservations.filter((r: Reservation) => 
+    filteredReservations = filteredReservations.filter((r: Reservation) =>
       r.booking_code?.toLowerCase().includes(searchLower) ||
       r.customer?.full_name?.toLowerCase().includes(searchLower) ||
       r.customer?.email?.toLowerCase().includes(searchLower) ||
@@ -69,59 +70,59 @@ const getPaginatedReservations = async (
       r.guest_phone?.toLowerCase().includes(searchLower)
     )
   }
-  
+
   // Apply status filter
   if (params.status && params.status !== 'all') {
-    filteredReservations = filteredReservations.filter((r: Reservation) => 
+    filteredReservations = filteredReservations.filter((r: Reservation) =>
       r.status === params.status
     )
   }
-  
+
   // Apply payment status filter
   if (params.payment_status && params.payment_status !== 'all') {
-    filteredReservations = filteredReservations.filter((r: Reservation) => 
+    filteredReservations = filteredReservations.filter((r: Reservation) =>
       r.payment_status === params.payment_status
     )
   }
-  
+
   // Apply booking type filter
   if (params.booking_type && params.booking_type !== 'all') {
     if (params.booking_type === 'guest') {
-      filteredReservations = filteredReservations.filter((r: Reservation) => 
+      filteredReservations = filteredReservations.filter((r: Reservation) =>
         r.is_guest_booking === true
       )
     } else if (params.booking_type === 'user') {
-      filteredReservations = filteredReservations.filter((r: Reservation) => 
+      filteredReservations = filteredReservations.filter((r: Reservation) =>
         r.is_guest_booking === false
       )
     }
   }
-  
+
   // Apply date filters
   if (params.date_from) {
     const fromDate = new Date(params.date_from)
-    filteredReservations = filteredReservations.filter((r: Reservation) => 
+    filteredReservations = filteredReservations.filter((r: Reservation) =>
       new Date(r.reservation_date) >= fromDate
     )
   }
-  
+
   if (params.date_to) {
     const toDate = new Date(params.date_to)
     // Set to end of day
     toDate.setHours(23, 59, 59, 999)
-    filteredReservations = filteredReservations.filter((r: Reservation) => 
+    filteredReservations = filteredReservations.filter((r: Reservation) =>
       new Date(r.reservation_date) <= toDate
     )
   }
-  
+
   // Apply pagination
   const page = params.page || 1
   const pageSize = params.pageSize || 10
   const startIndex = (page - 1) * pageSize
   const endIndex = startIndex + pageSize
-  
+
   const paginatedReservations = filteredReservations.slice(startIndex, endIndex)
-  
+
   return {
     data: paginatedReservations,
     pagination: {
@@ -164,16 +165,16 @@ const getReservationByBookingCode = async (bookingCode: string) => {
   return result.data
 }
 
-// Mock stats function - TODO: Implement proper stats calculation
+// stats function
 const getReservationStats = async (studioId: string) => {
   const result = await getReservationsAction()
   if (!result.success) {
     throw new Error(result.error || 'Failed to fetch reservation stats')
   }
-  
+
   const reservations = result.data || []
   const studioReservations = reservations.filter((r: Reservation) => r.studio_id === studioId)
-  
+
   return {
     total: studioReservations.length,
     pending: studioReservations.filter((r: Reservation) => r.status === 'pending').length,
@@ -181,8 +182,22 @@ const getReservationStats = async (studioId: string) => {
     thisMonth: studioReservations.length, // TODO: Implement proper monthly calculation
     totalRevenue: studioReservations.reduce((sum: number, r: Reservation) => sum + r.total_amount, 0),
     pendingPayments: studioReservations
-      .filter((r: Reservation) => r.payment_status !== 'completed')
-      .reduce((sum: number, r: Reservation) => sum + r.remaining_amount, 0)
+      .filter((r: Reservation) =>
+        r.status !== 'completed' &&
+        r.status !== 'cancelled' &&
+        r.payment_status !== 'completed'
+      )
+      .reduce((sum: number, r: Reservation) => {
+        // Jika payment status pending, hitung total amount
+        if (r.payment_status === 'pending') {
+          return sum + r.total_amount
+        }
+        // Jika payment status partial, hitung remaining amount
+        if (r.payment_status === 'partial') {
+          return sum + r.remaining_amount
+        }
+        return sum
+      }, 0)
   }
 }
 
@@ -208,7 +223,7 @@ export function useReservationStats(studioId?: string) {
 // Create reservation mutation
 export function useCreateReservation() {
   const queryClient = useQueryClient()
-  
+
   return useMutation({
     mutationFn: async (data: CreateReservationData) => {
       const result = await createReservationAction(data)
@@ -233,7 +248,7 @@ export function useCreateReservation() {
 // Update reservation mutation
 export function useUpdateReservation() {
   const queryClient = useQueryClient()
-  
+
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: UpdateReservationData }) => {
       const result = await updateReservationAction(id, data)
@@ -262,7 +277,7 @@ export function useUpdateReservation() {
 // Update reservation status mutation
 export function useUpdateReservationStatus() {
   const queryClient = useQueryClient()
-  
+
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: ReservationStatus }) => {
       const result = await updateReservationStatusAction(id, status)
@@ -283,7 +298,7 @@ export function useUpdateReservationStatus() {
         cancelled: 'Reservasi dibatalkan'
       }
       toast.success(statusMessages[data.status] || 'Status reservasi berhasil diperbarui')
-      
+
       // Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: reservationKeys.lists() })
       queryClient.invalidateQueries({ queryKey: reservationKeys.paginatedLists() })
@@ -299,7 +314,7 @@ export function useUpdateReservationStatus() {
 // Delete reservation mutation
 export function useDeleteReservation() {
   const queryClient = useQueryClient()
-  
+
   return useMutation({
     mutationFn: async (id: string) => {
       const result = await deleteReservationAction(id)
@@ -312,6 +327,8 @@ export function useDeleteReservation() {
       toast.success('Reservasi berhasil dihapus')
       // Invalidate all reservation queries
       queryClient.invalidateQueries({ queryKey: reservationKeys.all })
+      queryClient.invalidateQueries({ queryKey: paymentKeys.all })
+
     },
     onError: (error: Error) => {
       toast.error(`Gagal menghapus reservasi: ${error.message}`)
@@ -322,13 +339,13 @@ export function useDeleteReservation() {
 // Reschedule reservation mutation
 export function useRescheduleReservation() {
   const queryClient = useQueryClient()
-  
+
   return useMutation({
-    mutationFn: async ({ 
-      id, 
-      rescheduleData 
-    }: { 
-      id: string; 
+    mutationFn: async ({
+      id,
+      rescheduleData
+    }: {
+      id: string;
       rescheduleData: {
         new_date: string
         new_start_time: string
@@ -348,19 +365,19 @@ export function useRescheduleReservation() {
     },
     onSuccess: async (data: Reservation) => {
       toast.success('Booking berhasil direschedule')
-      
+
       // Force refetch all reservation queries to ensure fresh data
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: reservationKeys.all }),
         queryClient.invalidateQueries({ queryKey: reservationKeys.stats(data?.studio_id || '') }),
-        queryClient.refetchQueries({ 
+        queryClient.refetchQueries({
           predicate: (query) => {
             const queryKey = query.queryKey
-            return queryKey[0] === 'reservations' && 
-                   queryKey[1] === 'paginated' && 
-                   typeof queryKey[2] === 'object' &&
-                   queryKey[2] !== null &&
-                   (queryKey[2] as any).studioId === data?.studio_id
+            return queryKey[0] === 'reservations' &&
+              queryKey[1] === 'paginated' &&
+              typeof queryKey[2] === 'object' &&
+              queryKey[2] !== null &&
+              (queryKey[2] as any).studioId === data?.studio_id
           }
         })
       ])

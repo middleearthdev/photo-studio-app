@@ -5,6 +5,7 @@ import { Shield } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { StaffLoginForm } from "@/app/(auth)/_components/staff-login-form"
 import { Button } from "@/components/ui/button"
+import { LoginForm } from "../../_components/login-form"
 
 export default function StaffLoginPage() {
   return (
@@ -26,7 +27,8 @@ export default function StaffLoginPage() {
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
-          <StaffLoginForm />
+          {/* <StaffLoginForm /> */}
+          <LoginForm />
 
           <div className="text-center space-y-3">
             <div className="relative">

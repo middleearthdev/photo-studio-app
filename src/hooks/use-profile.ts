@@ -24,16 +24,20 @@ export const useProfile = () => {
 
   const fetchProfile = async () => {
     const { data: { session } } = await supabase.auth.getSession()
-    
+
     if (!session?.user) {
       throw new Error('No authenticated user')
     }
+
+    console.log("get profile")
 
     const { data, error } = await supabase
       .from('user_profiles')
       .select('*')
       .eq('id', session.user.id)
       .single()
+
+    console.log("done get profile")
 
     if (error) {
       throw new Error(error.message)

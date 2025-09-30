@@ -50,6 +50,7 @@ import { useProfile } from "@/hooks/use-profile"
 import { signOutAction } from "@/actions/auth"
 import { toast } from "sonner"
 import { RemindersNotification } from "@/components/cs/reminders-notification"
+import { useAuthStore } from "@/stores/auth-store"
 
 interface CSLayoutProps {
   children: React.ReactNode
@@ -70,17 +71,13 @@ const menuItems = [
     title: "Payment Approval",
     icon: DollarSign,
     href: "/cs/payments",
-  },
-  {
-    title: "Customer Management",
-    icon: Users,
-    href: "/cs/customers",
   }
 ]
 
 export default function CSLayout({ children }: CSLayoutProps) {
   const pathname = usePathname()
-  const { data: profile } = useProfile()
+  const { profile } = useAuthStore()
+
 
   const handleSignOut = async () => {
     try {

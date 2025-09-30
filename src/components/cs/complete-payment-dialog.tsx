@@ -19,22 +19,21 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
-import { usePaymentMethods } from "@/hooks/use-payment-methods"
+import { useActivePaymentManualMethods, usePaymentMethods } from "@/hooks/use-payment-methods"
 import { useCompletePayment } from "@/hooks/use-payments"
 import { type Reservation } from "@/actions/reservations"
 
 interface CompletePaymentDialogProps {
   isOpen: boolean
   onClose: () => void
-  onSuccess: () => void
   reservation: Reservation | null
 }
 
-export function CompletePaymentDialog({ isOpen, onClose, onSuccess, reservation }: CompletePaymentDialogProps) {
+export function CompletePaymentDialog({ isOpen, onClose, reservation }: CompletePaymentDialogProps) {
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('')
 
   // Get payment methods for the studio
-  const { data: paymentMethods = [], isLoading: isLoadingPaymentMethods } = usePaymentMethods(reservation?.studio_id!)
+  const { data: paymentMethods = [], isLoading: isLoadingPaymentMethods } = useActivePaymentManualMethods(reservation?.studio_id!)
 
   // Complete payment mutation
   const completePaymentMutation = useCompletePayment()
@@ -58,7 +57,6 @@ export function CompletePaymentDialog({ isOpen, onClose, onSuccess, reservation 
       {
         onSuccess: (result) => {
           if (result.success) {
-            onSuccess()
             onClose()
             // Reset form
             setSelectedPaymentMethod('')

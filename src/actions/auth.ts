@@ -21,7 +21,7 @@ export async function signInAction(
 
   try {
     console.log('🔐 Server Auth: Attempting login for:', email)
-    
+
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -62,12 +62,12 @@ export async function signInAction(
 
     if (userType === 'staff' && !isStaff) {
       await supabase.auth.signOut()
-      return { success: false, error: 'Akun Anda tidak memiliki akses staff' }
+      return { success: false, error: 'Invalid credential' }
     }
 
     if (userType === 'customer' && isStaff) {
       await supabase.auth.signOut()
-      return { success: false, error: 'Silakan gunakan portal staff untuk login' }
+      return { success: false, error: 'Invalid credential' }
     }
 
     // Update last login

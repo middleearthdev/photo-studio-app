@@ -201,10 +201,8 @@ function PaymentPageContent() {
         // Redirect to Xendit payment page
         window.location.href = result.data.invoice_url
       } else {
-        console.error('Payment error:')
-
-        // For manual payments, redirect to success page immediately
-        // router.push(`/booking/success?payment=completed&booking=${bookingData.reservation?.booking_code || bookingCode}`)
+        console.error('Payment error: No invoice URL for Xendit payment')
+        throw new Error('Payment gateway tidak tersedia')
       }
     } catch (error) {
       const newRetryCount = retryCount + 1

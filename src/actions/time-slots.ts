@@ -70,7 +70,7 @@ export async function checkFacilityAvailability(
       `)
       .eq('studio_id', studioId)
       .eq('reservation_date', date)
-      .in('status', ['confirmed', 'in_progress'])
+      .in('status', ['pending', 'confirmed', 'in_progress'])
       .lt('start_time', endTime.toTimeString().substring(0, 5))
       .gt('end_time', startTime.toTimeString().substring(0, 5))
 
@@ -167,7 +167,7 @@ export async function generateTimeSlotsForDate(
         `)
         .eq('studio_id', studioId)
         .eq('reservation_date', date)
-        .in('status', ['confirmed', 'in_progress']),
+        .in('status', ['pending', 'confirmed', 'in_progress']),
 
       // Get blocked time slots with facility info
       supabase
@@ -194,7 +194,7 @@ export async function generateTimeSlotsForDate(
         `)
         .eq('studio_id', studioId)
         .eq('reservation_date', date)
-        .in('status', ['confirmed', 'in_progress']) : { data: null, error: null }
+        .in('status', ['pending', 'confirmed', 'in_progress']) : { data: null, error: null }
     ])
 
     // Extract data and handle errors
@@ -317,7 +317,7 @@ export async function generateTimeSlotsForDate(
 
       // Check if this slot is blocked - need to check facility-specific blocks
       let isBlocked = false
-      
+
       if (packageId && requiredFacilityIds.length > 0) {
         // Package DENGAN facility requirements - check if any required facilities are blocked
         isBlocked = blockedSlots?.some(blocked => {

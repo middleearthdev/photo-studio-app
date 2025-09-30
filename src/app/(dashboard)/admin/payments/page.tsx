@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react"
 import Link from "next/link"
-import { CreditCard, DollarSign, TrendingDown, Search, MoreHorizontal, Eye, CheckCircle, XCircle, RefreshCw, Download, Filter, AlertCircle } from "lucide-react"
+import { CreditCard, DollarSign, TrendingDown, Search, MoreHorizontal, Eye, CheckCircle, XCircle, RefreshCw, Filter, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -220,10 +220,6 @@ export default function PaymentsPage() {
           <Button variant="outline" onClick={() => refetch()}>
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
-          </Button>
-          <Button variant="outline">
-            <Download className="h-4 w-4 mr-2" />
-            Export
           </Button>
           <Button asChild>
             <Link href="/admin/payments/methods">

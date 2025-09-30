@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createHash, createHmac, timingSafeEqual } from 'crypto'
-import { updatePayment, getPaymentByExternalId } from '@/actions/payments'
-import { updateReservationStatusOnPayment } from '@/actions/reservations'
+import { updatePayment, getPaymentByExternalId, deletePaymentAction } from '@/actions/payments'
+import { updateReservationStatusOnPayment, deleteReservationAction } from '@/actions/reservations'
 
 interface XenditCallbackData {
   id: string
@@ -271,6 +271,68 @@ export async function POST(req: NextRequest) {
         success: true,
         message: 'Webhook already processed'
       })
+    }
+
+    // Handle payment expiration by deleting payment and reservation
+    if (status.toUpperCase() === 'EXPIRED') {
+      try {
+        log('info', 'Processing expired payment - deleting payment and reservation', {
+          paymentId: payment.id,
+          reservationId: payment.reservation_id
+        })
+
+        // Delete the reservation (which will cascade delete payment and related data)
+        if (payment.reservation_id) {
+          const deleteResult = await deleteReservationAction(payment.reservation_id)
+          if (!deleteResult.success) {
+            log('error', 'Failed to delete expired reservation', {
+              reservationId: payment.reservation_id,
+              error: deleteResult.error
+            })
+            // Fall back to just updating payment status
+            await updatePayment(payment.id, {
+              status: 'failed',
+              external_status: status,
+              callback_data: callbackData
+            })
+          } else {
+            log('info', 'Successfully deleted expired payment and reservation', {
+              paymentId: payment.id,
+              reservationId: payment.reservation_id
+            })
+          }
+        } else {
+          // No reservation, just delete the payment
+          const deletePaymentResult = await deletePaymentAction(payment.id)
+          if (!deletePaymentResult.success) {
+            log('error', 'Failed to delete expired payment', {
+              paymentId: payment.id,
+              error: deletePaymentResult.error
+            })
+          } else {
+            log('info', 'Successfully deleted expired payment', {
+              paymentId: payment.id
+            })
+          }
+        }
+
+        const processingTime = Date.now() - startTime
+        return NextResponse.json({
+          success: true,
+          message: 'Expired payment processed successfully',
+          data: {
+            payment_id: payment.id,
+            action: 'deleted',
+            processing_time: processingTime
+          }
+        })
+      } catch (error) {
+        log('error', 'Error processing expired payment', {
+          paymentId: payment.id,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        })
+        // Continue with normal flow if deletion fails
+      }
     }
 
     // Update payment status based on Xendit status

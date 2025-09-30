@@ -31,6 +31,7 @@ import {
 } from "@/lib/utils/booking-rules"
 
 import { useProfile } from "@/hooks/use-profile"
+import { useAuthStore } from "@/stores/auth-store"
 
 interface QuickReminder {
   id: string
@@ -49,7 +50,8 @@ export function RemindersNotification() {
   const [open, setOpen] = useState(false)
 
   // Get user profile to get studio_id
-  const { data: profile } = useProfile()
+  const { profile } = useAuthStore()
+
   const studioId = profile?.studio_id
 
   // Fetch reservations for urgent reminders

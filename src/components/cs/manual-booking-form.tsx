@@ -52,11 +52,10 @@ interface SelectedDiscount {
 interface ManualBookingFormProps {
   isOpen: boolean
   onClose: () => void
-  onSuccess: () => void
   studioId: string
 }
 
-export function ManualBookingForm({ isOpen, onClose, onSuccess, studioId }: ManualBookingFormProps) {
+export function ManualBookingForm({ isOpen, onClose, studioId }: ManualBookingFormProps) {
 
   // Form state
   const [formData, setFormData] = useState({
@@ -192,8 +191,8 @@ export function ManualBookingForm({ isOpen, onClose, onSuccess, studioId }: Manu
     if (formData.package_price > 0) { // Only recalculate if package is selected
       const addonTotal = selectedAddons.reduce((sum, addon) => sum + (addon.price * addon.quantity), 0)
       const subtotal = formData.package_price + addonTotal
-      
-      
+
+
       const totalAmount = Math.max(0, subtotal - formData.discount_amount) // Ensure total is never negative
 
       // Only update if values are different to avoid infinite loops
@@ -211,11 +210,11 @@ export function ManualBookingForm({ isOpen, onClose, onSuccess, studioId }: Manu
           // If in DP mode, auto-adjust DP based on new total (especially when discount is applied)
           const dpPercentage = (selectedPackage?.dp_percentage || 50) / 100
           const calculatedDp = Math.floor(totalAmount * dpPercentage)
-          
+
           // Always recalculate DP when total changes - this is expected behavior when discount is applied
           newDpAmount = calculatedDp
           setCustomDpAmount(calculatedDp.toString())
-          
+
           paymentStatus = newDpAmount >= totalAmount ? 'completed' : 'partial'
         }
 
@@ -235,7 +234,7 @@ export function ManualBookingForm({ isOpen, onClose, onSuccess, studioId }: Manu
       const addonTotal = selectedAddons.reduce((sum, addon) => sum + (addon.price * addon.quantity), 0)
       const newSubtotal = formData.package_price + addonTotal
       const currentSubtotal = formData.total_amount + formData.discount_amount
-      
+
       // Only revalidate if subtotal actually changed
       if (Math.abs(newSubtotal - currentSubtotal) > 0.01) {
         handleDiscountRevalidation(newSubtotal)
@@ -267,7 +266,7 @@ export function ManualBookingForm({ isOpen, onClose, onSuccess, studioId }: Manu
 
     try {
       const validation = await validateDiscountAction(selectedDiscount.id, newSubtotal, studioId)
-      
+
       if (validation.success && validation.data?.is_valid) {
         const newDiscountAmount = validation.data.discount_amount
 
@@ -583,7 +582,6 @@ export function ManualBookingForm({ isOpen, onClose, onSuccess, studioId }: Manu
 
       if (result.success) {
         toast.success("Manual booking berhasil dibuat")
-        onSuccess()
         onClose()
         resetForm()
       } else {
