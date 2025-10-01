@@ -38,6 +38,8 @@ export class UploadCareProvider implements IUploadProvider {
         }
       }
 
+      // Log upload attempt for debugging
+      console.log('Uploadcare upload attempt:', {
         publicKey: this.publicKey.substring(0, 8) + '...',
         fileSize: options.file.size,
         fileType: options.file.type

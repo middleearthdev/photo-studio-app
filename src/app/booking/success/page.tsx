@@ -108,7 +108,7 @@ function BookingSuccessPageContent() {
           }
           latestPayment = completedPayments[0]
         } else if (paymentStatusParam === 'pending_confirmation') {
-          const pendingPayments = paymentsResult.data.filter(p => p.status === 'pending_confirmation')
+          const pendingPayments = paymentsResult.data.filter(p => p.status === 'pending')
           if (pendingPayments.length === 0) {
             setVerificationError('Data pembayaran pending tidak ditemukan.')
             return

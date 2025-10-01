@@ -51,7 +51,7 @@ export function CustomerDashboardLayout({ children }: CustomerDashboardLayoutPro
       const result = await signOutAction()
       if (result.success) {
         toast.success("Logout berhasil")
-        window.location.href = "/login"
+        window.location.href = "/staff/login"
       } else {
         toast.error("Gagal logout")
       }

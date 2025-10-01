@@ -28,6 +28,11 @@ export const metadata: Metadata = {
     telephone: false,
   },
   metadataBase: new URL('https://kalarasastudio.com'),
+  icons: {
+    icon: '/icons/logo_blue_white.svg',
+    shortcut: '/icons/logo_blue_white.svg',
+    apple: '/icons/logo_blue_white.svg',
+  },
   openGraph: {
     title: "Kalarasa Studio | Fotografi Profesional di Karawang",
     description: "Studio foto profesional di Karawang dengan fasilitas lengkap untuk segala kebutuhan fotografi.",

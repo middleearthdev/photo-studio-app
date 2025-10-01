@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
 
       if (sessionError) {
         console.error('Session exchange error:', sessionError)
-        return NextResponse.redirect(`${requestUrl.origin}/login?error=auth_error`)
+        return NextResponse.redirect(`${requestUrl.origin}/staff/login?error=auth_error`)
       }
 
       if (session?.user) {
@@ -82,10 +82,10 @@ export async function GET(request: NextRequest) {
       }
     } catch (error) {
       console.error('OAuth callback error:', error)
-      return NextResponse.redirect(`${requestUrl.origin}/login?error=callback_error`)
+      return NextResponse.redirect(`${requestUrl.origin}/staff/login?error=callback_error`)
     }
   }
 
   // If no code, redirect to login with error
-  return NextResponse.redirect(`${requestUrl.origin}/login?error=no_code`)
+  return NextResponse.redirect(`${requestUrl.origin}/staff/login?error=no_code`)
 }

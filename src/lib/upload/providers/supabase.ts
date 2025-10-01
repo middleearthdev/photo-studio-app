@@ -43,6 +43,8 @@ export class SupabaseUploadProvider implements IUploadProvider {
       const path = options.path || generateFileName(options.studioId, options.file.name)
       const bucket = options.bucket || this.bucket
 
+      // Log upload attempt for debugging
+      console.log('Supabase upload attempt:', {
         bucket,
         path,
         fileSize: options.file.size,

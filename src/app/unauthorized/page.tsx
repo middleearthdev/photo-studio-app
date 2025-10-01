@@ -29,7 +29,7 @@ export default function UnauthorizedPage() {
               </Button>
             </Link>
             
-            <Link href="/login">
+            <Link href="/staff/login">
               <Button variant="outline" className="w-full">
                 Login dengan Akun Lain
               </Button>

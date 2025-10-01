@@ -17,7 +17,7 @@ export function BottomNav() {
   const pathname = usePathname()
 
   // Don't show bottom nav on auth pages or dashboard pages
-  if (pathname?.includes('/login') || pathname?.includes('/register') || pathname?.includes('/dashboard') || pathname?.includes('/admin') || pathname?.includes('/cs')) {
+  if (pathname?.includes('/staff/login') || pathname?.includes('/register') || pathname?.includes('/dashboard') || pathname?.includes('/admin') || pathname?.includes('/cs')) {
     return null
   }
 

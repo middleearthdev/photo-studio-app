@@ -42,9 +42,9 @@ export default function StaffLoginPage() {
               </div>
             </div>
 
-            <Link href="/login">
+            <Link href="/">
               <Button variant="outline" className="w-full">
-                Masuk sebagai Customer
+                Kembali ke Beranda
               </Button>
             </Link>
 

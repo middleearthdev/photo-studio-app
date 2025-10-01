@@ -13,7 +13,6 @@ const protectedRoutes = {
 // Public routes that don't require authentication
 const publicRoutes = [
   '/',
-  '/login',
   '/staff/login',
   '/register',
   '/forgot-password',
@@ -69,7 +68,7 @@ export async function middleware(req: NextRequest) {
 
   // If no session and trying to access protected route, redirect to login
   if (!user) {
-    const redirectUrl = new URL('/login', req.url)
+    const redirectUrl = new URL('/staff/login', req.url)
     redirectUrl.searchParams.set('redirectTo', pathname)
     return NextResponse.redirect(redirectUrl)
   }
@@ -83,7 +82,7 @@ export async function middleware(req: NextRequest) {
 
   // If no profile or inactive user, redirect to login
   if (!profile || !profile.is_active) {
-    const redirectUrl = new URL('/login', req.url)
+    const redirectUrl = new URL('/staff/login', req.url)
     redirectUrl.searchParams.set('error', 'Account inactive or not found')
     return NextResponse.redirect(redirectUrl)
   }
@@ -114,7 +113,7 @@ export async function middleware(req: NextRequest) {
   }
 
   // Redirect authenticated users away from auth pages
-  if (user && (pathname === '/login' || pathname === '/staff/login' || pathname === '/register')) {
+  if (user && (pathname === '/staff/login' || pathname === '/register')) {
     if (userRole === 'admin') {
       return NextResponse.redirect(new URL('/admin/dashboard', req.url))
     } else if (userRole === 'cs') {

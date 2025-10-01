@@ -53,7 +53,7 @@ export default function RegisterPage() {
           <div className="text-center space-y-2">
             <p className="text-sm text-muted-foreground">
               Sudah punya akun?{" "}
-              <Link href="/login" className="font-medium text-primary hover:underline">
+              <Link href="/staff/login" className="font-medium text-primary hover:underline">
                 Masuk di sini
               </Link>
             </p>

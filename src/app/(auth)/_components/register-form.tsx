@@ -78,7 +78,7 @@ export function RegisterForm({ onSuccess }: RegisterFormProps) {
       if (onSuccess) {
         onSuccess()
       } else {
-        router.push("/login")
+        router.push("/staff/login")
       }
     } catch (error) {
       console.error("Register error:", error)

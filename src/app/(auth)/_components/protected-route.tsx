@@ -18,7 +18,7 @@ export function ProtectedRoute({
   children, 
   allowedRoles = [], 
   fallback = <LoadingSkeleton />,
-  redirectTo = '/login'
+  redirectTo = '/staff/login'
 }: ProtectedRouteProps) {
   const [isChecking, setIsChecking] = useState(true)
   const { isAuthenticated, profile, isLoading } = useAuthStore()
