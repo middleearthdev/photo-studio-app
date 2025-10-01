@@ -23,6 +23,7 @@ import {
   User,
   Tag,
   Monitor,
+  Images,
 } from "lucide-react"
 
 import {
@@ -92,6 +93,11 @@ const menuItems = [
     title: "Portfolio",
     icon: Image,
     href: "/admin/portfolio",
+  },
+  {
+    title: "Hero Images",
+    icon: Images,
+    href: "/admin/hero-images",
   },
   {
     title: "Packages",

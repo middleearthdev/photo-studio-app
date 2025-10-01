@@ -68,7 +68,7 @@ const menuItems = [
     href: "/cs/reservations",
   },
   {
-    title: "Payment Approval",
+    title: "Payment History",
     icon: DollarSign,
     href: "/cs/payments",
   }

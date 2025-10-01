@@ -17,11 +17,10 @@ import { type Reservation } from '@/actions/reservations'
 import {
   getAvailableTemplates,
   sendWhatsAppWithTemplate,
-  formatCurrency,
-  formatDate,
   formatTime,
   type WhatsAppTemplate
 } from '@/lib/services/whatsapp-templates'
+import { formatCurrency, formatDate } from '@/lib/utils'
 
 interface WhatsAppTemplateDialogProps {
   isOpen: boolean

@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Camera, Star, Users, Phone, CheckCircle, Award, Heart, Sparkles, Calendar, Image as ImageIcon, Lightbulb, Ruler, Sofa, Square, Package as PackageIcon, FileText, Eye, Palette, MessageCircle, TreePine } from 'lucide-react'
+import { Camera, Star, Phone, CheckCircle, Award, Sparkles, Calendar, Image as ImageIcon, Lightbulb, Ruler, Sofa, Square, Package as PackageIcon, FileText, Eye, Palette, TreePine } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
@@ -13,78 +13,117 @@ import { Navbar } from '@/components/navbar'
 import WhatsAppFloatButton from '@/components/whatsapp-float-button'
 
 import { usePublicStudios } from '@/hooks/use-studios'
-import { usePublicPackageCategories, usePublicPackages } from '@/hooks/use-customer-packages'
 import { Footer } from '@/components/footer'
-import { getActiveDiscountsAction, Discount } from '@/actions/discounts'
+import { useActiveHeroImages } from '@/hooks/use-hero-images'
 
 export default function Home() {
-  const [discounts, setDiscounts] = useState<Discount[]>([])
-  const [loadingDiscounts, setLoadingDiscounts] = useState(true)
-
   const [currentSlide, setCurrentSlide] = useState(0)
+  const [imagesLoaded, setImagesLoaded] = useState<boolean[]>([])
+  const [allImagesLoaded, setAllImagesLoaded] = useState(false)
+  const [isPreloading, setIsPreloading] = useState(true)
+  const [lastLoadedImages, setLastLoadedImages] = useState<string[]>([])
 
 
   // Fetch data from database
   const { data: studiosData = [] } = usePublicStudios()
 
-  // Fetch active discounts for the first studio
-  useEffect(() => {
-    async function fetchActiveDiscounts() {
-      if (studiosData.length > 0) {
-        try {
-          const result = await getActiveDiscountsAction(studiosData[0].id);
-          if (result.success) {
-            setDiscounts(result.data || []);
-          }
-        } catch (error) {
-          console.error('Error fetching discounts:', error);
-        } finally {
-          setLoadingDiscounts(false);
-        }
-      } else {
-        // If no studio data is loaded yet, try again later
-        const timer = setTimeout(() => {
-          fetchActiveDiscounts();
-        }, 500);
 
-        return () => clearTimeout(timer);
-      }
+  // Dynamic hero images from database
+  const { data: heroImagesData = [], isLoading: heroImagesLoading } = useActiveHeroImages()
+  
+  // Memoize hero images to prevent infinite re-renders
+  const heroImages = useMemo(() => {
+    return heroImagesData.length > 0 
+      ? heroImagesData.map(img => img.image_url)
+      : [
+          'https://qmrilcawunfvjsmckyoj.supabase.co/storage/v1/object/public/homepage-images/KA.RA-11.jpg',
+          'https://qmrilcawunfvjsmckyoj.supabase.co/storage/v1/object/public/homepage-images/KA.RA-2.jpg'
+        ]
+  }, [heroImagesData])
+
+  // Preload all hero images for smooth experience with progressive loading
+  const preloadImages = useCallback(async () => {
+    if (heroImages.length === 0) return
+    
+    // Check if these are the same images we already loaded
+    const imagesString = heroImages.join(',')
+    if (lastLoadedImages.join(',') === imagesString && allImagesLoaded) {
+      return // Don't reload the same images
     }
 
-    fetchActiveDiscounts();
-  }, [studiosData]);
+    // Reset state only when needed
+    setImagesLoaded(new Array(heroImages.length).fill(false))
+    setIsPreloading(true)
+    setAllImagesLoaded(false)
+    setLastLoadedImages(heroImages)
 
-  // Updated hero images with Unsplash photos
-  const heroImages = [
-    'https://qmrilcawunfvjsmckyoj.supabase.co/storage/v1/object/public/homepage-images/KA.RA-11.jpg',
-    'https://qmrilcawunfvjsmckyoj.supabase.co/storage/v1/object/public/homepage-images/KA.RA-2.jpg']
+    // Load first image immediately for faster initial display
+    const firstImagePromise = new Promise<void>((resolve) => {
+      const img = new window.Image()
+      img.onload = () => {
+        setImagesLoaded(prev => {
+          const newLoaded = [...prev]
+          newLoaded[0] = true
+          return newLoaded
+        })
+        // Show first image quickly
+        setTimeout(() => {
+          setAllImagesLoaded(true)
+          setIsPreloading(false)
+        }, 150)
+        resolve()
+      }
+      img.onerror = () => {
+        setImagesLoaded(prev => {
+          const newLoaded = [...prev]
+          newLoaded[0] = true
+          return newLoaded
+        })
+        setAllImagesLoaded(true)
+        setIsPreloading(false)
+        resolve()
+      }
+      img.src = heroImages[0]
+    })
+
+    await firstImagePromise
+
+    // Then load remaining images in background
+    if (heroImages.length > 1) {
+      const remainingPromises = heroImages.slice(1).map((src, index) => {
+        return new Promise<void>((resolve) => {
+          const img = new window.Image()
+          img.onload = () => {
+            setImagesLoaded(prev => {
+              const newLoaded = [...prev]
+              newLoaded[index + 1] = true
+              return newLoaded
+            })
+            resolve()
+          }
+          img.onerror = () => {
+            setImagesLoaded(prev => {
+              const newLoaded = [...prev]
+              newLoaded[index + 1] = true
+              return newLoaded
+            })
+            resolve()
+          }
+          img.src = src
+        })
+      })
+
+      Promise.all(remainingPromises)
+    }
+  }, [heroImages, lastLoadedImages, allImagesLoaded])
+
+  useEffect(() => {
+    preloadImages()
+  }, [preloadImages])
 
   // Get first studio for contact info
   const firstStudio = studiosData.length > 0 ? studiosData[0] : null
 
-  // Features with updated icons and descriptions
-  const features = [
-    {
-      icon: Camera,
-      title: "Peralatan Profesional",
-      description: "Menggunakan kamera dan peralatan fotografi terdepan untuk hasil maksimal"
-    },
-    {
-      icon: Users,
-      title: "Tim Berpengalaman",
-      description: "Fotografer profesional dengan pengalaman puluhan tahun di industri"
-    },
-    {
-      icon: Heart,
-      title: "Pelayanan Terbaik",
-      description: "Komitmen memberikan pengalaman fotografi yang tak terlupakan untuk setiap klien"
-    },
-    {
-      icon: Award,
-      title: "Kualitas Premium",
-      description: "Setiap foto diedit dengan detail tinggi untuk hasil akhir yang sempurna"
-    }
-  ]
 
 
 
@@ -184,12 +223,15 @@ export default function Home() {
     "Properti studio lengkap"
   ]
 
+  // Start carousel only after images are loaded
   useEffect(() => {
+    if (!allImagesLoaded || heroImages.length <= 1) return
+
     const timer = setInterval(() => {
       setCurrentSlide((prev) => (prev + 1) % heroImages.length)
     }, 5000)
     return () => clearInterval(timer)
-  }, [])
+  }, [allImagesLoaded, heroImages.length])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-100">
@@ -249,27 +291,111 @@ export default function Home() {
           >
             <div className="relative h-[400px] md:h-[500px] rounded-3xl overflow-hidden bg-gradient-to-br from-[#00052e] to-[#b0834d] p-1 shadow-2xl">
               <div className="w-full h-full bg-white rounded-3xl overflow-hidden relative">
-                <Image
-                  src={heroImages[currentSlide]}
-                  alt="Studio Photography"
-                  fill
-                  className="object-cover"
-                  priority
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
+                {isPreloading || heroImagesLoading ? (
+                  // Enhanced skeleton loading with smooth shimmer
+                  <div className="w-full h-full skeleton-shimmer relative overflow-hidden">
+                    {/* Multiple shimmer layers for depth */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent animate-shimmer" />
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer" style={{ animationDelay: '0.5s' }} />
+                    
+                    {/* Content overlay */}
+                    <div className="absolute inset-0 flex items-center justify-center bg-white/10 backdrop-blur-sm">
+                      <div className="text-center">
+                        {/* Elegant loading spinner */}
+                        <div className="relative w-16 h-16 mx-auto mb-4">
+                          <div className="absolute inset-0 border-4 border-gray-200 rounded-full"></div>
+                          <div className="absolute inset-0 border-4 border-[#b0834d] border-t-transparent rounded-full animate-spin"></div>
+                          <div className="absolute inset-2 border-2 border-gray-100 border-t-transparent rounded-full animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }}></div>
+                        </div>
+                        
+                        {/* Loading text with glow effect */}
+                        <div className="text-gray-600 text-sm font-medium mb-3 animate-pulse-glow">
+                          Loading Beautiful Images...
+                        </div>
+                        
+                        {/* Enhanced progress bar */}
+                        {imagesLoaded.length > 0 && (
+                          <div className="w-40 h-2 bg-gray-200 rounded-full mx-auto overflow-hidden shadow-inner">
+                            <div 
+                              className="h-full bg-gradient-to-r from-[#b0834d] to-[#d4a574] rounded-full transition-all duration-500 ease-out relative overflow-hidden"
+                              style={{ 
+                                width: `${(imagesLoaded.filter(Boolean).length / heroImages.length) * 100}%` 
+                              }}
+                            >
+                              {/* Progress bar shimmer */}
+                              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"></div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Additional floating elements for visual interest */}
+                    <div className="absolute top-1/4 left-1/4 w-2 h-2 bg-white/20 rounded-full animate-pulse-glow" style={{ animationDelay: '0.5s' }}></div>
+                    <div className="absolute top-3/4 right-1/3 w-3 h-3 bg-white/15 rounded-full animate-pulse-glow" style={{ animationDelay: '1s' }}></div>
+                    <div className="absolute bottom-1/4 left-1/2 w-1 h-1 bg-white/25 rounded-full animate-pulse-glow" style={{ animationDelay: '1.5s' }}></div>
+                  </div>
+                ) : (
+                  <>
+                    {/* Current image with smooth fade transition */}
+                    <motion.div 
+                      className="relative w-full h-full"
+                      initial={{ opacity: 0, scale: 1.05 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ duration: 0.8, ease: "easeOut" }}
+                    >
+                      <Image
+                        src={heroImages[currentSlide]}
+                        alt={heroImagesData[currentSlide]?.alt_text || "Studio Photography"}
+                        fill
+                        className={`object-cover hero-image-fade transition-all duration-700 ease-out ${
+                          allImagesLoaded ? 'loaded opacity-100' : 'loading opacity-0'
+                        }`}
+                        priority
+                        sizes="(max-width: 768px) 100vw, 50vw"
+                        quality={90}
+                        onLoad={() => {
+                          // Ensure smooth fade-in even for cached images
+                          setAllImagesLoaded(true)
+                        }}
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
+                    </motion.div>
+                    
+                    {/* Preload next image for seamless transition */}
+                    {heroImages.length > 1 && allImagesLoaded && (
+                      <div className="absolute inset-0 opacity-0 pointer-events-none">
+                        <Image
+                          src={heroImages[(currentSlide + 1) % heroImages.length]}
+                          alt="Preload next"
+                          fill
+                          className="object-cover"
+                          sizes="(max-width: 768px) 100vw, 50vw"
+                          quality={75}
+                        />
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
 
-              <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex space-x-2">
-                {heroImages.map((_, index) => (
-                  <button
-                    key={index}
-                    className={`w-3 h-3 rounded-full transition-all duration-300 ${index === currentSlide ? 'bg-white' : 'bg-white/50'
+              {/* Dots indicator - only show when not loading */}
+              {!isPreloading && !heroImagesLoading && heroImages.length > 1 && (
+                <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex space-x-2">
+                  {heroImages.map((_, index) => (
+                    <button
+                      key={index}
+                      className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                        index === currentSlide 
+                          ? 'bg-white scale-110 shadow-lg' 
+                          : 'bg-white/50 hover:bg-white/70 hover:scale-105'
                       }`}
-                    onClick={() => setCurrentSlide(index)}
-                    aria-label={`Lihat slide ${index + 1}`}
-                  />
-                ))}
-              </div>
+                      onClick={() => setCurrentSlide(index)}
+                      aria-label={`Lihat slide ${index + 1}`}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           </motion.div>
         </div>
@@ -794,7 +920,7 @@ export default function Home() {
                       viewport={{ once: true }}
                       className="cursor-pointer"
                     >
-                      <Card className="p-5 border-0 shadow-lg hover:shadow-2xl transition-all duration-300 rounded-2xl bg-white border border-slate-200/50 hover:border-[#b0834d]/30 h-full">
+                      <Card className="p-5 shadow-lg hover:shadow-2xl transition-all duration-300 rounded-2xl bg-white border border-slate-200/50 hover:border-[#b0834d]/30 h-full">
                         <div className="flex items-start">
                           <div className="w-12 h-12 flex-shrink-0 bg-gradient-to-br from-amber-400 to-orange-500 rounded-xl flex items-center justify-center mr-4 group-hover:scale-110 transition-transform duration-300">
                             <span className="text-white font-bold text-lg">{icon}</span>

@@ -20,7 +20,6 @@ export class SupabaseUploadProvider implements IUploadProvider {
     const uploadId = Math.random().toString(36).substring(2, 8)
     
     try {
-      console.log(`[SUPABASE-${uploadId}] Starting upload...`)
       
       if (!this.isConfigured()) {
         return {
@@ -44,7 +43,6 @@ export class SupabaseUploadProvider implements IUploadProvider {
       const path = options.path || generateFileName(options.studioId, options.file.name)
       const bucket = options.bucket || this.bucket
 
-      console.log(`[SUPABASE-${uploadId}] Upload details:`, {
         bucket,
         path,
         fileSize: options.file.size,
@@ -84,7 +82,6 @@ export class SupabaseUploadProvider implements IUploadProvider {
       }
 
       // Upload file with timeout
-      console.log(`[SUPABASE-${uploadId}] Uploading to bucket...`)
       const uploadPromise = supabase.storage
         .from(bucket)
         .upload(path, options.file, {
@@ -129,7 +126,6 @@ export class SupabaseUploadProvider implements IUploadProvider {
       }
 
       const duration = Date.now() - startTime
-      console.log(`[SUPABASE-${uploadId}] Upload successful in ${duration}ms`)
 
       return {
         success: true,

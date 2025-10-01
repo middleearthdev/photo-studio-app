@@ -21,7 +21,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { usePaginatedReservations } from "@/hooks/use-reservations"
-import { format, parseISO, addDays } from "date-fns"
+import { format, parseISO, addDays, isToday } from "date-fns"
 import { formatCurrency } from "@/lib/utils"
 import {
   getDaysUntilReservation,
@@ -74,28 +74,83 @@ export function RemindersNotification() {
 
       reservations.forEach(reservation => {
         const daysUntil = getDaysUntilReservation(reservation.reservation_date)
-        const customerName = reservation.customer?.full_name || 'Guest Customer'
-        const customerPhone = reservation.customer?.phone || ''
+        const customerName = reservation.customer?.full_name || reservation.guest_email || 'Guest Customer'
+        const customerPhone = reservation.customer?.phone || reservation.guest_phone || ''
+        const reservationDate = parseISO(reservation.reservation_date)
 
-        // Urgent payment reminders (H-1, H-2)
-        if (reservation.payment_status !== 'completed' &&
-          reservation.remaining_amount > 0 &&
-          daysUntil <= 2 && daysUntil >= 0) {
+        // 1. Payment Follow-up (pending reservations with pending payment)
+        if (reservation.status === 'pending' && reservation.payment_status === 'pending') {
+          // Calculate minutes since reservation created
+          const createdAt = new Date(reservation.created_at)
+          const now = new Date()
+          const minutesSinceCreated = Math.floor((now.getTime() - createdAt.getTime()) / (1000 * 60))
+          
+          let priority: 'urgent' | 'high' | 'medium' = 'medium'
+          let message = 'Menunggu pembayaran DP'
+
+          // 15-minute rule: High priority first 15 minutes, then urgent
+          if (minutesSinceCreated <= 15) {
+            priority = 'high'
+            message = `Menunggu pembayaran DP ${formatCurrency(reservation.dp_amount)}`
+          } else {
+            priority = 'urgent'
+            message = `URGENT: Batas waktu pembayaran terlewat ${minutesSinceCreated - 15} menit`
+          }
+
+          // Additional urgency based on event date
+          if (daysUntil <= 1) {
+            priority = 'urgent'
+            message = `URGENT: Event besok - segera bayar DP ${formatCurrency(reservation.dp_amount)}`
+          } else if (daysUntil <= 3 && minutesSinceCreated > 15) {
+            priority = 'urgent'
+            message = `URGENT: Event H-3 - batas pembayaran terlewat`
+          }
+
           urgent.push({
             id: `payment-${reservation.id}`,
             type: 'payment',
-            priority: daysUntil <= 1 ? 'urgent' : 'high',
+            priority,
             customerName,
             customerPhone,
             bookingCode: reservation.booking_code,
-            message: `Payment ${formatCurrency(reservation.remaining_amount)} - H${daysUntil === 0 ? '' : `-${daysUntil}`}`,
+            message,
             action: 'Send Payment Reminder',
             reservation
           })
         }
 
-        // Urgent booking confirmations
-        if (reservation.status === 'pending' && daysUntil <= 3 && daysUntil >= 0) {
+        // 2. Pelunasan Follow-up (H-3 rule for confirmed reservations with partial payment)
+        if (reservation.status === 'confirmed' && reservation.payment_status === 'partial' && daysUntil === 3) {
+          urgent.push({
+            id: `pelunasan-${reservation.id}`,
+            type: 'payment',
+            priority: 'urgent',
+            customerName,
+            customerPhone,
+            bookingCode: reservation.booking_code,
+            message: `URGENT: Batas terakhir pelunasan H-3 - ${formatCurrency(reservation.remaining_amount)}`,
+            action: 'Send Payment Reminder',
+            reservation
+          })
+        }
+
+        // 3. Today's sessions
+        if (isToday(reservationDate) && ['confirmed', 'in_progress'].includes(reservation.status)) {
+          urgent.push({
+            id: `today-${reservation.id}`,
+            type: 'urgent',
+            priority: 'urgent',
+            customerName,
+            customerPhone,
+            bookingCode: reservation.booking_code,
+            message: `Sesi hari ini - ${reservation.start_time}`,
+            action: 'Send Reminder',
+            reservation
+          })
+        }
+
+        // 4. Urgent booking confirmations (pending status)
+        if (reservation.status === 'pending' && reservation.payment_status !== 'pending' && daysUntil <= 2 && daysUntil >= 0) {
           urgent.push({
             id: `confirm-${reservation.id}`,
             type: 'confirmation',
@@ -105,21 +160,6 @@ export function RemindersNotification() {
             bookingCode: reservation.booking_code,
             message: `Booking needs confirmation - ${daysUntil} days left`,
             action: 'Send Confirmation',
-            reservation
-          })
-        }
-
-        // Today's sessions
-        if (daysUntil === 0 && ['confirmed', 'partial'].includes(reservation.status)) {
-          urgent.push({
-            id: `today-${reservation.id}`,
-            type: 'urgent',
-            priority: 'urgent',
-            customerName,
-            customerPhone,
-            bookingCode: reservation.booking_code,
-            message: `Session today at ${reservation.start_time}`,
-            action: 'Send Reminder',
             reservation
           })
         }

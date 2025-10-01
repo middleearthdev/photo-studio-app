@@ -13,6 +13,17 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import {
   Bell,
   DollarSign,
   Calendar,
@@ -100,6 +111,10 @@ export default function RemindersPage() {
   const [reminders, setReminders] = useState<ReminderTask[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [cancellingReservationId, setCancellingReservationId] = useState<string | null>(null)
+  const [confirmCancelDialog, setConfirmCancelDialog] = useState<{
+    open: boolean
+    reminder: ReminderTask | null
+  }>({ open: false, reminder: null })
 
   // Get user profile to get studio_id
   const { profile } = useAuthStore()
@@ -308,7 +323,13 @@ export default function RemindersPage() {
       toast.error('Terjadi error saat membatalkan booking')
     } finally {
       setCancellingReservationId(null)
+      setConfirmCancelDialog({ open: false, reminder: null })
     }
+  }
+
+  // Handle opening cancel confirmation dialog
+  const openCancelConfirmation = (reminder: ReminderTask) => {
+    setConfirmCancelDialog({ open: true, reminder })
   }
 
   const ReminderCard = ({ reminder }: { reminder: ReminderTask }) => {
@@ -385,7 +406,7 @@ export default function RemindersPage() {
                 <Button
                   size="sm"
                   variant="destructive"
-                  onClick={() => handleCancelBooking(reminder)}
+                  onClick={() => openCancelConfirmation(reminder)}
                   className="h-8 text-xs"
                   disabled={cancellingReservationId === reminder.reservation.id}
                 >
@@ -585,6 +606,45 @@ export default function RemindersPage() {
           </Card>
         </div>
       </div>
+
+      {/* Cancel Confirmation Dialog */}
+      <AlertDialog open={confirmCancelDialog.open} onOpenChange={(open) => 
+        setConfirmCancelDialog({ open, reminder: open ? confirmCancelDialog.reminder : null })
+      }>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Konfirmasi Pembatalan</AlertDialogTitle>
+            <AlertDialogDescription>
+              Apakah Anda yakin ingin membatalkan booking ini?
+              <br />
+              <br />
+              <strong>Detail Booking:</strong>
+              <br />
+              • Customer: {confirmCancelDialog.reminder?.customerName}
+              <br />
+              • Booking Code: #{confirmCancelDialog.reminder?.bookingCode}
+              <br />
+              • Package: {confirmCancelDialog.reminder?.reservation?.package?.name || 'Custom'}
+              <br />
+              • Amount: {confirmCancelDialog.reminder?.amount ? formatCurrency(confirmCancelDialog.reminder.amount) : 'N/A'}
+              <br />
+              <br />
+              <span className="text-red-600 font-medium">
+                Tindakan ini tidak dapat dibatalkan dan customer akan dinotifikasi.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => confirmCancelDialog.reminder && handleCancelBooking(confirmCancelDialog.reminder)}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Ya, Batalkan Booking
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

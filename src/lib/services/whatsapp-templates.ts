@@ -1,4 +1,5 @@
 import { type Reservation } from '@/actions/reservations'
+import { formatCurrency, formatDate } from '@/lib/utils'
 
 export interface WhatsAppTemplate {
   id: string
@@ -13,25 +14,6 @@ export interface WhatsAppTemplate {
   generateMessage: (reservation: Reservation) => string
 }
 
-/**
- * Utility functions
- */
-export const formatCurrency = (amount: number): string => {
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    minimumFractionDigits: 0,
-  }).format(amount)
-}
-
-export const formatDate = (dateString: string): string => {
-  return new Date(dateString).toLocaleDateString('id-ID', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  })
-}
 
 export const formatTime = (timeString: string): string => {
   return timeString.slice(0, 5) // HH:MM

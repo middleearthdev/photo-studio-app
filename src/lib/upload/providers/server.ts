@@ -59,7 +59,6 @@ export class ServerUploadProvider implements IUploadProvider {
       const result = await this.uploadWithProgress(formData, options.onProgress)
 
       const duration = Date.now() - startTime
-      console.log(`[SERVER-${uploadId}] Upload completed in ${duration}ms`)
 
       if (!result.success) {
         return {
@@ -168,7 +167,6 @@ export class ServerUploadProvider implements IUploadProvider {
 
   async delete(url: string): Promise<{ success: boolean; error?: string }> {
     try {
-      console.log(`[SERVER] Deleting file:`, url)
 
       const response = await fetch('/api/upload', {
         method: 'DELETE',

@@ -209,3 +209,89 @@ html {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Hero images smooth loading animations */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+@keyframes shimmer-wave {
+  0% {
+    transform: translateX(-100%) skewX(-15deg);
+  }
+  100% {
+    transform: translateX(200%) skewX(-15deg);
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer-wave 2.5s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Enhanced skeleton loading */
+.skeleton-shimmer {
+  background: linear-gradient(
+    110deg,
+    #e2e8f0 8%,
+    #f1f5f9 18%,
+    #ffffff 33%,
+    #f1f5f9 48%,
+    #e2e8f0 58%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s linear infinite;
+}
+
+/* Smooth fade transitions for hero images */
+.hero-image-fade {
+  transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hero-image-fade.loaded {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.hero-image-fade.loading {
+  opacity: 0;
+  transform: scale(1.02);
+}
+
+/* Smooth entrance animation */
+@keyframes fadeInScale {
+  0% {
+    opacity: 0;
+    transform: scale(1.1);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fade-in-scale {
+  animation: fadeInScale 1s ease-out forwards;
+}

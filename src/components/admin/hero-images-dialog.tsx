@@ -32,80 +32,12 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
-import { useCreatePortfolio, useUpdatePortfolio } from "@/hooks/use-portfolios"
-import { usePortfolioCategories } from "@/hooks/use-portfolios"
-import { type Portfolio } from "@/actions/portfolios"
-import { Loader2, Star, Eye, Image as ImageIcon, Upload, X } from "lucide-react"
-import { Card, CardContent } from "@/components/ui/card"
-import Image from "next/image"
+import { useCreateHeroImage, useUpdateHeroImage } from "@/hooks/use-hero-images"
+import { type HeroImage } from "@/actions/hero-images"
+import { Loader2, Image as ImageIcon, Upload, X } from "lucide-react"
 
-// Image Preview Component with error handling
-function ImagePreview({ src, alt, onError }: { 
-  src: string
-  alt: string 
-  onError?: () => void 
-}) {
-  const [isLoading, setIsLoading] = useState(true)
-  const [hasError, setHasError] = useState(false)
-
-  // Reset states when src changes
-  useEffect(() => {
-    console.log('ImagePreview: src changed to:', src)
-    setIsLoading(true)
-    setHasError(false)
-  }, [src])
-
-  const handleLoad = () => {
-    console.log('ImagePreview: Image loaded successfully')
-    setIsLoading(false)
-    setHasError(false)
-  }
-
-  const handleError = () => {
-    console.log('ImagePreview: Image failed to load')
-    setIsLoading(false)
-    setHasError(true)
-    onError?.()
-  }
-
-  if (hasError) {
-    return (
-      <div className="w-full h-48 bg-gray-100 rounded-lg border border-red-200 flex items-center justify-center">
-        <div className="text-center">
-          <ImageIcon className="h-8 w-8 mx-auto text-red-400 mb-2" />
-          <p className="text-sm text-red-600">Failed to load image</p>
-          <p className="text-xs text-gray-500 mt-1">Check the URL or try uploading again</p>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="relative w-full h-48">
-      {isLoading && (
-        <div className="absolute inset-0 bg-gray-100 rounded-lg border flex items-center justify-center">
-          <div className="text-center">
-            <Loader2 className="h-6 w-6 animate-spin mx-auto text-gray-400 mb-2" />
-            <p className="text-sm text-gray-500">Loading preview...</p>
-          </div>
-        </div>
-      )}
-      <img
-        src={src}
-        alt={alt}
-        onLoad={handleLoad}
-        onError={handleError}
-        className={`w-full h-48 object-cover rounded-lg border transition-opacity duration-300 ${
-          isLoading ? 'opacity-0' : 'opacity-100'
-        }`}
-      />
-    </div>
-  )
-}
-
-// Simple upload component using NEXT_PUBLIC_UPLOAD_DESTINATION
-function ImageUploadComponent({ studioId, value, onChange }: {
-  studioId: string
+// Image Upload Component (reusing from portfolio dialog)
+function ImageUploadComponent({ value, onChange }: {
   value: string
   onChange: (url: string) => void
 }) {
@@ -116,26 +48,9 @@ function ImageUploadComponent({ studioId, value, onChange }: {
   const uploadToDestination = async (file: File): Promise<string> => {
     const destination = process.env.NEXT_PUBLIC_UPLOAD_DESTINATION || 'server'
     
-    if (destination === 'supabase') {
-      // Upload to Supabase
-      const { createClient } = await import('@/lib/supabase/client')
-      const supabase = createClient()
-      
-      const fileName = `${studioId}/${Date.now()}-${file.name}`
-      const { data, error } = await supabase.storage
-        .from('portfolio-images')
-        .upload(fileName, file)
-      
-      if (error) throw error
-      
-      const { data: { publicUrl } } = supabase.storage
-        .from('portfolio-images')
-        .getPublicUrl(fileName)
-      
-      return publicUrl
-    } else if (destination === 'vercel') {
+    if (destination === 'vercel') {
       // Upload to Vercel Blob Store
-      const fileName = `portfolio-images/${studioId}/${Date.now()}-${file.name}`
+      const fileName = `hero-images/${Date.now()}-${file.name}`
       
       const formData = new FormData()
       formData.append('file', file)
@@ -157,7 +72,7 @@ function ImageUploadComponent({ studioId, value, onChange }: {
       // Upload to server
       const formData = new FormData()
       formData.append('file', file)
-      formData.append('studioId', studioId)
+      formData.append('studioId', 'general')
       
       const response = await fetch('/api/upload', {
         method: 'POST',
@@ -190,36 +105,24 @@ function ImageUploadComponent({ studioId, value, onChange }: {
     let progressInterval: NodeJS.Timeout | null = null
 
     try {
-      // More realistic progress simulation with proper caps
       progressInterval = setInterval(() => {
         setProgress(prev => {
-          if (prev >= 85) {
-            // Stop incrementing at 85% to prevent going over 100%
-            return prev
-          }
-          if (prev < 30) {
-            return Math.min(prev + 12, 85)
-          } else if (prev < 60) {
-            return Math.min(prev + 8, 85)
-          } else {
-            return Math.min(prev + 3, 85)
-          }
+          if (prev >= 85) return prev
+          if (prev < 30) return Math.min(prev + 12, 85)
+          else if (prev < 60) return Math.min(prev + 8, 85)
+          else return Math.min(prev + 3, 85)
         })
       }, 350)
 
       const url = await uploadToDestination(file)
       
-      // Clear interval and update progress
       if (progressInterval) {
         clearInterval(progressInterval)
         progressInterval = null
       }
       
-      // Update image preview immediately
-      console.log('Setting uploaded image URL:', url)
       onChange(url)
       
-      // Complete progress animation
       setProgress(95)
       setTimeout(() => {
         setProgress(100)
@@ -229,10 +132,7 @@ function ImageUploadComponent({ studioId, value, onChange }: {
         }, 400)
       }, 300)
     } catch (error) {
-      // Clean up interval on error
-      if (progressInterval) {
-        clearInterval(progressInterval)
-      }
+      if (progressInterval) clearInterval(progressInterval)
       setIsUploading(false)
       setProgress(0)
       console.error('Upload failed:', error)
@@ -302,7 +202,7 @@ function ImageUploadComponent({ studioId, value, onChange }: {
         </div>
       )}
 
-      {/* Manual URL Input - Always visible */}
+      {/* Manual URL Input */}
       <div className="space-y-2">
         <Input
           value={value}
@@ -314,8 +214,59 @@ function ImageUploadComponent({ studioId, value, onChange }: {
   )
 }
 
+// Image Preview Component
+function ImagePreview({ src, alt }: { src: string; alt: string }) {
+  const [isLoading, setIsLoading] = useState(true)
+  const [hasError, setHasError] = useState(false)
+
+  useEffect(() => {
+    setIsLoading(true)
+    setHasError(false)
+  }, [src])
+
+  const handleLoad = () => {
+    setIsLoading(false)
+    setHasError(false)
+  }
+
+  const handleError = () => {
+    setIsLoading(false)
+    setHasError(true)
+  }
+
+  if (hasError) {
+    return (
+      <div className="w-full h-48 bg-gray-100 rounded-lg border border-red-200 flex items-center justify-center">
+        <div className="text-center">
+          <ImageIcon className="h-8 w-8 mx-auto text-red-400 mb-2" />
+          <p className="text-sm text-red-600">Failed to load image</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="relative w-full h-48">
+      {isLoading && (
+        <div className="absolute inset-0 bg-gray-100 rounded-lg border flex items-center justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+        </div>
+      )}
+      <img
+        src={src}
+        alt={alt}
+        onLoad={handleLoad}
+        onError={handleError}
+        className={`w-full h-48 object-cover rounded-lg border transition-opacity duration-300 ${
+          isLoading ? 'opacity-0' : 'opacity-100'
+        }`}
+      />
+    </div>
+  )
+}
+
 const formSchema = z.object({
-  title: z.string().min(1, "Judul portfolio wajib diisi"),
+  title: z.string().min(1, "Judul hero image wajib diisi"),
   description: z.string().optional(),
   image_url: z.string().min(1, "URL gambar wajib diisi").refine((val) => {
     try {
@@ -326,33 +277,30 @@ const formSchema = z.object({
     }
   }, "URL gambar tidak valid"),
   alt_text: z.string().optional(),
-  category_id: z.string().optional(),
-  display_order: z.number().min(0, "Urutan tampil tidak boleh negatif"),
-  is_featured: z.boolean(),
+  display_order: z.number().min(1, "Urutan tampil harus minimal 1").max(5, "Urutan tampil maksimal 5"),
   is_active: z.boolean(),
 })
 
 type FormData = z.infer<typeof formSchema>
 
-interface PortfolioDialogProps {
+interface HeroImagesDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  portfolioData?: Portfolio | null
-  onPortfolioSaved: () => void
-  studioId: string
+  heroImageData?: HeroImage | null
+  onHeroImageSaved: () => void
+  existingOrders: number[]
 }
 
-export function PortfolioDialog({
+export function HeroImagesDialog({
   open,
   onOpenChange,
-  portfolioData,
-  onPortfolioSaved,
-  studioId
-}: PortfolioDialogProps) {
+  heroImageData,
+  onHeroImageSaved,
+  existingOrders
+}: HeroImagesDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const { data: categories = [] } = usePortfolioCategories(studioId)
-  const createPortfolioMutation = useCreatePortfolio()
-  const updatePortfolioMutation = useUpdatePortfolio()
+  const createHeroImageMutation = useCreateHeroImage()
+  const updateHeroImageMutation = useUpdateHeroImage()
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -361,87 +309,79 @@ export function PortfolioDialog({
       description: "",
       image_url: "",
       alt_text: "",
-      category_id: "general",
-      display_order: 0,
-      is_featured: false,
+      display_order: 1,
       is_active: true,
     },
   })
 
-
-  // Reset form when dialog opens/closes or portfolio data changes
+  // Reset form when dialog opens/closes or hero image data changes
   useEffect(() => {
     if (open) {
-      if (portfolioData) {
+      if (heroImageData) {
         // Edit mode
         form.reset({
-          title: portfolioData.title,
-          description: portfolioData.description || "",
-          image_url: portfolioData.image_url,
-          alt_text: portfolioData.alt_text || "",
-          category_id: portfolioData.category_id || "general",
-          display_order: portfolioData.display_order,
-          is_featured: portfolioData.is_featured,
-          is_active: portfolioData.is_active,
+          title: heroImageData.title,
+          description: heroImageData.description || "",
+          image_url: heroImageData.image_url,
+          alt_text: heroImageData.alt_text || "",
+          display_order: heroImageData.display_order,
+          is_active: heroImageData.is_active,
         })
       } else {
-        // Create mode
+        // Create mode - find next available order
+        const nextOrder = Math.min(...Array.from({length: 5}, (_, i) => i + 1).filter(n => !existingOrders.includes(n)))
         form.reset({
           title: "",
           description: "",
           image_url: "",
           alt_text: "",
-          category_id: "general",
-          display_order: 0,
-          is_featured: false,
+          display_order: nextOrder || 1,
           is_active: true,
         })
       }
     }
-  }, [open, portfolioData, form])
+  }, [open, heroImageData, form, existingOrders])
 
   const onSubmit = async (values: FormData) => {
     setIsSubmitting(true)
     try {
-      if (portfolioData) {
-        // Update existing portfolio
-        await updatePortfolioMutation.mutateAsync({
-          id: portfolioData.id,
+      if (heroImageData) {
+        // Update existing hero image
+        await updateHeroImageMutation.mutateAsync({
+          id: heroImageData.id,
           data: {
             title: values.title,
             description: values.description || undefined,
             image_url: values.image_url,
             alt_text: values.alt_text || undefined,
-            category_id: values.category_id === "general" ? undefined : values.category_id,
             display_order: values.display_order,
-            is_featured: values.is_featured,
             is_active: values.is_active,
           }
         })
       } else {
-        // Create new portfolio
-        await createPortfolioMutation.mutateAsync({
-          studio_id: studioId,
+        // Create new hero image
+        await createHeroImageMutation.mutateAsync({
           title: values.title,
           description: values.description || undefined,
           image_url: values.image_url,
           alt_text: values.alt_text || undefined,
-          category_id: values.category_id === "general" ? undefined : values.category_id,
           display_order: values.display_order,
-          is_featured: values.is_featured,
           is_active: values.is_active,
         })
       }
 
-      onPortfolioSaved()
+      onHeroImageSaved()
       onOpenChange(false)
     } catch (error) {
-      console.error("Error saving portfolio:", error)
+      console.error("Error saving hero image:", error)
     } finally {
       setIsSubmitting(false)
     }
   }
 
+  // Get available display orders
+  const availableOrders = Array.from({length: 5}, (_, i) => i + 1)
+    .filter(n => heroImageData?.display_order === n || !existingOrders.includes(n))
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -449,12 +389,12 @@ export function PortfolioDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ImageIcon className="h-5 w-5" />
-            {portfolioData ? "Edit Portfolio" : "Tambah Portfolio Baru"}
+            {heroImageData ? "Edit Hero Image" : "Tambah Hero Image Baru"}
           </DialogTitle>
           <DialogDescription>
-            {portfolioData
-              ? "Perbarui informasi portfolio yang ada"
-              : "Tambahkan karya baru ke galeri portfolio studio"
+            {heroImageData
+              ? "Perbarui informasi hero image"
+              : "Tambahkan gambar hero baru untuk homepage (maksimal 5 gambar)"
             }
           </DialogDescription>
         </DialogHeader>
@@ -462,45 +402,38 @@ export function PortfolioDialog({
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             {/* Image Upload Section */}
-            <div className="space-y-4">
-              <FormField
-                control={form.control}
-                name="image_url"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Gambar Portfolio *</FormLabel>
-                    <div className="space-y-4">
-                      {/* Image Upload Area */}
-                      <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6">
-                        <ImageUploadComponent
-                          studioId={studioId}
-                          value={field.value}
-                          onChange={field.onChange}
+            <FormField
+              control={form.control}
+              name="image_url"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Gambar Hero *</FormLabel>
+                  <div className="space-y-4">
+                    <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6">
+                      <ImageUploadComponent
+                        value={field.value}
+                        onChange={field.onChange}
+                      />
+                    </div>
+                    
+                    {/* Preview */}
+                    {field.value && (
+                      <div className="relative w-full max-w-sm mx-auto">
+                        <ImagePreview
+                          key={field.value}
+                          src={field.value}
+                          alt="Hero image preview"
                         />
                       </div>
-                      
-                      {/* Preview */}
-                      {field.value && (
-                        <div className="relative w-full max-w-sm mx-auto">
-                          <ImagePreview 
-                            key={field.value} // Force re-render when URL changes
-                            src={field.value} 
-                            alt="Portfolio preview"
-                            onError={() => {
-                              console.warn('Failed to load image:', field.value)
-                            }}
-                          />
-                        </div>
-                      )}
-                    </div>
-                    <FormDescription>
-                      Upload gambar portfolio atau masukkan URL langsung
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+                    )}
+                  </div>
+                  <FormDescription>
+                    Upload gambar hero atau masukkan URL langsung
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             {/* Basic Information */}
             <div className="grid grid-cols-1 gap-4">
@@ -509,9 +442,9 @@ export function PortfolioDialog({
                 name="title"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Judul Portfolio *</FormLabel>
+                    <FormLabel>Judul Hero Image *</FormLabel>
                     <FormControl>
-                      <Input placeholder="Contoh: Wedding Photography Session" {...field} />
+                      <Input placeholder="Contoh: Studio Photography Session" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -526,13 +459,13 @@ export function PortfolioDialog({
                     <FormLabel>Deskripsi</FormLabel>
                     <FormControl>
                       <Textarea
-                        placeholder="Deskripsi karya portfolio..."
+                        placeholder="Deskripsi hero image..."
                         className="min-h-[80px]"
                         {...field}
                       />
                     </FormControl>
                     <FormDescription>
-                      Ceritakan tentang karya ini dan konsep yang digunakan
+                      Deskripsi hero image untuk SEO dan aksesibilitas
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -560,85 +493,35 @@ export function PortfolioDialog({
               />
             </div>
 
-            {/* Category and Settings */}
+            {/* Settings */}
             <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="category_id"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Kategori</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Pilih kategori" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="general">
-                          <span className="text-muted-foreground">Umum/General</span>
-                        </SelectItem>
-                        {categories.map((category) => (
-                          <SelectItem key={category.id} value={category.id}>
-                            {category.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormDescription>
-                      Pilih kategori untuk mengelompokkan portfolio
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
               <FormField
                 control={form.control}
                 name="display_order"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Urutan Tampil</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        min="0"
-                        placeholder="0"
-                        {...field}
-                        onChange={(e) => field.onChange(Number(e.target.value))}
-                      />
-                    </FormControl>
+                    <FormLabel>Urutan Tampil *</FormLabel>
+                    <Select 
+                      onValueChange={(value) => field.onChange(Number(value))} 
+                      value={field.value.toString()}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Pilih urutan" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {availableOrders.map((order) => (
+                          <SelectItem key={order} value={order.toString()}>
+                            Urutan {order}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormDescription>
-                      Semakin kecil angka, semakin depan urutannya
+                      Urutan tampil di homepage (1-5)
                     </FormDescription>
                     <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            {/* Status Toggles */}
-            <div className="space-y-4">
-              <FormField
-                control={form.control}
-                name="is_featured"
-                render={({ field }) => (
-                  <FormItem className="flex items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <FormLabel className="text-base flex items-center gap-2">
-                        <Star className="h-4 w-4 text-yellow-500" />
-                        Portfolio Unggulan
-                      </FormLabel>
-                      <FormDescription>
-                        Portfolio akan ditampilkan di bagian unggulan
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
                   </FormItem>
                 )}
               />
@@ -649,12 +532,9 @@ export function PortfolioDialog({
                 render={({ field }) => (
                   <FormItem className="flex items-center justify-between rounded-lg border p-4">
                     <div className="space-y-0.5">
-                      <FormLabel className="text-base flex items-center gap-2">
-                        <Eye className="h-4 w-4 text-blue-500" />
-                        Status Aktif
-                      </FormLabel>
+                      <FormLabel className="text-base">Status Aktif</FormLabel>
                       <FormDescription>
-                        Portfolio akan terlihat di galeri publik jika diaktifkan
+                        Hero image akan ditampilkan di homepage jika diaktifkan
                       </FormDescription>
                     </div>
                     <FormControl>
@@ -682,13 +562,12 @@ export function PortfolioDialog({
                 disabled={isSubmitting}
               >
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {portfolioData ? "Perbarui Portfolio" : "Tambah Portfolio"}
+                {heroImageData ? "Perbarui Hero Image" : "Tambah Hero Image"}
               </Button>
             </DialogFooter>
           </form>
         </Form>
       </DialogContent>
-      
     </Dialog>
   )
 }

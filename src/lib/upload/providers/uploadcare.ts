@@ -19,7 +19,6 @@ export class UploadCareProvider implements IUploadProvider {
     const uploadId = Math.random().toString(36).substring(2, 8)
 
     try {
-      console.log(`[UPLOADCARE-${uploadId}] Starting UploadCare upload...`)
 
       if (!this.isConfigured()) {
         return {
@@ -39,7 +38,6 @@ export class UploadCareProvider implements IUploadProvider {
         }
       }
 
-      console.log(`[UPLOADCARE-${uploadId}] Upload details:`, {
         publicKey: this.publicKey.substring(0, 8) + '...',
         fileSize: options.file.size,
         fileType: options.file.type
@@ -71,7 +69,6 @@ export class UploadCareProvider implements IUploadProvider {
       const result = await this.uploadWithProgress(formData, options.onProgress)
 
       const duration = Date.now() - startTime
-      console.log(`[UPLOADCARE-${uploadId}] Upload completed in ${duration}ms`)
 
       if (!result.success) {
         return {

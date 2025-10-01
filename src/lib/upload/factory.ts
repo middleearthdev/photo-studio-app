@@ -33,7 +33,6 @@ export class UploadProviderFactory {
     if (preferredProvider) {
       const provider = this.getProvider(preferredProvider)
       if (provider?.isConfigured()) {
-        console.log(`[UPLOAD-FACTORY] Using configured provider: ${preferredProvider}`)
         return provider
       } else {
         console.warn(`[UPLOAD-FACTORY] Preferred provider '${preferredProvider}' not configured, falling back...`)
@@ -46,7 +45,6 @@ export class UploadProviderFactory {
     for (const providerName of fallbackOrder) {
       const provider = this.getProvider(providerName)
       if (provider?.isConfigured()) {
-        console.log(`[UPLOAD-FACTORY] Using fallback provider: ${providerName}`)
         return provider
       }
     }
@@ -129,7 +127,6 @@ export class UploadProviderFactory {
     // Try primary provider
     const primaryProvider = this.getProvider(config.provider)
     if (primaryProvider) {
-      console.log(`[UPLOAD-FACTORY] Attempting upload with ${config.provider}`)
       const result = await primaryProvider.upload(options)
       
       if (result.success) {
@@ -144,7 +141,6 @@ export class UploadProviderFactory {
       const fallbackProvider = this.getProvider(fallbackName)
       if (!fallbackProvider) continue
 
-      console.log(`[UPLOAD-FACTORY] Trying fallback: ${fallbackName}`)
       
       // Reset progress for fallback attempt
       if (options.onProgress) {
@@ -154,7 +150,6 @@ export class UploadProviderFactory {
       const result = await fallbackProvider.upload(options)
       
       if (result.success) {
-        console.log(`[UPLOAD-FACTORY] Success with fallback: ${fallbackName}`)
         return result
       }
       
