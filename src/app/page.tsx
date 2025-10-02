@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { motion } from 'framer-motion'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -21,7 +21,8 @@ export default function Home() {
   const [imagesLoaded, setImagesLoaded] = useState<boolean[]>([])
   const [allImagesLoaded, setAllImagesLoaded] = useState(false)
   const [isPreloading, setIsPreloading] = useState(true)
-  const [lastLoadedImages, setLastLoadedImages] = useState<string[]>([])
+  const lastLoadedImages = useRef<string[]>([])
+  const allImagesLoadedRef = useRef(false)
 
 
   // Fetch data from database
@@ -47,7 +48,7 @@ export default function Home() {
     
     // Check if these are the same images we already loaded
     const imagesString = heroImages.join(',')
-    if (lastLoadedImages.join(',') === imagesString && allImagesLoaded) {
+    if (lastLoadedImages.current.join(',') === imagesString && allImagesLoadedRef.current) {
       return // Don't reload the same images
     }
 
@@ -55,7 +56,8 @@ export default function Home() {
     setImagesLoaded(new Array(heroImages.length).fill(false))
     setIsPreloading(true)
     setAllImagesLoaded(false)
-    setLastLoadedImages(heroImages)
+    allImagesLoadedRef.current = false
+    lastLoadedImages.current = heroImages
 
     // Load first image immediately for faster initial display
     const firstImagePromise = new Promise<void>((resolve) => {
@@ -69,6 +71,7 @@ export default function Home() {
         // Show first image quickly
         setTimeout(() => {
           setAllImagesLoaded(true)
+          allImagesLoadedRef.current = true
           setIsPreloading(false)
         }, 150)
         resolve()
@@ -80,6 +83,7 @@ export default function Home() {
           return newLoaded
         })
         setAllImagesLoaded(true)
+        allImagesLoadedRef.current = true
         setIsPreloading(false)
         resolve()
       }
@@ -115,7 +119,7 @@ export default function Home() {
 
       Promise.all(remainingPromises)
     }
-  }, [heroImages, lastLoadedImages, allImagesLoaded])
+  }, [heroImages])
 
   useEffect(() => {
     preloadImages()
@@ -357,6 +361,7 @@ export default function Home() {
                         onLoad={() => {
                           // Ensure smooth fade-in even for cached images
                           setAllImagesLoaded(true)
+                          allImagesLoadedRef.current = true
                         }}
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>

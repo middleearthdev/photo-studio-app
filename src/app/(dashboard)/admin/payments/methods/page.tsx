@@ -153,31 +153,7 @@ export default function PaymentMethodsPage() {
   }
 
   const handleAddNew = () => {
-    setEditingMethod(null)
-    setIsSaving(false)
-    setFormData({
-      name: "",
-      type: "bank_transfer",
-      provider: "",
-      // Account details fields
-      account_number: "",
-      account_name: "",
-      bank_name: "",
-      bank_code: "",
-      instructions: "",
-      // E-wallet specific
-      phone_number: "",
-      // QR specific  
-      qr_image_url: "",
-      // Xendit config
-      xendit_api_key: "",
-      xendit_callback_url: "",
-      xendit_public_key: "",
-      fee_type: "percentage",
-      fee_percentage: 0,
-      fee_amount: 0,
-      is_active: true,
-    })
+    resetForm()
     setIsDialogOpen(true)
   }
 
@@ -208,7 +184,7 @@ export default function PaymentMethodsPage() {
       xendit_callback_url: xenditConfig.callback_url || "",
       xendit_public_key: xenditConfig.public_key || "",
       fee_type: method.fee_type || "percentage",
-      fee_percentage: method.fee_percentage,
+      fee_percentage: method.fee_percentage || 0,
       fee_amount: method.fee_amount || 0,
       is_active: method.is_active,
     })
@@ -284,20 +260,6 @@ export default function PaymentMethodsPage() {
 
       // Build Xendit config object
       let xenditConfig: any = {}
-      if (formData.provider === 'Xendit') {
-        xenditConfig = {
-          api_key: formData.xendit_api_key,
-          callback_url: formData.xendit_callback_url,
-          public_key: formData.xendit_public_key
-        }
-        
-        // Validate Xendit config
-        if (!formData.xendit_api_key.trim()) {
-          toast.error("Xendit API key is required")
-          setIsSaving(false)
-          return
-        }
-      }
 
       const paymentMethodData = {
         studio_id: selectedStudioId,
@@ -324,7 +286,8 @@ export default function PaymentMethodsPage() {
         await createMutation.mutateAsync(paymentMethodData)
       }
 
-      // Add small delay to allow toast to show before closing dialog
+      // Reset form and close dialog after successful save
+      resetForm()
       setTimeout(() => {
         setIsDialogOpen(false)
       }, 100)
@@ -355,6 +318,41 @@ export default function PaymentMethodsPage() {
     } catch (error) {
       console.error('Error deleting payment method:', error)
     }
+  }
+
+  const resetForm = () => {
+    setFormData({
+      name: "",
+      type: "bank_transfer",
+      provider: "",
+      // Account details fields
+      account_number: "",
+      account_name: "",
+      bank_name: "",
+      bank_code: "",
+      instructions: "",
+      // E-wallet specific
+      phone_number: "",
+      // QR specific  
+      qr_image_url: "",
+      // Xendit config
+      xendit_api_key: "",
+      xendit_callback_url: "",
+      xendit_public_key: "",
+      fee_type: "percentage",
+      fee_percentage: 0,
+      fee_amount: 0,
+      is_active: true,
+    })
+    setEditingMethod(null)
+    setIsSaving(false)
+  }
+
+  const handleDialogClose = (open: boolean) => {
+    if (!open && !isSaving) {
+      resetForm()
+    }
+    setIsDialogOpen(open)
   }
 
   // Format fee display based on fee type
@@ -600,14 +598,17 @@ export default function PaymentMethodsPage() {
       )}
 
       {/* Add/Edit Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl">
+      <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
+        <DialogContent className={`max-w-2xl ${editingMethod ? 'border-l-4 border-l-blue-500' : ''}`}>
           <DialogHeader>
             <DialogTitle>
-              {editingMethod ? "Edit Payment Method" : "Add Payment Method"}
+              {editingMethod ? `Edit Payment Method: ${editingMethod.name}` : "Add Payment Method"}
             </DialogTitle>
             <DialogDescription>
-              Konfigurasi pengaturan metode pembayaran untuk studio Anda
+              {editingMethod 
+                ? "Update the configuration for this payment method" 
+                : "Konfigurasi pengaturan metode pembayaran untuk studio Anda"
+              }
             </DialogDescription>
           </DialogHeader>
 
@@ -801,42 +802,6 @@ export default function PaymentMethodsPage() {
               )}
             </div>
 
-            {/* Xendit Configuration */}
-            {formData.provider === 'Xendit' && (
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium">Xendit Configuration</h3>
-                <div className="grid grid-cols-1 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="xendit_api_key">API Key *</Label>
-                    <Input
-                      id="xendit_api_key"
-                      type="password"
-                      value={formData.xendit_api_key}
-                      onChange={(e) => setFormData({ ...formData, xendit_api_key: e.target.value })}
-                      placeholder="xnd_development_..."
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="xendit_callback_url">Callback URL</Label>
-                    <Input
-                      id="xendit_callback_url"
-                      value={formData.xendit_callback_url}
-                      onChange={(e) => setFormData({ ...formData, xendit_callback_url: e.target.value })}
-                      placeholder="https://yourdomain.com/api/webhooks/xendit"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="xendit_public_key">Public Key (Optional)</Label>
-                    <Input
-                      id="xendit_public_key"
-                      value={formData.xendit_public_key}
-                      onChange={(e) => setFormData({ ...formData, xendit_public_key: e.target.value })}
-                      placeholder="xnd_public_development_..."
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
 
             <div className="flex items-center space-x-2">
               <Switch
@@ -851,7 +816,7 @@ export default function PaymentMethodsPage() {
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setIsDialogOpen(false)}
+              onClick={() => handleDialogClose(false)}
               disabled={isSaving}
             >
               Cancel

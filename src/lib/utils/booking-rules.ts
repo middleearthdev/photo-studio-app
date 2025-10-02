@@ -179,7 +179,7 @@ export function getWhatsAppURL(phoneNumber: string, message: string): string {
       : '62' + cleanPhone
 
   const encodedMessage = encodeURIComponent(message)
-  return `https://wa.me/${formattedPhone}?text=${encodedMessage}`
+  return `https://api.whatsapp.com/send/?phone=${formattedPhone}&text=${encodedMessage}`
 }
 
 /**

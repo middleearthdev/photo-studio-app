@@ -44,11 +44,11 @@ export const getWhatsAppURL = (phoneNumber: string, message: string): string => 
       : '62' + cleanPhone
 
   if (message.trim() === '') {
-    return `https://wa.me/${formattedPhone}`
+    return `https://api.whatsapp.com/send/?phone=${formattedPhone}`
   }
 
   const encodedMessage = encodeURIComponent(message)
-  return `https://wa.me/${formattedPhone}?text=${encodedMessage}`
+  return `https://api.whatsapp.com/send/?phone=${formattedPhone}&text=${encodedMessage}`
 }
 
 /**
@@ -79,15 +79,15 @@ export const WHATSAPP_TEMPLATES: WhatsAppTemplate[] = [
       const totalAmount = formatCurrency(reservation.total_amount)
       const dpAmount = formatCurrency(reservation.dp_amount)
       const remainingAmount = formatCurrency(reservation.remaining_amount)
-      
+
       // Generate success link
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
       const successLink = `${baseUrl}/booking/success?payment=completed&booking=${bookingCode}`
 
       let addonsText = ''
       if (reservation.reservation_addons && reservation.reservation_addons.length > 0) {
-        addonsText = '\n\n*Add-ons yang dipilih:*\n' + 
-          reservation.reservation_addons.map(addon => 
+        addonsText = '\n\n*Add-ons yang dipilih:*\n' +
+          reservation.reservation_addons.map(addon =>
             `• ${addon.addon?.name || 'Unknown'} (${addon.quantity}x) - ${formatCurrency(addon.total_price)}`
           ).join('\n')
       }
@@ -105,7 +105,7 @@ Waktu: ${time}${addonsText}
 *💰 Detail Pembayaran*
 Total: ${totalAmount}
 DP Dibayar: ${dpAmount}
-${reservation.remaining_amount > 0 ? `Sisa: ${remainingAmount}` : 'Status: LUNAS ✅'}
+${reservation.remaining_amount > 0 ? `Sisa: ${remainingAmount}` : 'Status: LUNAS [LUNAS]'}
 
 *🔗 Link Booking Anda*
 ${successLink}
@@ -133,7 +133,7 @@ Tim Studio 📸`
       const customerName = reservation.customer?.full_name || 'Customer'
       const bookingCode = reservation.booking_code
       const packageName = reservation.package?.name || 'Package'
-      
+
       // Calculate cancellation time (15 minutes after creation)
       const createdAt = new Date(reservation.created_at)
       const cancellationTime = new Date(createdAt.getTime() + 15 * 60 * 1000)
@@ -141,7 +141,7 @@ Tim Studio 📸`
         hour: '2-digit',
         minute: '2-digit'
       })
-      
+
       return `Halo ${customerName}! 👋
 
 Kami ingin mengingatkan Anda tentang booking yang baru saja dibuat:
@@ -153,13 +153,12 @@ Tanggal: ${formatDate(reservation.reservation_date)}
 Waktu: ${formatTime(reservation.start_time)} - ${formatTime(reservation.end_time)}
 Total DP: ${formatCurrency(reservation.dp_amount)}
 
-*⚠️ PENTING - Segera Lakukan Pembayaran*
+*[PENTING] PENTING - Segera Lakukan Pembayaran*
 Booking Anda akan otomatis dibatalkan jika pembayaran DP belum diterima sampai jam *${cancellationTimeFormatted}* hari ini.
 
 Untuk menjaga slot waktu Anda, silakan segera lakukan pembayaran DP dan kirim bukti transfer ke nomor ini.
 
-Kami tunggu konfirmasi pembayaran Anda! 🙏
-
+Kami tunggu konfirmasi pembayaran Anda! 
 Terima kasih,
 Tim Studio 📸`
     }
@@ -182,27 +181,27 @@ Tim Studio 📸`
       const date = formatDate(reservation.reservation_date)
       const time = `${formatTime(reservation.start_time)} - ${formatTime(reservation.end_time)}`
       const remainingAmount = formatCurrency(reservation.remaining_amount)
-      
+
       // Calculate days until reservation
       const daysRemaining = getDaysUntilReservation(reservation.reservation_date)
-      
+
       let deadlineText = ''
       let urgencyMessage = ''
-      
+
       if (daysRemaining < 0) {
-        deadlineText = `*⚠️ EVENT SUDAH LEWAT ${Math.abs(daysRemaining)} HARI*`
+        deadlineText = `*[PENTING] EVENT SUDAH LEWAT ${Math.abs(daysRemaining)} HARI*`
         urgencyMessage = `Booking Anda sudah melewati tanggal acara. Silakan hubungi kami untuk penyelesaian lebih lanjut.`
       } else if (daysRemaining === 0) {
-        deadlineText = '*⚠️ EVENT HARI INI - BATAS PELUNASAN SUDAH TERLEWAT*'
+        deadlineText = '*[PENTING] EVENT HARI INI - BATAS PELUNASAN SUDAH TERLEWAT*'
         urgencyMessage = `Booking Anda hari ini namun belum lunas. Silakan hubungi kami segera untuk konfirmasi.`
       } else if (daysRemaining === 1) {
-        deadlineText = '*⚠️ BATAS PELUNASAN SUDAH TERLEWAT*'
+        deadlineText = '*[PENTING] BATAS PELUNASAN SUDAH TERLEWAT*'
         urgencyMessage = `Batas waktu pelunasan (H-3) sudah terlewat. Event besok namun belum lunas. Silakan hubungi kami segera.`
       } else if (daysRemaining === 2) {
-        deadlineText = '*⚠️ BATAS PELUNASAN SUDAH TERLEWAT*'
+        deadlineText = '*[PENTING] BATAS PELUNASAN SUDAH TERLEWAT*'
         urgencyMessage = `Batas waktu pelunasan (H-3) sudah terlewat. Silakan hubungi kami segera untuk konfirmasi.`
       } else if (daysRemaining === 3) {
-        deadlineText = '*🔥 BATAS WAKTU PELUNASAN HARI INI*'
+        deadlineText = '*[URGENT] BATAS WAKTU PELUNASAN HARI INI*'
         urgencyMessage = `Mohon segera lakukan pelunasan agar booking Anda terkonfirmasi.`
       } else if (daysRemaining === 4) {
         deadlineText = '*⏰ BATAS WAKTU PELUNASAN BESOK*'
@@ -228,7 +227,7 @@ Paket: ${packageName}
 Tanggal: ${date}
 Waktu: ${time}
 
-*💳 Sisa Pembayaran*
+*💰 Sisa Pembayaran*
 Jumlah: ${remainingAmount}
 ${deadlineText}
 
@@ -237,8 +236,7 @@ ${urgencyMessage}
 *📍 Cara Pembayaran:*
 Silakan transfer ke rekening yang telah diberikan dan kirim bukti transfer ke nomor ini.
 
-Terima kasih atas perhatiannya! 🙏
-
+Terima kasih atas perhatiannya! 
 Salam,
 Tim Studio 📸`
     }
@@ -259,15 +257,15 @@ Tim Studio 📸`
       const date = formatDate(reservation.reservation_date)
       const time = `${formatTime(reservation.start_time)} - ${formatTime(reservation.end_time)}`
       const totalAmount = formatCurrency(reservation.total_amount)
-      
+
       // Generate success link
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
       const successLink = `${baseUrl}/booking/success?payment=completed&booking=${bookingCode}`
 
       let addonsText = ''
       if (reservation.reservation_addons && reservation.reservation_addons.length > 0) {
-        addonsText = '\n\n*Add-ons yang dipilih:*\n' + 
-          reservation.reservation_addons.map(addon => 
+        addonsText = '\n\n*Add-ons yang dipilih:*\n' +
+          reservation.reservation_addons.map(addon =>
             `• ${addon.addon?.name || 'Unknown'} (${addon.quantity}x) - ${formatCurrency(addon.total_price)}`
           ).join('\n')
       }
@@ -296,9 +294,8 @@ ${successLink}
 • Jika ada pertanyaan, hubungi kami di nomor ini
 
 Kami sangat menantikan sesi foto Anda! 📸
-
 Salam hangat,
-Tim Studio`
+Tim Studio 📸`
     }
   },
 
@@ -318,21 +315,21 @@ Tim Studio`
       const date = formatDate(reservation.reservation_date)
       const time = `${formatTime(reservation.start_time)} - ${formatTime(reservation.end_time)}`
       const dpAmount = formatCurrency(reservation.dp_amount)
-      
+
       // Check if customer has paid DP
       const hasPaidDP = ['partial', 'completed'].includes(reservation.payment_status)
-      const cancellationDate = reservation.cancelled_at 
+      const cancellationDate = reservation.cancelled_at
         ? new Date(reservation.cancelled_at).toLocaleDateString('id-ID', {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-          })
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        })
         : 'Hari ini'
 
       let refundPolicyText = ''
       if (hasPaidDP) {
-        refundPolicyText = `\n*💸 Kebijakan Pembatalan:*
+        refundPolicyText = `\n*[REFUND] Kebijakan Pembatalan:*
 DP yang telah dibayar sebesar ${dpAmount} tidak dapat dikembalikan (HANGUS) sesuai dengan ketentuan yang berlaku.`
       } else {
         refundPolicyText = `\n*ℹ️ Tidak ada pembayaran yang perlu dikembalikan karena DP belum dibayarkan.*`
@@ -351,7 +348,7 @@ Status: DIBATALKAN
 Tanggal Pembatalan: ${cancellationDate}
 ${refundPolicyText}
 
-*📞 Bantuan Lebih Lanjut:*
+*[KONTAK] Bantuan Lebih Lanjut:*
 Jika Anda memiliki pertanyaan terkait pembatalan ini atau ingin melakukan booking ulang, silakan hubungi kami di nomor ini.
 
 Terima kasih atas pengertiannya.
@@ -416,16 +413,16 @@ Terima kasih! 🙏`
       let rescheduleMessage = ''
 
       if (daysRemaining < 0) {
-        rescheduleDeadlineText = `*⚠️ EVENT SUDAH LEWAT ${Math.abs(daysRemaining)} HARI*`
+        rescheduleDeadlineText = `*[PENTING] EVENT SUDAH LEWAT ${Math.abs(daysRemaining)} HARI*`
         rescheduleMessage = `Booking Anda sudah melewati tanggal acara. Reschedule tidak dapat dilakukan.`
       } else if (daysRemaining === 0) {
-        rescheduleDeadlineText = '*⚠️ EVENT HARI INI - RESCHEDULE TIDAK DAPAT DILAKUKAN*'
+        rescheduleDeadlineText = '*[PENTING] EVENT HARI INI - RESCHEDULE TIDAK DAPAT DILAKUKAN*'
         rescheduleMessage = `Event Anda hari ini. Reschedule sudah tidak memungkinkan. Silakan hubungi kami jika ada kendala.`
       } else if (daysRemaining === 1) {
-        rescheduleDeadlineText = '*⚠️ BATAS RESCHEDULE SUDAH TERLEWAT*'
+        rescheduleDeadlineText = '*[PENTING] BATAS RESCHEDULE SUDAH TERLEWAT*'
         rescheduleMessage = `Batas waktu reschedule (H-3) sudah terlewat. Event besok dan reschedule tidak dapat dilakukan.`
       } else if (daysRemaining === 2) {
-        rescheduleDeadlineText = '*⚠️ BATAS RESCHEDULE SUDAH TERLEWAT*'
+        rescheduleDeadlineText = '*[PENTING] BATAS RESCHEDULE SUDAH TERLEWAT*'
         rescheduleMessage = `Batas waktu reschedule (H-3) sudah terlewat. Reschedule tidak dapat dilakukan.`
       } else if (daysRemaining === 3) {
         rescheduleDeadlineText = '*BATAS RESCHEDULE HARI INI*'
@@ -462,7 +459,7 @@ Hubungi kami untuk reschedule. Terima kasih! 🙏`
 export const getAvailableTemplates = (reservation: Reservation): WhatsAppTemplate[] => {
   // Special case: If reservation is cancelled, only show cancellation notice and no_text
   if (reservation.status === 'cancelled') {
-    return WHATSAPP_TEMPLATES.filter(template => 
+    return WHATSAPP_TEMPLATES.filter(template =>
       template.id === 'no_text' || template.id === 'cancellation_notice'
     )
   }
@@ -532,7 +529,7 @@ export const sendWhatsAppWithTemplate = (
  * Maps old message types to new template system
  */
 export const generateWhatsAppMessage = (
-  reservation: Reservation, 
+  reservation: Reservation,
   type: 'payment' | 'reschedule' | 'confirmation'
 ): string => {
   const templateMap = {
@@ -543,7 +540,7 @@ export const generateWhatsAppMessage = (
 
   const templateId = templateMap[type]
   const template = getTemplateById(templateId)
-  
+
   if (!template) {
     throw new Error(`No template found for type "${type}"`)
   }

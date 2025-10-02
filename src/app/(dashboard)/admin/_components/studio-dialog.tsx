@@ -30,6 +30,7 @@ import { type Studio } from "@/actions/studios"
 const dayHoursSchema = z.object({
   open: z.string(),
   close: z.string(),
+  isOpen: z.boolean(),
 })
 
 const operatingHoursSchema = z.record(z.string(), dayHoursSchema)

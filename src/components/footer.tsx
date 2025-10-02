@@ -98,6 +98,42 @@ export function Footer() {
           </div>
         </div>
 
+        {/* Google Maps Section */}
+        <div className="border-t border-white/10 pt-12 pb-8">
+          <div className="text-center mb-8">
+            <h3 className="text-xl font-bold mb-4">Lokasi Studio</h3>
+            <p className="text-white/80 max-w-2xl mx-auto">
+              Kunjungi studio kami yang berlokasi strategis di Karawang untuk konsultasi langsung dan melihat fasilitas yang tersedia.
+            </p>
+          </div>
+          
+          <div className="rounded-2xl overflow-hidden shadow-2xl bg-white/5 p-2">
+            <iframe
+              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3965.234!2d107.3055!3d-6.3235!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2e6977b30b703715%3A0xa6f3d630980eb381!2sKalarasa%20Studio!5e0!3m2!1sen!2sid!4v1699999999999!5m2!1sen!2sid"
+              width="100%"
+              height="300"
+              style={{ border: 0 }}
+              allowFullScreen
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+              className="rounded-xl"
+              title="Lokasi Kalarasa Studio"
+            ></iframe>
+          </div>
+          
+          <div className="text-center mt-6">
+            <Link 
+              href="https://www.google.com/maps?q=kalarasastudio,+Pinayungan,+telukjambe,+Karawang,+Jawa+Barat+41361&ftid=0x2e6977b30b703715:0xa6f3d630980eb381&entry=gps"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all duration-300 hover:scale-105"
+            >
+              <MapPin className="h-5 w-5 mr-2" />
+              Buka di Google Maps
+            </Link>
+          </div>
+        </div>
+
         <div className="border-t border-white/10 pt-8 text-center text-white/60">
           <p>&copy; {new Date().getFullYear()} Kalarasa Studio. Semua hak dilindungi.</p>
         </div>
