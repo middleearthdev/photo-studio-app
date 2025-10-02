@@ -16,6 +16,37 @@ import { usePublicStudios } from '@/hooks/use-studios'
 import { Footer } from '@/components/footer'
 import { useActiveHeroImages } from '@/hooks/use-hero-images'
 
+// Global cache for preloaded images to prevent re-fetching
+const globalImageCache = new Set<string>()
+
+// Session storage key for cached images
+const CACHE_KEY = 'hero-images-cache'
+
+// Utility functions for cache management
+const getCachedImages = (): string[] => {
+  if (typeof window === 'undefined') return []
+  try {
+    const cached = sessionStorage.getItem(CACHE_KEY)
+    return cached ? JSON.parse(cached) : []
+  } catch {
+    return []
+  }
+}
+
+const setCachedImages = (images: string[]) => {
+  if (typeof window === 'undefined') return
+  try {
+    sessionStorage.setItem(CACHE_KEY, JSON.stringify(images))
+    images.forEach(img => globalImageCache.add(img))
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+const isImageCached = (url: string): boolean => {
+  return globalImageCache.has(url) || getCachedImages().includes(url)
+}
+
 export default function Home() {
   const [currentSlide, setCurrentSlide] = useState(0)
   const [imagesLoaded, setImagesLoaded] = useState<boolean[]>([])
@@ -24,6 +55,11 @@ export default function Home() {
   const lastLoadedImages = useRef<string[]>([])
   const allImagesLoadedRef = useRef(false)
 
+  // Load cache on mount
+  useEffect(() => {
+    const cachedImages = getCachedImages()
+    cachedImages.forEach(img => globalImageCache.add(img))
+  }, [])
 
   // Fetch data from database
   const { data: studiosData = [] } = usePublicStudios()
@@ -42,7 +78,7 @@ export default function Home() {
         ]
   }, [heroImagesData])
 
-  // Preload all hero images for smooth experience with progressive loading
+  // Optimized preload function with caching
   const preloadImages = useCallback(async () => {
     if (heroImages.length === 0) return
     
@@ -52,6 +88,18 @@ export default function Home() {
       return // Don't reload the same images
     }
 
+    // Check if all images are already cached
+    const allCached = heroImages.every(isImageCached)
+    if (allCached) {
+      // Images are cached, just update state
+      setImagesLoaded(new Array(heroImages.length).fill(true))
+      setAllImagesLoaded(true)
+      allImagesLoadedRef.current = true
+      setIsPreloading(false)
+      lastLoadedImages.current = heroImages
+      return
+    }
+
     // Reset state only when needed
     setImagesLoaded(new Array(heroImages.length).fill(false))
     setIsPreloading(true)
@@ -59,71 +107,60 @@ export default function Home() {
     allImagesLoadedRef.current = false
     lastLoadedImages.current = heroImages
 
-    // Load first image immediately for faster initial display
-    const firstImagePromise = new Promise<void>((resolve) => {
-      const img = new window.Image()
-      img.onload = () => {
-        setImagesLoaded(prev => {
-          const newLoaded = [...prev]
-          newLoaded[0] = true
-          return newLoaded
-        })
-        // Show first image quickly
-        setTimeout(() => {
-          setAllImagesLoaded(true)
-          allImagesLoadedRef.current = true
-          setIsPreloading(false)
-        }, 150)
-        resolve()
-      }
-      img.onerror = () => {
-        setImagesLoaded(prev => {
-          const newLoaded = [...prev]
-          newLoaded[0] = true
-          return newLoaded
-        })
-        setAllImagesLoaded(true)
-        allImagesLoadedRef.current = true
-        setIsPreloading(false)
-        resolve()
-      }
-      img.src = heroImages[0]
+    // Preload images with cache check
+    const preloadPromises = heroImages.map((src, index) => {
+      return new Promise<void>((resolve) => {
+        // If already cached, skip preloading
+        if (isImageCached(src)) {
+          setImagesLoaded(prev => {
+            const newLoaded = [...prev]
+            newLoaded[index] = true
+            return newLoaded
+          })
+          resolve()
+          return
+        }
+
+        const img = new window.Image()
+        img.onload = () => {
+          globalImageCache.add(src)
+          setImagesLoaded(prev => {
+            const newLoaded = [...prev]
+            newLoaded[index] = true
+            return newLoaded
+          })
+          resolve()
+        }
+        img.onerror = () => {
+          setImagesLoaded(prev => {
+            const newLoaded = [...prev]
+            newLoaded[index] = true
+            return newLoaded
+          })
+          resolve()
+        }
+        img.src = src
+      })
     })
 
-    await firstImagePromise
+    // Wait for first image to load before showing
+    await preloadPromises[0]
+    setAllImagesLoaded(true)
+    allImagesLoadedRef.current = true
+    setIsPreloading(false)
 
-    // Then load remaining images in background
-    if (heroImages.length > 1) {
-      const remainingPromises = heroImages.slice(1).map((src, index) => {
-        return new Promise<void>((resolve) => {
-          const img = new window.Image()
-          img.onload = () => {
-            setImagesLoaded(prev => {
-              const newLoaded = [...prev]
-              newLoaded[index + 1] = true
-              return newLoaded
-            })
-            resolve()
-          }
-          img.onerror = () => {
-            setImagesLoaded(prev => {
-              const newLoaded = [...prev]
-              newLoaded[index + 1] = true
-              return newLoaded
-            })
-            resolve()
-          }
-          img.src = src
-        })
-      })
-
-      Promise.all(remainingPromises)
-    }
+    // Cache the images after loading
+    Promise.all(preloadPromises).then(() => {
+      setCachedImages(heroImages)
+    })
   }, [heroImages])
 
+  // Only run preload when heroImages actually change
   useEffect(() => {
-    preloadImages()
-  }, [preloadImages])
+    if (heroImages.length > 0) {
+      preloadImages()
+    }
+  }, [heroImages]) // Directly depend on heroImages instead of preloadImages function
 
   // Get first studio for contact info
   const firstStudio = studiosData.length > 0 ? studiosData[0] : null
@@ -227,15 +264,21 @@ export default function Home() {
     "Properti studio lengkap"
   ]
 
-  // Start carousel only after images are loaded
-  useEffect(() => {
-    if (!allImagesLoaded || heroImages.length <= 1) return
+  // Start carousel only after images are loaded - memoized to prevent unnecessary re-creation
+  const startCarousel = useCallback(() => {
+    if (!allImagesLoaded || heroImages.length <= 1) return null
 
-    const timer = setInterval(() => {
+    return setInterval(() => {
       setCurrentSlide((prev) => (prev + 1) % heroImages.length)
     }, 5000)
-    return () => clearInterval(timer)
   }, [allImagesLoaded, heroImages.length])
+
+  useEffect(() => {
+    const timer = startCarousel()
+    return () => {
+      if (timer) clearInterval(timer)
+    }
+  }, [startCarousel])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-100">
@@ -367,19 +410,6 @@ export default function Home() {
                       <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
                     </motion.div>
                     
-                    {/* Preload next image for seamless transition */}
-                    {heroImages.length > 1 && allImagesLoaded && (
-                      <div className="absolute inset-0 opacity-0 pointer-events-none">
-                        <Image
-                          src={heroImages[(currentSlide + 1) % heroImages.length]}
-                          alt="Preload next"
-                          fill
-                          className="object-cover"
-                          sizes="(max-width: 768px) 100vw, 50vw"
-                          quality={75}
-                        />
-                      </div>
-                    )}
                   </>
                 )}
               </div>

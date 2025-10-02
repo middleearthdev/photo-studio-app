@@ -185,7 +185,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               <SidebarGroupLabel>Studio Management</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {menuItems.slice(0, 8).map((item) => (
+                  {menuItems.slice(0, 9).map((item) => (
                     <SidebarMenuItem key={item.href}>
                       <SidebarMenuButton
                         asChild
@@ -206,7 +206,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               <SidebarGroupLabel>Business Operations</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {menuItems.slice(8, 11).map((item) => (
+                  {menuItems.slice(9, 12).map((item) => (
                     <SidebarMenuItem key={item.href}>
                       <SidebarMenuButton
                         asChild
@@ -227,7 +227,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               <SidebarGroupLabel>Reports & Settings</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {menuItems.slice(11).map((item) => (
+                  {menuItems.slice(12).map((item) => (
                     <SidebarMenuItem key={item.href}>
                       <SidebarMenuButton
                         asChild

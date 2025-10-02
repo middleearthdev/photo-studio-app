@@ -199,21 +199,21 @@ export function PackageCard({
                 <div className="font-medium text-slate-900 text-xs">Included</div>
               </div>
             </div>
-            
+
             {/* Mobile: Show only top 2 includes */}
             <div className="flex-grow">
               {pkg.includes && pkg.includes.length > 0 && (
                 <div className="space-y-1">
+                  {pkg.category && (
+                    <Badge className="text-xs px-2 py-0.5 bg-[#00052e]/10 text-[#00052e] border-none">
+                      {pkg.category.name}
+                    </Badge>
+                  )}
                   <div className="flex items-center justify-between">
                     <h4 className="font-semibold text-[#00052e] text-xs flex items-center gap-1">
                       <Sparkles className="h-3 w-3 text-[#b0834d]" />
                       Fasilitas:
                     </h4>
-                    {pkg.category && (
-                      <Badge className="text-xs px-2 py-0.5 bg-[#00052e]/10 text-[#00052e] border-none">
-                        {pkg.category.name}
-                      </Badge>
-                    )}
                   </div>
                   <ul className="space-y-0.5">
                     {pkg.includes.slice(0, 2).map((item, idx) => (
