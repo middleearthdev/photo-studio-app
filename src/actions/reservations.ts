@@ -1103,12 +1103,12 @@ export async function updateReservationAction(
   }
 }
 
-// Admin/Staff action to delete reservation
+// Webhook action to cancel reservation due to payment expiration
 export async function deleteReservationActionWebhook(reservationId: string): Promise<ActionResult> {
   try {
     const supabase = await createClient()
 
-    // Get reservation details to check permissions and status
+    // Get reservation details to check status
     const { data: reservation, error: fetchError } = await supabase
       .from('reservations')
       .select('studio_id, status, payment_status')
@@ -1119,66 +1119,42 @@ export async function deleteReservationActionWebhook(reservationId: string): Pro
       return { success: false, error: 'Reservation not found' }
     }
 
-    // Prevent deletion of reservations that are in progress or completed
+    // Don't update if reservation is already completed or in progress
     if (['in_progress', 'completed'].includes(reservation.status)) {
       return {
         success: false,
-        error: 'Cannot delete reservation that is in progress or completed'
+        error: 'Cannot cancel reservation that is in progress or completed'
       }
     }
 
-    // Check if reservation has payments
-    const { data: payments, error: paymentsError } = await supabase
+    // Update reservation status to cancelled
+    const { error: reservationError } = await supabase
+      .from('reservations')
+      .update({
+        status: 'cancelled',
+        payment_status: 'failed',
+        cancelled_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', reservationId)
+
+    if (reservationError) {
+      console.error('Error updating reservation status:', reservationError)
+      return { success: false, error: 'Failed to cancel reservation' }
+    }
+
+    // Update all related payments to failed status
+    const { error: paymentsError } = await supabase
       .from('payments')
-      .select('id, status')
+      .update({
+        status: 'failed',
+        updated_at: new Date().toISOString()
+      })
       .eq('reservation_id', reservationId)
 
     if (paymentsError) {
-      console.error('Error checking payments:', paymentsError)
-      return { success: false, error: 'Error checking related payments' }
-    }
-
-    // If there are completed payments, don't allow deletion
-    const hasCompletedPayments = payments?.some(p => p.status === 'completed')
-    if (hasCompletedPayments) {
-      return {
-        success: false,
-        error: 'Cannot delete reservation with completed payments. Cancel instead.'
-      }
-    }
-
-    // Delete related data in correct order
-    // 1. Delete reservation addons
-    const { error: addonsError } = await supabase
-      .from('reservation_addons')
-      .delete()
-      .eq('reservation_id', reservationId)
-
-    if (addonsError) {
-      console.error('Error deleting reservation addons:', addonsError)
-      return { success: false, error: 'Failed to delete reservation addons' }
-    }
-
-    // 2. Delete payments
-    const { error: paymentsDeleteError } = await supabase
-      .from('payments')
-      .delete()
-      .eq('reservation_id', reservationId)
-
-    if (paymentsDeleteError) {
-      console.error('Error deleting payments:', paymentsDeleteError)
-      return { success: false, error: 'Failed to delete related payments' }
-    }
-
-    // 3. Delete the reservation
-    const { error: deleteError } = await supabase
-      .from('reservations')
-      .delete()
-      .eq('id', reservationId)
-
-    if (deleteError) {
-      console.error('Error deleting reservation:', deleteError)
-      return { success: false, error: deleteError.message }
+      console.error('Error updating payment status:', paymentsError)
+      return { success: false, error: 'Failed to update payment status' }
     }
 
     revalidatePath('/admin/reservations')
@@ -1186,8 +1162,8 @@ export async function deleteReservationActionWebhook(reservationId: string): Pro
 
     return { success: true }
   } catch (error: any) {
-    console.error('Error in deleteReservationAction:', error)
-    return { success: false, error: error.message || 'Failed to delete reservation' }
+    console.error('Error in deleteReservationActionWebhook:', error)
+    return { success: false, error: error.message || 'Failed to cancel reservation' }
   }
 }
 
