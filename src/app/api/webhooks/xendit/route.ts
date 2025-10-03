@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createHash, createHmac, timingSafeEqual } from 'crypto'
 import { updatePayment, getPaymentByExternalId, deletePaymentAction } from '@/actions/payments'
-import { updateReservationStatusOnPayment, deleteReservationAction } from '@/actions/reservations'
+import { updateReservationStatusOnPayment, deleteReservationAction, deleteReservationActionWebhook } from '@/actions/reservations'
 
 interface XenditCallbackData {
   id: string
@@ -238,12 +238,12 @@ export async function POST(req: NextRequest) {
     // Find our payment record
     // Try external_id first (our custom ID), then fallback to Xendit's invoice ID
     let payment = null
-    
+
     if (external_id) {
       payment = await getPaymentByExternalId(external_id)
       log('debug', 'Payment lookup by external_id', { external_id, found: !!payment })
     }
-    
+
     if (!payment && id) {
       payment = await getPaymentByExternalId(id)
       log('debug', 'Payment lookup by xendit id', { id, found: !!payment })
@@ -283,7 +283,7 @@ export async function POST(req: NextRequest) {
 
         // Delete the reservation (which will cascade delete payment and related data)
         if (payment.reservation_id) {
-          const deleteResult = await deleteReservationAction(payment.reservation_id)
+          const deleteResult = await deleteReservationActionWebhook(payment.reservation_id)
           if (!deleteResult.success) {
             log('error', 'Failed to delete expired reservation', {
               reservationId: payment.reservation_id,

@@ -184,20 +184,20 @@ export async function getPaginatedReservationsAction(
 ): Promise<ActionResult<PaginatedReservationsResult>> {
   try {
     const supabase = await createClient()
-    
+
     // Get current user to check permissions
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
       return { success: false, error: 'Unauthorized' }
     }
-    
+
     // Get current user profile
     const { data: currentProfile } = await supabase
       .from('user_profiles')
       .select('role, studio_id')
       .eq('id', user.id)
       .single()
-      
+
     if (!currentProfile || !['admin', 'cs'].includes(currentProfile.role)) {
       return { success: false, error: 'Insufficient permissions' }
     }
@@ -1013,7 +1013,7 @@ export async function updateReservationAction(
     }
 
     const { data: currentReservation, error: fetchError } = await reservationQuery.single()
-    
+
     if (fetchError) {
       console.error('Error fetching reservation:', fetchError)
       return { success: false, error: fetchError.message }
@@ -1102,6 +1102,95 @@ export async function updateReservationAction(
     return { success: false, error: error.message || 'Failed to update reservation' }
   }
 }
+
+// Admin/Staff action to delete reservation
+export async function deleteReservationActionWebhook(reservationId: string): Promise<ActionResult> {
+  try {
+    const supabase = await createClient()
+
+    // Get reservation details to check permissions and status
+    const { data: reservation, error: fetchError } = await supabase
+      .from('reservations')
+      .select('studio_id, status, payment_status')
+      .eq('id', reservationId)
+      .single()
+
+    if (fetchError || !reservation) {
+      return { success: false, error: 'Reservation not found' }
+    }
+
+    // Prevent deletion of reservations that are in progress or completed
+    if (['in_progress', 'completed'].includes(reservation.status)) {
+      return {
+        success: false,
+        error: 'Cannot delete reservation that is in progress or completed'
+      }
+    }
+
+    // Check if reservation has payments
+    const { data: payments, error: paymentsError } = await supabase
+      .from('payments')
+      .select('id, status')
+      .eq('reservation_id', reservationId)
+
+    if (paymentsError) {
+      console.error('Error checking payments:', paymentsError)
+      return { success: false, error: 'Error checking related payments' }
+    }
+
+    // If there are completed payments, don't allow deletion
+    const hasCompletedPayments = payments?.some(p => p.status === 'completed')
+    if (hasCompletedPayments) {
+      return {
+        success: false,
+        error: 'Cannot delete reservation with completed payments. Cancel instead.'
+      }
+    }
+
+    // Delete related data in correct order
+    // 1. Delete reservation addons
+    const { error: addonsError } = await supabase
+      .from('reservation_addons')
+      .delete()
+      .eq('reservation_id', reservationId)
+
+    if (addonsError) {
+      console.error('Error deleting reservation addons:', addonsError)
+      return { success: false, error: 'Failed to delete reservation addons' }
+    }
+
+    // 2. Delete payments
+    const { error: paymentsDeleteError } = await supabase
+      .from('payments')
+      .delete()
+      .eq('reservation_id', reservationId)
+
+    if (paymentsDeleteError) {
+      console.error('Error deleting payments:', paymentsDeleteError)
+      return { success: false, error: 'Failed to delete related payments' }
+    }
+
+    // 3. Delete the reservation
+    const { error: deleteError } = await supabase
+      .from('reservations')
+      .delete()
+      .eq('id', reservationId)
+
+    if (deleteError) {
+      console.error('Error deleting reservation:', deleteError)
+      return { success: false, error: deleteError.message }
+    }
+
+    revalidatePath('/admin/reservations')
+    revalidatePath('/cs/reservations')
+
+    return { success: true }
+  } catch (error: any) {
+    console.error('Error in deleteReservationAction:', error)
+    return { success: false, error: error.message || 'Failed to delete reservation' }
+  }
+}
+
 
 // Admin/Staff action to delete reservation
 export async function deleteReservationAction(reservationId: string): Promise<ActionResult> {
@@ -1254,7 +1343,7 @@ export async function rescheduleBookingAction(
     }
 
     const { data: reservation, error: fetchError } = await reservationQuery.single()
-    
+
     if (fetchError) {
       console.error('Error fetching reservation:', fetchError)
       return { success: false, error: 'Reservation not found' }
@@ -1282,8 +1371,8 @@ export async function rescheduleBookingAction(
     }
 
     // Check if new date/time is different from current
-    if (rescheduleData.new_date === reservation.reservation_date && 
-        rescheduleData.new_start_time === reservation.start_time) {
+    if (rescheduleData.new_date === reservation.reservation_date &&
+      rescheduleData.new_start_time === reservation.start_time) {
       return { success: false, error: 'New date and time must be different from current booking' }
     }
 
@@ -1342,9 +1431,9 @@ export async function rescheduleBookingAction(
     revalidatePath('/cs/reservations')
     revalidatePath('/cs/reminders')
     revalidatePath('/admin/reservations')
-    
-    return { 
-      success: true, 
+
+    return {
+      success: true,
       data: updatedReservation,
       message: 'Booking has been rescheduled successfully'
     }
