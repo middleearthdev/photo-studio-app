@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
-import { useAuthStore, initializeAuthListener } from "@/stores/auth-store"
+import { useAuthStore } from "@/stores/auth-store"
 import { usePathname, useRouter } from "next/navigation"
 
 interface AuthProviderProps {
@@ -14,9 +14,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const router = useRouter()
 
   useEffect(() => {
-    // Initialize auth state and listener
+    // Initialize auth state
     initialize()
-    initializeAuthListener()
   }, [initialize])
 
   // Check for OAuth refresh cookie and refresh profile if needed

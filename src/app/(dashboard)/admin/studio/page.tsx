@@ -64,12 +64,12 @@ export default function StudioManagementPage() {
     })
   }
 
-  const getStatusColor = (isActive: boolean) => {
-    return isActive ? 'default' : 'secondary'
+  const getStatusColor = (isActive: boolean | null) => {
+    return (isActive ?? true) ? 'default' : 'secondary'
   }
 
-  const getStatusLabel = (isActive: boolean) => {
-    return isActive ? 'Aktif' : 'Tidak Aktif'
+  const getStatusLabel = (isActive: boolean | null) => {
+    return (isActive ?? true) ? 'Aktif' : 'Tidak Aktif'
   }
 
   const formatOperatingHours = (operatingHours: any) => {

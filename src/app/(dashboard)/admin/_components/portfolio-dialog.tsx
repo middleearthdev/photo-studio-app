@@ -116,24 +116,7 @@ function ImageUploadComponent({ studioId, value, onChange }: {
   const uploadToDestination = async (file: File): Promise<string> => {
     const destination = process.env.NEXT_PUBLIC_UPLOAD_DESTINATION || 'server'
     
-    if (destination === 'supabase') {
-      // Upload to Supabase
-      const { createClient } = await import('@/lib/supabase/client')
-      const supabase = createClient()
-      
-      const fileName = `${studioId}/${Date.now()}-${file.name}`
-      const { data, error } = await supabase.storage
-        .from('portfolio-images')
-        .upload(fileName, file)
-      
-      if (error) throw error
-      
-      const { data: { publicUrl } } = supabase.storage
-        .from('portfolio-images')
-        .getPublicUrl(fileName)
-      
-      return publicUrl
-    } else if (destination === 'vercel') {
+    if (destination === 'vercel') {
       // Upload to Vercel Blob Store
       const fileName = `portfolio-images/${studioId}/${Date.now()}-${file.name}`
       
@@ -254,7 +237,6 @@ function ImageUploadComponent({ studioId, value, onChange }: {
   const destination = process.env.NEXT_PUBLIC_UPLOAD_DESTINATION || 'server'
   const destinationDisplay = {
     server: 'Local Server',
-    supabase: 'Supabase Storage', 
     vercel: 'Vercel Blob Store'
   }[destination] || destination
 
@@ -380,9 +362,9 @@ export function PortfolioDialog({
           image_url: portfolioData.image_url,
           alt_text: portfolioData.alt_text || "",
           category_id: portfolioData.category_id || "general",
-          display_order: portfolioData.display_order,
-          is_featured: portfolioData.is_featured,
-          is_active: portfolioData.is_active,
+          display_order: portfolioData.display_order || 0,
+          is_featured: portfolioData.is_featured ?? false,
+          is_active: portfolioData.is_active ?? true,
         })
       } else {
         // Create mode

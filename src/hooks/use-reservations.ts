@@ -17,7 +17,7 @@ import { PaginationParams } from '@/lib/constants/pagination'
 import { paymentKeys } from './use-payments'
 
 // Local types
-export type ReservationStatus = 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled'
+export type ReservationStatus = 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled' | 'no_show'
 
 export interface UpdateReservationData {
   // Add fields as needed - TODO: Define proper update interface
@@ -185,7 +185,7 @@ const getReservationStats = async (studioId: string) => {
       .filter((r: Reservation) =>
         r.status !== 'completed' &&
         r.status !== 'cancelled' &&
-        r.payment_status !== 'completed'
+        r.payment_status !== 'paid'
       )
       .reduce((sum: number, r: Reservation) => {
         // Jika payment status pending, hitung total amount
@@ -295,7 +295,8 @@ export function useUpdateReservationStatus() {
         confirmed: 'Reservasi dikonfirmasi',
         in_progress: 'Reservasi dimulai',
         completed: 'Reservasi diselesaikan',
-        cancelled: 'Reservasi dibatalkan'
+        cancelled: 'Reservasi dibatalkan',
+        no_show: 'Reservasi ditandai tidak hadir'
       }
       toast.success(statusMessages[data.status] || 'Status reservasi berhasil diperbarui')
 

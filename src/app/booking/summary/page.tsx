@@ -648,11 +648,11 @@ export default function BookingSummaryPage() {
                                 <div className="flex-1">
                                   <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
                                     <span className="font-medium">{method.name}</span>
-                                    {shouldDisplayFeesToCustomers() && method.fee_percentage > 0 && (
+                                    {shouldDisplayFeesToCustomers() && (method.fee_percentage || 0) > 0 && (
                                       <Badge variant="outline" className="text-xs py-0.5 px-1.5">
                                         Fee {formatFeeDisplay(
                                           method.fee_type || 'percentage',
-                                          method.fee_percentage,
+                                          method.fee_percentage || 0,
                                           method.fee_amount || 0
                                         )}
                                       </Badge>

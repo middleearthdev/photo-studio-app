@@ -1,5 +1,4 @@
 export { UploadProviderFactory } from './factory'
 export * from './types'
-export { SupabaseUploadProvider } from './providers/supabase'
 export { ServerUploadProvider } from './providers/server'
 export { UploadCareProvider } from './providers/uploadcare'

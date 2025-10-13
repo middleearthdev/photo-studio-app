@@ -117,8 +117,8 @@ export const useFileUpload = ({
       // Try to determine provider from URL and delete accordingly
       let deleteResult: { success: boolean; error?: string } = { success: false, error: 'Unknown provider' }
       
-      if (targetUrl.includes('supabase')) {
-        const provider = UploadProviderFactory.getProvider('supabase')
+      if (targetUrl.includes('uploadcare')) {
+        const provider = UploadProviderFactory.getProvider('uploadcare')
         if (provider?.delete) {
           deleteResult = await provider.delete(targetUrl)
         }

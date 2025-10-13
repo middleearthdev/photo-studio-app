@@ -220,19 +220,19 @@ export default function DiscountsPage() {
   const handleEdit = (discount: Discount) => {
     setSelectedDiscount(discount)
     setFormData({
-      studio_id: discount.studio_id,
+      studio_id: discount.studio_id || '',
       code: discount.code || '',
       name: discount.name,
       description: discount.description || '',
-      type: discount.type,
+      type: discount.type as 'percentage' | 'fixed_amount',
       value: discount.value,
       minimum_amount: discount.minimum_amount,
       maximum_discount: discount.maximum_discount || 0,
-      is_active: discount.is_active,
+      is_active: discount.is_active ?? true,
       valid_from: discount.valid_from ? format(new Date(discount.valid_from), 'yyyy-MM-dd') : '',
       valid_until: discount.valid_until ? format(new Date(discount.valid_until), 'yyyy-MM-dd') : '',
       usage_limit: discount.usage_limit,
-      applies_to: discount.applies_to
+      applies_to: discount.applies_to as 'all' | 'packages' | 'addons' || 'all'
     })
     setIsEditDialogOpen(true)
   }
@@ -318,7 +318,7 @@ export default function DiscountsPage() {
 
   const isDiscountUsageLimitReached = (discount: Discount) => {
     if (!discount.usage_limit) return false
-    return discount.used_count >= discount.usage_limit
+    return (discount.used_count || 0) >= discount.usage_limit
   }
 
   return (
@@ -421,7 +421,7 @@ export default function DiscountsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {discounts.reduce((sum, d) => sum + d.used_count, 0)}
+              {discounts.reduce((sum, d) => sum + (d.used_count || 0), 0)}
             </div>
           </CardContent>
         </Card>

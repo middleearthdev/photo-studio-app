@@ -61,7 +61,7 @@ export function PortfolioCategoriesDialog({ studioId }: PortfolioCategoriesDialo
     setFormData({
       name: category.name,
       description: category.description || '',
-      display_order: category.display_order,
+      display_order: category.display_order || 0,
     })
     setIsFormOpen(true)
   }
@@ -221,7 +221,7 @@ export function PortfolioCategoriesDialog({ studioId }: PortfolioCategoriesDialo
                     </TableHeader>
                     <TableBody>
                       {categories
-                        .sort((a, b) => a.display_order - b.display_order)
+                        .sort((a, b) => (a.display_order || 0) - (b.display_order || 0))
                         .map((category) => (
                         <TableRow key={category.id}>
                           <TableCell className="font-medium">{category.name}</TableCell>

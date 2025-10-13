@@ -317,7 +317,7 @@ Tim Studio 📸`
       const dpAmount = formatCurrency(reservation.dp_amount)
 
       // Check if customer has paid DP
-      const hasPaidDP = ['partial', 'completed'].includes(reservation.payment_status)
+      const hasPaidDP = ['partial', 'paid'].includes(reservation.payment_status)
       const cancellationDate = reservation.cancelled_at
         ? new Date(reservation.cancelled_at).toLocaleDateString('id-ID', {
           weekday: 'long',

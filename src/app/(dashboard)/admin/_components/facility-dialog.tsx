@@ -159,7 +159,7 @@ export function FacilityDialog({ open, onOpenChange, facility, onFacilitySaved, 
         description: facility.description || "",
         capacity: facility.capacity || 1,
         hourly_rate: facility.hourly_rate || null,
-        is_available: facility.is_available !== undefined ? facility.is_available : true,
+        is_available: facility.is_available ?? true,
         icon: facility.icon || "camera",
         equipment: facility.equipment || {},
       })

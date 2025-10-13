@@ -149,15 +149,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
   const handleSignOut = async () => {
     try {
-      const result = await signOutAction()
-      if (result.success) {
-        toast.success("Logout berhasil")
-        window.location.href = "/staff/login"
-      } else {
-        toast.error("Gagal logout")
-      }
+      await signOutAction()
+      // signOutAction redirects automatically, no need for additional handling
     } catch (error) {
-      toast.error("Terjadi kesalahan")
+      toast.error("Terjadi kesalahan saat logout")
     }
   }
 

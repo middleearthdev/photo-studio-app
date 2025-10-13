@@ -1,6 +1,8 @@
 "use server"
 
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
+import { auth } from '@/lib/auth'
+import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 
 export interface PackageCategory {
@@ -43,45 +45,56 @@ export interface ActionResult<T = any> {
   error?: string
 }
 
+// Helper function to get current user session
+async function getCurrentUser() {
+  const session = await auth.api.getSession({
+    headers: await headers()
+  })
+  return session?.user || null
+}
+
 // Package Categories
 export async function getPackageCategoriesAction(): Promise<ActionResult<PackageCategory[]>> {
   try {
-    const supabase = await createClient()
-
     // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const user = await getCurrentUser()
+    if (!user) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role, studio_id')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true, studio_id: true }
+    })
 
     if (!currentProfile || currentProfile.role !== 'admin') {
       return { success: false, error: 'Insufficient permissions' }
     }
 
     // Get package categories with package counts
-    const { data: categories, error } = await supabase
-      .from('package_categories')
-      .select(`
-        *,
-        packages:packages(count)
-      `)
-      .order('display_order', { ascending: true })
+    const categories = await prisma.packageCategory.findMany({
+      include: {
+        _count: {
+          select: {
+            packages: true
+          }
+        }
+      },
+      orderBy: {
+        display_order: 'asc'
+      }
+    })
 
-    if (error) {
-      console.error('Error fetching package categories:', error)
-      return { success: false, error: 'Failed to fetch package categories' }
-    }
-
-    const transformedCategories: PackageCategory[] = (categories || []).map((category: any) => ({
-      ...category,
-      packages_count: category.packages?.[0]?.count || 0
+    const transformedCategories: PackageCategory[] = categories.map((category) => ({
+      id: category.id,
+      studio_id: category.studio_id || '',
+      name: category.name,
+      description: category.description,
+      display_order: category.display_order || 0,
+      is_active: category.is_active || false,
+      created_at: category.created_at?.toISOString() || '',
+      packages_count: category._count.packages
     }))
 
     return { success: true, data: transformedCategories }
@@ -96,39 +109,31 @@ export async function createPackageCategoryAction(
   categoryData: CreateCategoryData
 ): Promise<ActionResult> {
   try {
-    const supabase = await createClient()
-
     // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const user = await getCurrentUser()
+    if (!user) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true }
+    })
 
     if (!currentProfile || currentProfile.role !== 'admin') {
       return { success: false, error: 'Insufficient permissions' }
     }
 
     // Create package category
-    const { error } = await supabase
-      .from('package_categories')
-      .insert({
+    await prisma.packageCategory.create({
+      data: {
         studio_id: studioId,
         name: categoryData.name,
         description: categoryData.description,
         display_order: categoryData.display_order || 0,
-      })
-
-    if (error) {
-      console.error('Error creating package category:', error)
-      return { success: false, error: error.message }
-    }
+      }
+    })
 
     revalidatePath('/admin/packages/categories')
     return { success: true }
@@ -143,35 +148,27 @@ export async function updatePackageCategoryAction(
   categoryData: UpdateCategoryData
 ): Promise<ActionResult> {
   try {
-    const supabase = await createClient()
-
     // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const user = await getCurrentUser()
+    if (!user) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true }
+    })
 
     if (!currentProfile || currentProfile.role !== 'admin') {
       return { success: false, error: 'Insufficient permissions' }
     }
 
     // Update package category
-    const { error } = await supabase
-      .from('package_categories')
-      .update(categoryData)
-      .eq('id', categoryId)
-
-    if (error) {
-      console.error('Error updating package category:', error)
-      return { success: false, error: error.message }
-    }
+    await prisma.packageCategory.update({
+      where: { id: categoryId },
+      data: categoryData
+    })
 
     revalidatePath('/admin/packages/categories')
     return { success: true }
@@ -183,51 +180,35 @@ export async function updatePackageCategoryAction(
 
 export async function deletePackageCategoryAction(categoryId: string): Promise<ActionResult> {
   try {
-    const supabase = await createClient()
-
     // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const user = await getCurrentUser()
+    if (!user) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true }
+    })
 
     if (!currentProfile || currentProfile.role !== 'admin') {
       return { success: false, error: 'Insufficient permissions' }
     }
 
     // Check if category has packages
-    const { data: packages, error: packagesError } = await supabase
-      .from('packages')
-      .select('id')
-      .eq('category_id', categoryId)
-      .limit(1)
+    const packagesCount = await prisma.package.count({
+      where: { category_id: categoryId }
+    })
 
-    if (packagesError) {
-      console.error('Error checking packages:', packagesError)
-      return { success: false, error: 'Error checking related data' }
-    }
-
-    if (packages && packages.length > 0) {
+    if (packagesCount > 0) {
       return { success: false, error: 'Cannot delete category with existing packages' }
     }
 
     // Delete package category
-    const { error } = await supabase
-      .from('package_categories')
-      .delete()
-      .eq('id', categoryId)
-
-    if (error) {
-      console.error('Error deleting package category:', error)
-      return { success: false, error: error.message }
-    }
+    await prisma.packageCategory.delete({
+      where: { id: categoryId }
+    })
 
     revalidatePath('/admin/packages/categories')
     return { success: true }
@@ -240,42 +221,45 @@ export async function deletePackageCategoryAction(categoryId: string): Promise<A
 // Portfolio Categories
 export async function getPortfolioCategoriesAction(): Promise<ActionResult<PortfolioCategory[]>> {
   try {
-    const supabase = await createClient()
-
     // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const user = await getCurrentUser()
+    if (!user) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role, studio_id')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true, studio_id: true }
+    })
 
     if (!currentProfile || currentProfile.role !== 'admin') {
       return { success: false, error: 'Insufficient permissions' }
     }
 
     // Get portfolio categories with portfolio counts
-    const { data: categories, error } = await supabase
-      .from('portfolio_categories')
-      .select(`
-        *,
-        portfolios:portfolios(count)
-      `)
-      .order('display_order', { ascending: true })
+    const categories = await prisma.portfolioCategory.findMany({
+      include: {
+        _count: {
+          select: {
+            portfolios: true
+          }
+        }
+      },
+      orderBy: {
+        display_order: 'asc'
+      }
+    })
 
-    if (error) {
-      console.error('Error fetching portfolio categories:', error)
-      return { success: false, error: 'Failed to fetch portfolio categories' }
-    }
-
-    const transformedCategories: PortfolioCategory[] = (categories || []).map((category: any) => ({
-      ...category,
-      portfolios_count: category.portfolios?.[0]?.count || 0
+    const transformedCategories: PortfolioCategory[] = categories.map((category) => ({
+      id: category.id,
+      studio_id: category.studio_id || '',
+      name: category.name,
+      description: category.description,
+      display_order: category.display_order || 0,
+      is_active: category.is_active || false,
+      created_at: category.created_at?.toISOString() || '',
+      portfolios_count: category._count.portfolios
     }))
 
     return { success: true, data: transformedCategories }
@@ -290,39 +274,31 @@ export async function createPortfolioCategoryAction(
   categoryData: CreateCategoryData
 ): Promise<ActionResult> {
   try {
-    const supabase = await createClient()
-
     // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const user = await getCurrentUser()
+    if (!user) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true }
+    })
 
     if (!currentProfile || currentProfile.role !== 'admin') {
       return { success: false, error: 'Insufficient permissions' }
     }
 
     // Create portfolio category
-    const { error } = await supabase
-      .from('portfolio_categories')
-      .insert({
+    await prisma.portfolioCategory.create({
+      data: {
         studio_id: studioId,
         name: categoryData.name,
         description: categoryData.description,
         display_order: categoryData.display_order || 0,
-      })
-
-    if (error) {
-      console.error('Error creating portfolio category:', error)
-      return { success: false, error: error.message }
-    }
+      }
+    })
 
     revalidatePath('/admin/portfolio/categories')
     return { success: true }
@@ -337,35 +313,27 @@ export async function updatePortfolioCategoryAction(
   categoryData: UpdateCategoryData
 ): Promise<ActionResult> {
   try {
-    const supabase = await createClient()
-
     // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const user = await getCurrentUser()
+    if (!user) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true }
+    })
 
     if (!currentProfile || currentProfile.role !== 'admin') {
       return { success: false, error: 'Insufficient permissions' }
     }
 
     // Update portfolio category
-    const { error } = await supabase
-      .from('portfolio_categories')
-      .update(categoryData)
-      .eq('id', categoryId)
-
-    if (error) {
-      console.error('Error updating portfolio category:', error)
-      return { success: false, error: error.message }
-    }
+    await prisma.portfolioCategory.update({
+      where: { id: categoryId },
+      data: categoryData
+    })
 
     revalidatePath('/admin/portfolio/categories')
     return { success: true }
@@ -377,51 +345,35 @@ export async function updatePortfolioCategoryAction(
 
 export async function deletePortfolioCategoryAction(categoryId: string): Promise<ActionResult> {
   try {
-    const supabase = await createClient()
-
     // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const user = await getCurrentUser()
+    if (!user) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true }
+    })
 
     if (!currentProfile || currentProfile.role !== 'admin') {
       return { success: false, error: 'Insufficient permissions' }
     }
 
     // Check if category has portfolios
-    const { data: portfolios, error: portfoliosError } = await supabase
-      .from('portfolios')
-      .select('id')
-      .eq('category_id', categoryId)
-      .limit(1)
+    const portfoliosCount = await prisma.portfolio.count({
+      where: { category_id: categoryId }
+    })
 
-    if (portfoliosError) {
-      console.error('Error checking portfolios:', portfoliosError)
-      return { success: false, error: 'Error checking related data' }
-    }
-
-    if (portfolios && portfolios.length > 0) {
+    if (portfoliosCount > 0) {
       return { success: false, error: 'Cannot delete category with existing portfolios' }
     }
 
     // Delete portfolio category
-    const { error } = await supabase
-      .from('portfolio_categories')
-      .delete()
-      .eq('id', categoryId)
-
-    if (error) {
-      console.error('Error deleting portfolio category:', error)
-      return { success: false, error: error.message }
-    }
+    await prisma.portfolioCategory.delete({
+      where: { id: categoryId }
+    })
 
     revalidatePath('/admin/portfolio/categories')
     return { success: true }

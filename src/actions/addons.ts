@@ -1,21 +1,23 @@
 "use server"
 
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
+import { auth } from '@/lib/auth'
+import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
-import { calculatePagination, type PaginatedResult, type PaginationParams } from '@/lib/constants/pagination'
+import { calculatePagination, type PaginatedResult } from '@/lib/constants/pagination'
 
 export interface Addon {
   id: string
-  studio_id: string
+  studio_id: string | null
   facility_id: string | null
   name: string
   description: string | null
   price: number
   type: string | null
-  max_quantity: number
-  is_conditional: boolean
+  max_quantity: number | null
+  is_conditional: boolean | null
   conditional_logic: any
-  is_active: boolean
+  is_active: boolean | null
   created_at: string
   updated_at: string
   // Relations
@@ -49,16 +51,13 @@ export async function checkAddonFacilityAvailabilityAction(
   endTime: string
 ): Promise<ActionResult<boolean>> {
   try {
-    const supabase = await createClient()
-
     // Get addon details to check if it's facility-based
-    const { data: addon, error: addonError } = await supabase
-      .from('addons')
-      .select('facility_id')
-      .eq('id', addonId)
-      .single()
+    const addon = await prisma.addon.findUnique({
+      where: { id: addonId },
+      select: { facility_id: true }
+    })
 
-    if (addonError || !addon) {
+    if (!addon) {
       return { success: false, error: 'Addon not found' }
     }
 
@@ -68,23 +67,41 @@ export async function checkAddonFacilityAvailabilityAction(
     }
 
     // Check if facility is available at the requested time
-    const { data: conflictingReservations } = await supabase
-      .from('reservations')
-      .select(`
-        reservation_addons!inner(
-          addon_id,
-          addon:addons!inner(facility_id)
-        )
-      `)
-      .eq('studio_id', studioId)
-      .eq('reservation_date', date)
-      .eq('reservation_addons.addon.facility_id', addon.facility_id)
-      .in('status', ['pending', 'confirmed', 'in_progress'])
+    const conflictingReservations = await prisma.reservation.findMany({
+      where: {
+        studio_id: studioId,
+        reservation_date: new Date(date),
+        status: {
+          in: ['pending', 'confirmed', 'in_progress']
+        },
+        reservation_addons: {
+          some: {
+            addon: {
+              facility_id: addon.facility_id
+            }
+          }
+        }
+      },
+      include: {
+        reservation_addons: {
+          include: {
+            addon: true
+          }
+        }
+      }
+    })
 
     // Check for time conflicts
+    const requestStart = new Date(`${date} ${startTime}`)
+    const requestEnd = new Date(`${date} ${endTime}`)
+    
     const hasConflict = conflictingReservations?.some(reservation => {
-      // Add your time conflict logic here
-      return true // Simplified for now
+      const reservationDate = reservation.reservation_date.toISOString().split('T')[0]
+      const reservationStart = new Date(`${reservationDate} ${reservation.start_time}`)
+      const reservationEnd = new Date(`${reservationDate} ${reservation.end_time}`)
+      
+      // Check if requested time overlaps with existing reservation
+      return (requestStart < reservationEnd && requestEnd > reservationStart)
     })
 
     return { success: true, data: !hasConflict }
@@ -97,32 +114,50 @@ export async function checkAddonFacilityAvailabilityAction(
 // Public action to get active addons for customers
 export async function getPublicAddonsAction(studioId?: string): Promise<ActionResult<Addon[]>> {
   try {
-    const supabase = await createClient()
-
-    // Build query for active addons only
-    let query = supabase
-      .from('addons')
-      .select(`
-        *,
-        facility:facilities(id, name, icon)
-      `)
-      .eq('is_active', true)
-      .order('type', { ascending: true })
-      .order('name', { ascending: true })
+    const whereClause: any = {
+      is_active: true
+    }
 
     // If studioId is provided, filter by studio
     if (studioId) {
-      query = query.eq('studio_id', studioId)
+      whereClause.studio_id = studioId
     }
 
-    const { data: addons, error } = await query
+    const addons = await prisma.addon.findMany({
+      where: whereClause,
+      include: {
+        facility: {
+          select: {
+            id: true,
+            name: true,
+            icon: true
+          }
+        }
+      },
+      orderBy: [
+        { type: 'asc' },
+        { name: 'asc' }
+      ]
+    })
 
-    if (error) {
-      console.error('Error fetching public addons:', error)
-      return { success: false, error: 'Failed to fetch addons' }
-    }
+    // Transform to match expected interface
+    const transformedAddons: Addon[] = addons.map(addon => ({
+      ...addon,
+      studio_id: addon.studio_id || '',
+      price: Number(addon.price),
+      max_quantity: addon.max_quantity || 1,
+      is_conditional: addon.is_conditional || false,
+      is_active: addon.is_active || false,
+      created_at: addon.created_at?.toISOString() || '',
+      updated_at: addon.updated_at?.toISOString() || '',
+      facility: addon.facility ? {
+        id: addon.facility.id,
+        name: addon.facility.name,
+        icon: addon.facility.icon || undefined
+      } : undefined
+    }))
 
-    return { success: true, data: addons || [] }
+    return { success: true, data: transformedAddons }
   } catch (error: any) {
     console.error('Error in getPublicAddonsAction:', error)
     return { success: false, error: error.message || 'An error occurred' }
@@ -132,43 +167,67 @@ export async function getPublicAddonsAction(studioId?: string): Promise<ActionRe
 // Public action to get package-specific addons
 export async function getPackageAddonsAction(packageId: string): Promise<ActionResult<Addon[]>> {
   try {
-    const supabase = await createClient()
-
     // Get package addons with all related data
-    const { data: packageAddons, error } = await supabase
-      .from('package_addons')
-      .select(`
-        *,
-        addon:addons!inner(
-          *,
-          facility:facilities(id, name, icon)
-        )
-      `)
-      .eq('package_id', packageId)
-      .eq('addon.is_active', true)
-      .order('display_order', { ascending: true })
-
-    if (error) {
-      console.error('Error fetching package addons:', error)
-      return { success: false, error: 'Failed to fetch package addons' }
-    }
-
-    // Transform data to include package addon info
-    const addons: Addon[] = (packageAddons || []).map(pa => {
-      const addon = pa.addon
-      const finalPrice = addon.price * (1 - pa.discount_percentage / 100)
-
-      return {
-        ...addon,
-        package_addon: {
-          is_included: pa.is_included,
-          discount_percentage: pa.discount_percentage,
-          is_recommended: pa.is_recommended,
-          display_order: pa.display_order,
-          final_price: finalPrice
+    const packageAddons = await prisma.packageAddon.findMany({
+      where: {
+        package_id: packageId,
+        addon: {
+          is_active: true
         }
+      },
+      include: {
+        addon: {
+          include: {
+            facility: {
+              select: {
+                id: true,
+                name: true,
+                icon: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: {
+        display_order: 'asc'
       }
     })
+
+    // Transform data to include package addon info
+    const addons: Addon[] = packageAddons
+      .filter(pa => pa.addon !== null)
+      .map(pa => {
+        const addon = pa.addon!
+        const finalPrice = Number(addon.price) * (1 - Number(pa.discount_percentage || 0) / 100)
+
+        return {
+          id: addon.id,
+          studio_id: addon.studio_id || '',
+          facility_id: addon.facility_id,
+          name: addon.name,
+          description: addon.description,
+          price: Number(addon.price),
+          type: addon.type,
+          max_quantity: addon.max_quantity || 1,
+          is_conditional: addon.is_conditional || false,
+          conditional_logic: addon.conditional_logic,
+          is_active: addon.is_active || false,
+          created_at: addon.created_at?.toISOString() || '',
+          updated_at: addon.updated_at?.toISOString() || '',
+          facility: addon.facility ? {
+            id: addon.facility.id,
+            name: addon.facility.name,
+            description: null
+          } : undefined,
+          package_addon: {
+            is_included: pa.is_included || false,
+            discount_percentage: Number(pa.discount_percentage || 0),
+            is_recommended: pa.is_recommended || false,
+            display_order: pa.display_order || 0,
+            final_price: finalPrice
+          }
+        }
+      })
 
     return { success: true, data: addons }
   } catch (error: any) {
@@ -325,6 +384,14 @@ export async function getPublicAddonsGroupedAction(studioId?: string): Promise<A
   }
 }
 
+// Helper function to get current user session
+async function getCurrentUser() {
+  const session = await auth.api.getSession({
+    headers: await headers()
+  })
+  return session?.user || null
+}
+
 // Admin action to assign addon to package
 export async function assignAddonToPackageAction(
   packageId: string,
@@ -337,20 +404,17 @@ export async function assignAddonToPackageAction(
   } = {}
 ): Promise<ActionResult> {
   try {
-    const supabase = await createClient()
-
     // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const user = await getCurrentUser()
+    if (!user) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role, studio_id')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true, studio_id: true }
+    })
 
     if (!currentProfile || !['admin', 'cs'].includes(currentProfile.role)) {
       return { success: false, error: 'Insufficient permissions' }
@@ -358,17 +422,15 @@ export async function assignAddonToPackageAction(
 
     // For CS users, verify they own both the package and addon
     if (currentProfile.role === 'cs') {
-      const { data: packageData } = await supabase
-        .from('packages')
-        .select('studio_id')
-        .eq('id', packageId)
-        .single()
+      const packageData = await prisma.package.findUnique({
+        where: { id: packageId },
+        select: { studio_id: true }
+      })
 
-      const { data: addonData } = await supabase
-        .from('addons')
-        .select('studio_id')
-        .eq('id', addonId)
-        .single()
+      const addonData = await prisma.addon.findUnique({
+        where: { id: addonId },
+        select: { studio_id: true }
+      })
 
       if (!packageData || !addonData ||
         packageData.studio_id !== currentProfile.studio_id ||
@@ -378,21 +440,29 @@ export async function assignAddonToPackageAction(
     }
 
     // Insert or update package-addon relationship
-    const { error } = await supabase
-      .from('package_addons')
-      .upsert({
+    await prisma.packageAddon.upsert({
+      where: {
+        unique_package_addon: {
+          package_id: packageId,
+          addon_id: addonId
+        }
+      },
+      create: {
         package_id: packageId,
         addon_id: addonId,
         is_included: options.is_included || false,
         discount_percentage: options.discount_percentage || 0,
         is_recommended: options.is_recommended || false,
         display_order: options.display_order || 0,
-      })
-
-    if (error) {
-      console.error('Error assigning addon to package:', error)
-      return { success: false, error: error.message }
-    }
+      },
+      update: {
+        is_included: options.is_included || false,
+        discount_percentage: options.discount_percentage || 0,
+        is_recommended: options.is_recommended || false,
+        display_order: options.display_order || 0,
+        updated_at: new Date()
+      }
+    })
 
     revalidatePath('/admin/packages')
     return { success: true }
@@ -405,57 +475,45 @@ export async function assignAddonToPackageAction(
 // Admin action to remove addon from package
 export async function removeAddonFromPackageAction(packageId: string, addonId: string): Promise<ActionResult> {
   try {
-    const supabase = await createClient()
-
     // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const user = await getCurrentUser()
+    if (!user) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role, studio_id')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true, studio_id: true }
+    })
 
     if (!currentProfile || !['admin', 'cs'].includes(currentProfile.role)) {
       return { success: false, error: 'Insufficient permissions' }
     }
 
-    // Build delete query with studio check for CS users
-    const query = supabase
-      .from('package_addons')
-      .delete()
-      .eq('package_id', packageId)
-      .eq('addon_id', addonId)
-
     // For CS users, add additional verification
     if (currentProfile.role === 'cs') {
-      // This is a more complex check - we need to verify via joins
-      const { data: packageAddon } = await supabase
-        .from('package_addons')
-        .select(`
-          *,
-          package:packages!inner(studio_id)
-        `)
-        .eq('package_id', packageId)
-        .eq('addon_id', addonId)
-        .eq('package.studio_id', currentProfile.studio_id)
-        .single()
+      const packageAddon = await prisma.packageAddon.findFirst({
+        where: {
+          package_id: packageId,
+          addon_id: addonId,
+          package: {
+            studio_id: currentProfile.studio_id
+          }
+        }
+      })
 
       if (!packageAddon) {
         return { success: false, error: 'Insufficient permissions for this studio' }
       }
     }
 
-    const { error } = await query
-
-    if (error) {
-      console.error('Error removing addon from package:', error)
-      return { success: false, error: error.message }
-    }
+    await prisma.packageAddon.deleteMany({
+      where: {
+        package_id: packageId,
+        addon_id: addonId
+      }
+    })
 
     revalidatePath('/admin/packages')
     return { success: true }
@@ -476,33 +534,29 @@ export async function bulkAssignAddonsToPackageAction(
   } = {}
 ): Promise<ActionResult<{ assigned: number; skipped: number }>> {
   try {
-    const supabase = await createClient()
-
     // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const user = await getCurrentUser()
+    if (!user) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role, studio_id')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true, studio_id: true }
+    })
 
     if (!currentProfile || !['admin', 'cs'].includes(currentProfile.role)) {
       return { success: false, error: 'Insufficient permissions' }
     }
 
     // Get package details to verify ownership
-    const { data: packageData, error: packageError } = await supabase
-      .from('packages')
-      .select('studio_id')
-      .eq('id', packageId)
-      .single()
+    const packageData = await prisma.package.findUnique({
+      where: { id: packageId },
+      select: { studio_id: true }
+    })
 
-    if (packageError || !packageData) {
+    if (!packageData) {
       return { success: false, error: 'Package not found' }
     }
 
@@ -512,31 +566,25 @@ export async function bulkAssignAddonsToPackageAction(
     }
 
     // Get all addons for the studio
-    const { data: allAddons, error: addonsError } = await supabase
-      .from('addons')
-      .select('id, name, type')
-      .eq('studio_id', packageData.studio_id)
-      .eq('is_active', true)
+    const allAddons = await prisma.addon.findMany({
+      where: {
+        studio_id: packageData.studio_id,
+        is_active: true
+      },
+      select: { id: true, name: true, type: true }
+    })
 
-    if (addonsError) {
-      return { success: false, error: addonsError.message }
-    }
-
-    if (!allAddons || allAddons.length === 0) {
+    if (allAddons.length === 0) {
       return { success: false, error: 'No addons found to assign' }
     }
 
     // Get already assigned addons
-    const { data: existingAssignments, error: existingError } = await supabase
-      .from('package_addons')
-      .select('addon_id')
-      .eq('package_id', packageId)
+    const existingAssignments = await prisma.packageAddon.findMany({
+      where: { package_id: packageId },
+      select: { addon_id: true }
+    })
 
-    if (existingError) {
-      return { success: false, error: existingError.message }
-    }
-
-    const existingAddonIds = new Set(existingAssignments?.map(item => item.addon_id) || [])
+    const existingAddonIds = new Set(existingAssignments.map(item => item.addon_id))
 
     // Filter out already assigned addons
     const availableAddons = allAddons.filter(addon => !existingAddonIds.has(addon.id))
@@ -556,13 +604,9 @@ export async function bulkAssignAddonsToPackageAction(
     }))
 
     // Bulk insert
-    const { error: insertError } = await supabase
-      .from('package_addons')
-      .insert(insertData)
-
-    if (insertError) {
-      return { success: false, error: insertError.message }
-    }
+    await prisma.packageAddon.createMany({
+      data: insertData
+    })
 
     revalidatePath('/admin/packages')
     return {
@@ -581,50 +625,66 @@ export async function bulkAssignAddonsToPackageAction(
 // Admin action to get all addons
 export async function getAddonsAction(studioId?: string): Promise<ActionResult<Addon[]>> {
   try {
-    const supabase = await createClient()
-
     // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const user = await getCurrentUser()
+    if (!user) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role, studio_id')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true, studio_id: true }
+    })
 
     if (!currentProfile || !['admin', 'cs'].includes(currentProfile.role)) {
       return { success: false, error: 'Insufficient permissions' }
     }
 
-    // Build query
-    let query = supabase
-      .from('addons')
-      .select(`
-        *,
-        facility:facilities(id, name, icon)
-      `)
-      .order('type', { ascending: true })
-      .order('name', { ascending: true })
+    const whereClause: any = {}
 
     // Filter by studio - admin can see all, cs only their studio
     if (currentProfile.role === 'cs') {
-      query = query.eq('studio_id', currentProfile.studio_id)
+      whereClause.studio_id = currentProfile.studio_id
     } else if (studioId) {
-      query = query.eq('studio_id', studioId)
+      whereClause.studio_id = studioId
     }
 
-    const { data: addons, error } = await query
+    const addons = await prisma.addon.findMany({
+      where: whereClause,
+      include: {
+        facility: {
+          select: {
+            id: true,
+            name: true,
+            icon: true
+          }
+        }
+      },
+      orderBy: [
+        { type: 'asc' },
+        { name: 'asc' }
+      ]
+    })
 
-    if (error) {
-      console.error('Error fetching addons:', error)
-      return { success: false, error: 'Failed to fetch addons' }
-    }
+    // Transform to match the expected interface
+    const transformedAddons: Addon[] = addons.map(addon => ({
+      ...addon,
+      studio_id: addon.studio_id || '',
+      price: Number(addon.price),
+      max_quantity: addon.max_quantity || 1,
+      is_conditional: addon.is_conditional || false,
+      is_active: addon.is_active || false,
+      created_at: addon.created_at?.toISOString() || '',
+      updated_at: addon.updated_at?.toISOString() || '',
+      facility: addon.facility ? {
+        id: addon.facility.id,
+        name: addon.facility.name,
+        icon: addon.facility.icon || undefined
+      } : undefined
+    }))
 
-    return { success: true, data: addons || [] }
+    return { success: true, data: transformedAddons }
   } catch (error: any) {
     console.error('Error in getAddonsAction:', error)
     return { success: false, error: error.message || 'An error occurred' }
@@ -644,8 +704,6 @@ export async function getPaginatedAddonsAction(
   } = {}
 ): Promise<ActionResult<PaginatedResult<Addon>>> {
   try {
-    const supabase = await createClient()
-
     const {
       studioId,
       page = 1,
@@ -659,81 +717,106 @@ export async function getPaginatedAddonsAction(
     const { offset, pageSize: validPageSize } = calculatePagination(page, pageSize, 0)
 
     // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const user = await getCurrentUser()
+    if (!user) {
       throw new Error('Unauthorized')
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role, studio_id')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true, studio_id: true }
+    })
 
     if (!currentProfile || !['admin', 'cs'].includes(currentProfile.role)) {
       throw new Error('Insufficient permissions')
     }
 
-    // Build query with count for pagination
-    let query = supabase
-      .from('addons')
-      .select(`
-        *,
-        facility:facilities(id, name, icon)
-      `, { count: 'exact' })
-      .order('type', { ascending: true })
-      .order('name', { ascending: true })
+    // Build where clause
+    const whereClause: any = {}
 
     // Filter by studio - admin can see all, cs only their studio
     if (currentProfile.role === 'cs') {
-      query = query.eq('studio_id', currentProfile.studio_id)
+      whereClause.studio_id = currentProfile.studio_id
     } else if (studioId) {
-      query = query.eq('studio_id', studioId)
+      whereClause.studio_id = studioId
     }
 
     // Apply status filter
     if (status === 'active') {
-      query = query.eq('is_active', true)
+      whereClause.is_active = true
     } else if (status === 'inactive') {
-      query = query.eq('is_active', false)
+      whereClause.is_active = false
     }
 
     // Apply type filter
     if (type && type !== 'all') {
-      query = query.eq('type', type)
+      whereClause.type = type
     }
 
     // Apply facility filter
     if (facilityId) {
       if (facilityId === 'general') {
-        query = query.is('facility_id', null)
+        whereClause.facility_id = null
       } else {
-        query = query.eq('facility_id', facilityId)
+        whereClause.facility_id = facilityId
       }
     }
 
     // Apply search filter
     if (search && search.trim()) {
-      query = query.or(`name.ilike.%${search}%,description.ilike.%${search}%`)
+      whereClause.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } }
+      ]
     }
 
-    // Apply pagination
-    const { data, error, count } = await query
-      .range(offset, offset + validPageSize - 1)
+    // Get total count and data
+    const [total, addons] = await Promise.all([
+      prisma.addon.count({ where: whereClause }),
+      prisma.addon.findMany({
+        where: whereClause,
+        include: {
+          facility: {
+            select: {
+              id: true,
+              name: true,
+              icon: true
+            }
+          }
+        },
+        orderBy: [
+          { type: 'asc' },
+          { name: 'asc' }
+        ],
+        skip: offset,
+        take: validPageSize
+      })
+    ])
 
-    if (error) {
-      console.error('Error fetching paginated addons:', error)
-      throw new Error(`Failed to fetch addons: ${error.message}`)
-    }
-
-    const total = count || 0
     const pagination = calculatePagination(page, validPageSize, total)
+
+    // Transform to match expected interface
+    const transformedAddons: Addon[] = addons.map(addon => ({
+      ...addon,
+      studio_id: addon.studio_id || '',
+      price: Number(addon.price),
+      max_quantity: addon.max_quantity || 1,
+      is_conditional: addon.is_conditional || false,
+      is_active: addon.is_active || false,
+      created_at: addon.created_at?.toISOString() || '',
+      updated_at: addon.updated_at?.toISOString() || '',
+      facility: addon.facility ? {
+        id: addon.facility.id,
+        name: addon.facility.name,
+        icon: addon.facility.icon || undefined
+      } : undefined
+    }))
 
     return {
       success: true,
       data: {
-        data: data || [],
+        data: transformedAddons,
         pagination
       }
     }
@@ -759,20 +842,17 @@ export async function createAddonAction(
   }
 ): Promise<ActionResult<Addon>> {
   try {
-    const supabase = await createClient()
-
     // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const user = await getCurrentUser()
+    if (!user) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role, studio_id')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true, studio_id: true }
+    })
 
     if (!currentProfile || !['admin', 'cs'].includes(currentProfile.role)) {
       return { success: false, error: 'Insufficient permissions' }
@@ -784,22 +864,38 @@ export async function createAddonAction(
     }
 
     // Create addon
-    const { data: newAddon, error } = await supabase
-      .from('addons')
-      .insert(addonData)
-      .select(`
-        *,
-        facility:facilities(id, name, icon)
-      `)
-      .single()
+    const newAddon = await prisma.addon.create({
+      data: addonData,
+      include: {
+        facility: {
+          select: {
+            id: true,
+            name: true,
+            icon: true
+          }
+        }
+      }
+    })
 
-    if (error) {
-      console.error('Error creating addon:', error)
-      return { success: false, error: error.message }
+    // Transform to match expected interface
+    const transformedAddon: Addon = {
+      ...newAddon,
+      studio_id: newAddon.studio_id || '',
+      price: Number(newAddon.price),
+      max_quantity: newAddon.max_quantity || 1,
+      is_conditional: newAddon.is_conditional || false,
+      is_active: newAddon.is_active || false,
+      created_at: newAddon.created_at?.toISOString() || '',
+      updated_at: newAddon.updated_at?.toISOString() || '',
+      facility: newAddon.facility ? {
+        id: newAddon.facility.id,
+        name: newAddon.facility.name,
+        icon: newAddon.facility.icon || undefined
+      } : undefined
     }
 
     revalidatePath('/admin/packages/addons')
-    return { success: true, data: newAddon }
+    return { success: true, data: transformedAddon }
   } catch (error: any) {
     console.error('Error in createAddonAction:', error)
     return { success: false, error: error.message || 'Failed to create addon' }
@@ -822,31 +918,27 @@ export async function updateAddonAction(
   }>
 ): Promise<ActionResult<Addon>> {
   try {
-    const supabase = await createClient()
-
     // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const user = await getCurrentUser()
+    if (!user) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role, studio_id')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true, studio_id: true }
+    })
 
     if (!currentProfile || !['admin', 'cs'].includes(currentProfile.role)) {
       return { success: false, error: 'Insufficient permissions' }
     }
 
     // Get current addon to verify ownership
-    const { data: currentAddon } = await supabase
-      .from('addons')
-      .select('studio_id')
-      .eq('id', addonId)
-      .single()
+    const currentAddon = await prisma.addon.findUnique({
+      where: { id: addonId },
+      select: { studio_id: true }
+    })
 
     if (!currentAddon) {
       return { success: false, error: 'Addon not found' }
@@ -858,23 +950,39 @@ export async function updateAddonAction(
     }
 
     // Update addon
-    const { data: updatedAddon, error } = await supabase
-      .from('addons')
-      .update(addonData)
-      .eq('id', addonId)
-      .select(`
-        *,
-        facility:facilities(id, name, icon)
-      `)
-      .single()
+    const updatedAddon = await prisma.addon.update({
+      where: { id: addonId },
+      data: addonData,
+      include: {
+        facility: {
+          select: {
+            id: true,
+            name: true,
+            icon: true
+          }
+        }
+      }
+    })
 
-    if (error) {
-      console.error('Error updating addon:', error)
-      return { success: false, error: error.message }
+    // Transform to match expected interface
+    const transformedAddon: Addon = {
+      ...updatedAddon,
+      studio_id: updatedAddon.studio_id || '',
+      price: Number(updatedAddon.price),
+      max_quantity: updatedAddon.max_quantity || 1,
+      is_conditional: updatedAddon.is_conditional || false,
+      is_active: updatedAddon.is_active || false,
+      created_at: updatedAddon.created_at?.toISOString() || '',
+      updated_at: updatedAddon.updated_at?.toISOString() || '',
+      facility: updatedAddon.facility ? {
+        id: updatedAddon.facility.id,
+        name: updatedAddon.facility.name,
+        icon: updatedAddon.facility.icon || undefined
+      } : undefined
     }
 
     revalidatePath('/admin/packages/addons')
-    return { success: true, data: updatedAddon }
+    return { success: true, data: transformedAddon }
   } catch (error: any) {
     console.error('Error in updateAddonAction:', error)
     return { success: false, error: error.message || 'Failed to update addon' }
@@ -884,31 +992,27 @@ export async function updateAddonAction(
 // Admin action to delete addon
 export async function deleteAddonAction(addonId: string): Promise<ActionResult> {
   try {
-    const supabase = await createClient()
-
     // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const user = await getCurrentUser()
+    if (!user) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role, studio_id')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true, studio_id: true }
+    })
 
     if (!currentProfile || !['admin', 'cs'].includes(currentProfile.role)) {
       return { success: false, error: 'Insufficient permissions' }
     }
 
     // Get current addon to verify ownership
-    const { data: currentAddon } = await supabase
-      .from('addons')
-      .select('studio_id')
-      .eq('id', addonId)
-      .single()
+    const currentAddon = await prisma.addon.findUnique({
+      where: { id: addonId },
+      select: { studio_id: true }
+    })
 
     if (!currentAddon) {
       return { success: false, error: 'Addon not found' }
@@ -920,37 +1024,27 @@ export async function deleteAddonAction(addonId: string): Promise<ActionResult> 
     }
 
     // Check if addon is used in any package addons
-    const { data: packageAddons } = await supabase
-      .from('package_addons')
-      .select('id')
-      .eq('addon_id', addonId)
-      .limit(1)
+    const packageAddonsCount = await prisma.packageAddon.count({
+      where: { addon_id: addonId }
+    })
 
-    if (packageAddons && packageAddons.length > 0) {
+    if (packageAddonsCount > 0) {
       return { success: false, error: 'Cannot delete addon that is assigned to packages. Remove addon from all packages first.' }
     }
 
     // Check if addon is used in any reservation addons
-    const { data: reservationAddons } = await supabase
-      .from('reservation_addons')
-      .select('id')
-      .eq('addon_id', addonId)
-      .limit(1)
+    const reservationAddonsCount = await prisma.reservationAddon.count({
+      where: { addon_id: addonId }
+    })
 
-    if (reservationAddons && reservationAddons.length > 0) {
+    if (reservationAddonsCount > 0) {
       return { success: false, error: 'Cannot delete addon that has been used in reservations.' }
     }
 
     // Delete addon
-    const { error } = await supabase
-      .from('addons')
-      .delete()
-      .eq('id', addonId)
-
-    if (error) {
-      console.error('Error deleting addon:', error)
-      return { success: false, error: error.message }
-    }
+    await prisma.addon.delete({
+      where: { id: addonId }
+    })
 
     revalidatePath('/admin/packages/addons')
     return { success: true }
@@ -963,33 +1057,29 @@ export async function deleteAddonAction(addonId: string): Promise<ActionResult> 
 // Admin action to toggle addon status
 export async function toggleAddonStatusAction(addonId: string): Promise<ActionResult<Addon>> {
   try {
-    const supabase = await createClient()
-
     // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const user = await getCurrentUser()
+    if (!user) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role, studio_id')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true, studio_id: true }
+    })
 
     if (!currentProfile || !['admin', 'cs'].includes(currentProfile.role)) {
       return { success: false, error: 'Insufficient permissions' }
     }
 
     // Get current addon to verify ownership and get current status
-    const { data: currentAddon, error: fetchError } = await supabase
-      .from('addons')
-      .select('studio_id, is_active')
-      .eq('id', addonId)
-      .single()
+    const currentAddon = await prisma.addon.findUnique({
+      where: { id: addonId },
+      select: { studio_id: true, is_active: true }
+    })
 
-    if (fetchError || !currentAddon) {
+    if (!currentAddon) {
       return { success: false, error: 'Addon not found' }
     }
 
@@ -1000,23 +1090,39 @@ export async function toggleAddonStatusAction(addonId: string): Promise<ActionRe
 
     // Toggle status
     const newStatus = !currentAddon.is_active
-    const { data: updatedAddon, error } = await supabase
-      .from('addons')
-      .update({ is_active: newStatus })
-      .eq('id', addonId)
-      .select(`
-        *,
-        facility:facilities(id, name, icon)
-      `)
-      .single()
+    const updatedAddon = await prisma.addon.update({
+      where: { id: addonId },
+      data: { is_active: newStatus },
+      include: {
+        facility: {
+          select: {
+            id: true,
+            name: true,
+            icon: true
+          }
+        }
+      }
+    })
 
-    if (error) {
-      console.error('Error toggling addon status:', error)
-      return { success: false, error: error.message }
+    // Transform to match expected interface
+    const transformedAddon: Addon = {
+      ...updatedAddon,
+      studio_id: updatedAddon.studio_id || '',
+      price: Number(updatedAddon.price),
+      max_quantity: updatedAddon.max_quantity || 1,
+      is_conditional: updatedAddon.is_conditional || false,
+      is_active: updatedAddon.is_active || false,
+      created_at: updatedAddon.created_at?.toISOString() || '',
+      updated_at: updatedAddon.updated_at?.toISOString() || '',
+      facility: updatedAddon.facility ? {
+        id: updatedAddon.facility.id,
+        name: updatedAddon.facility.name,
+        icon: updatedAddon.facility.icon || undefined
+      } : undefined
     }
 
     revalidatePath('/admin/packages/addons')
-    return { success: true, data: updatedAddon }
+    return { success: true, data: transformedAddon }
   } catch (error: any) {
     console.error('Error in toggleAddonStatusAction:', error)
     return { success: false, error: error.message || 'Failed to toggle addon status' }

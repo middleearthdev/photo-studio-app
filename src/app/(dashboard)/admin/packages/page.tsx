@@ -171,7 +171,8 @@ export default function PackagesPage() {
     }).format(amount)
   }
 
-  const formatDuration = (minutes: number) => {
+  const formatDuration = (minutes: number | null) => {
+    if (!minutes) return '0 menit'
     const hours = Math.floor(minutes / 60)
     const mins = minutes % 60
     if (hours > 0 && mins > 0) {
@@ -468,7 +469,7 @@ export default function PackagesPage() {
                             {formatCurrency(pkg.price)}
                           </div>
                           <div className="text-sm text-muted-foreground">
-                            DP {pkg.dp_percentage}% = {formatCurrency((pkg.price * pkg.dp_percentage) / 100)}
+                            DP {pkg.dp_percentage || 30}% = {formatCurrency((pkg.price * (pkg.dp_percentage || 30)) / 100)}
                           </div>
                         </div>
 
@@ -707,7 +708,7 @@ export default function PackagesPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Hapus Paket</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogDescription asChild>
               <div className="space-y-2">
                 <p className="font-semibold text-red-600">⚠️ PERINGATAN: Aksi ini tidak dapat dibatalkan!</p>
                 <p>

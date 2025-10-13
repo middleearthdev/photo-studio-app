@@ -1,18 +1,20 @@
 "use server"
 
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
+import { auth } from '@/lib/auth'
 import { addHours, format, isBefore, startOfDay } from 'date-fns'
+import { headers } from 'next/headers'
 import { PaginationParams, PaginatedResult, calculatePagination } from '@/lib/constants/pagination'
 
 export interface TimeSlot {
   id: string
-  studio_id: string
-  facility_id: string
+  studio_id: string | null
+  facility_id: string | null
   slot_date: string
   start_time: string
   end_time: string
-  is_available: boolean
-  is_blocked: boolean
+  is_available: boolean | null
+  is_blocked: boolean | null
   notes: string | null
   facility?: {
     id: string
@@ -35,9 +37,16 @@ export interface ActionResult<T = any> {
   error?: string
 }
 
+// Helper function to get current user session
+async function getCurrentUser() {
+  const session = await auth.api.getSession({
+    headers: await headers()
+  })
+  return session?.user || null
+}
+
 // Helper function to check if specific facilities are available at a given time
 export async function checkFacilityAvailability(
-  supabase: any,
   studioId: string,
   date: string,
   startTime: Date,
@@ -46,15 +55,10 @@ export async function checkFacilityAvailability(
 ): Promise<boolean> {
   try {
     // Get facilities required by the package
-    const { data: packageFacilities, error: facilityError } = await supabase
-      .from('package_facilities')
-      .select('facility_id')
-      .eq('package_id', packageId)
-
-    if (facilityError) {
-      console.error('Error fetching package facilities:', facilityError)
-      return false
-    }
+    const packageFacilities = await prisma.packageFacility.findMany({
+      where: { package_id: packageId },
+      select: { facility_id: true }
+    })
 
     // If package doesn't require any facilities, it's always available
     if (!packageFacilities || packageFacilities.length === 0) {
@@ -62,30 +66,44 @@ export async function checkFacilityAvailability(
     }
 
     // Get existing reservations that overlap with the requested time slot
-    const { data: conflictingReservations, error: reservationError } = await supabase
-      .from('reservations')
-      .select(`
-        id,
-        selected_facilities
-      `)
-      .eq('studio_id', studioId)
-      .eq('reservation_date', date)
-      .in('status', ['pending', 'confirmed', 'in_progress'])
-      .lt('start_time', endTime.toTimeString().substring(0, 5))
-      .gt('end_time', startTime.toTimeString().substring(0, 5))
-
-    if (reservationError) {
-      console.error('Error fetching conflicting reservations:', reservationError)
-      return false
-    }
+    const conflictingReservations = await prisma.reservation.findMany({
+      where: {
+        studio_id: studioId,
+        reservation_date: new Date(date),
+        status: {
+          in: ['pending', 'confirmed', 'in_progress']
+        },
+        AND: [
+          {
+            start_time: {
+              lt: endTime.toTimeString().substring(0, 5)
+            }
+          },
+          {
+            end_time: {
+              gt: startTime.toTimeString().substring(0, 5)
+            }
+          }
+        ]
+      },
+      select: {
+        id: true,
+        selected_facilities: true
+      }
+    })
 
     // Check if any required facilities are already booked
     const requiredFacilityIds = packageFacilities.map((pf: any) => pf.facility_id)
 
     for (const reservation of conflictingReservations || []) {
       if (reservation.selected_facilities) {
+        // Parse selected_facilities JSON and check conflicts
+        const selectedFacilities = Array.isArray(reservation.selected_facilities)
+          ? reservation.selected_facilities
+          : JSON.parse(reservation.selected_facilities as string)
+        
         // Check if any of the required facilities are already booked
-        for (const facility of reservation.selected_facilities) {
+        for (const facility of selectedFacilities) {
           if (requiredFacilityIds.includes(facility.id)) {
             return false // Facility is already booked
           }
@@ -105,19 +123,19 @@ export async function generateTimeSlotsForDate(
   studioId: string,
   date: string,
   packageDurationMinutes: number = 90,
-  packageId?: string
+  packageId?: string,
+  excludeReservationId?: string
 ): Promise<ActionResult<AvailableSlot[]>> {
   try {
-    const supabase = await createClient()
-    console.log('🔍 generateTimeSlotsForDate:', { studioId, date, packageDurationMinutes, packageId })
+    console.log('🔍 generateTimeSlotsForDate:', { studioId, date, packageDurationMinutes, packageId, excludeReservationId })
+    
     // Get studio operating hours from studio settings
-    const { data: studioData, error: studioError } = await supabase
-      .from('studios')
-      .select('operating_hours, settings')
-      .eq('id', studioId)
-      .single()
+    const studioData = await prisma.studio.findUnique({
+      where: { id: studioId },
+      select: { operating_hours: true, settings: true }
+    })
 
-    if (studioError || !studioData) {
+    if (!studioData) {
       return { success: false, error: 'Studio not found' }
     }
 
@@ -136,12 +154,11 @@ export async function generateTimeSlotsForDate(
       sunday: { open: '10:00', close: '16:00', isOpen: false }
     }
 
-    const operatingHours = studioData.operating_hours || defaultHours
+    const operatingHours = (studioData.operating_hours as any) || defaultHours
     const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
     const dayName = dayNames[dayOfWeek]
     const dayHours = operatingHours[dayName]
 
-    console.log('dayHours', dayHours)
     console.log('dayHours', dayHours)
 
     // Check if studio is open on this day
@@ -151,74 +168,81 @@ export async function generateTimeSlotsForDate(
 
     // Pre-fetch all required data in parallel to avoid N+1 queries
     const [
-      reservationsResult,
-      blockedSlotsResult,
-      packageFacilitiesResult,
-      allReservationsForFacilityCheckResult
+      existingReservations,
+      blockedSlots,
+      packageFacilities,
+      allReservationsForFacilityCheck
     ] = await Promise.all([
       // Get existing reservations for this date and studio with their facilities
-      supabase
-        .from('reservations')
-        .select(`
-          start_time, 
-          end_time, 
-          total_duration,
-          selected_facilities
-        `)
-        .eq('studio_id', studioId)
-        .eq('reservation_date', date)
-        .in('status', ['pending', 'confirmed', 'in_progress']),
+      prisma.reservation.findMany({
+        where: {
+          studio_id: studioId,
+          reservation_date: new Date(date),
+          status: {
+            in: ['pending', 'confirmed', 'in_progress']
+          },
+          ...(excludeReservationId && {
+            id: {
+              not: excludeReservationId
+            }
+          })
+        },
+        select: {
+          start_time: true,
+          end_time: true,
+          total_duration: true,
+          selected_facilities: true
+        }
+      }),
 
       // Get blocked time slots with facility info
-      supabase
-        .from('time_slots')
-        .select('start_time, end_time, facility_id')
-        .eq('studio_id', studioId)
-        .eq('slot_date', date)
-        .eq('is_blocked', true),
+      prisma.timeSlot.findMany({
+        where: {
+          studio_id: studioId,
+          slot_date: new Date(date),
+          is_blocked: true
+        },
+        select: {
+          start_time: true,
+          end_time: true,
+          facility_id: true
+        }
+      }),
 
       // Get package facilities once if packageId provided
-      packageId ? supabase
-        .from('package_facilities')
-        .select('facility_id')
-        .eq('package_id', packageId) : { data: null, error: null },
+      packageId ? prisma.packageFacility.findMany({
+        where: { package_id: packageId },
+        select: { facility_id: true }
+      }) : null,
 
       // Get ALL reservations for the date for facility conflict checking
-      packageId ? supabase
-        .from('reservations')
-        .select(`
-          id,
-          start_time,
-          end_time,
-          selected_facilities
-        `)
-        .eq('studio_id', studioId)
-        .eq('reservation_date', date)
-        .in('status', ['pending', 'confirmed', 'in_progress']) : { data: null, error: null }
+      packageId ? prisma.reservation.findMany({
+        where: {
+          studio_id: studioId,
+          reservation_date: new Date(date),
+          status: {
+            in: ['pending', 'confirmed', 'in_progress']
+          },
+          ...(excludeReservationId && {
+            id: {
+              not: excludeReservationId
+            }
+          })
+        },
+        select: {
+          id: true,
+          start_time: true,
+          end_time: true,
+          selected_facilities: true
+        }
+      }) : null
     ])
-
-    // Extract data and handle errors
-    const existingReservations = reservationsResult.data
-    const blockedSlots = blockedSlotsResult.data
-    const packageFacilities = packageFacilitiesResult.data
-    const allReservationsForFacilityCheck = allReservationsForFacilityCheckResult.data
-
-    if (reservationsResult.error) {
-      console.error('Error fetching reservations:', reservationsResult.error)
-    }
-    if (blockedSlotsResult.error) {
-      console.error('Error fetching blocked slots:', blockedSlotsResult.error)
-    }
-    if (packageFacilitiesResult.error) {
-      console.error('Error fetching package facilities:', packageFacilitiesResult.error)
-    }
-    if (allReservationsForFacilityCheckResult.error) {
-      console.error('Error fetching facility check reservations:', allReservationsForFacilityCheckResult.error)
-    }
 
     // Pre-calculate required facility IDs for faster lookup
     const requiredFacilityIds = packageFacilities?.map((pf: any) => pf.facility_id) || []
     console.log('📦 Package facilities required:', requiredFacilityIds)
+    console.log('🔍 Existing reservations found:', existingReservations?.length || 0, 
+                excludeReservationId ? `(excluding ${excludeReservationId})` : '')
 
     // Generate available time slots
     const slots: AvailableSlot[] = []
@@ -249,14 +273,13 @@ export async function generateTimeSlotsForDate(
       const slotEndTimeString = format(slotEndTime, 'HH:mm')
 
       // Check if this slot conflicts with existing reservations
-      // Logic berdasarkan ada/tidaknya facility requirement
       let isConflictingWithReservation = false
 
       if (packageId && requiredFacilityIds.length > 0) {
-        // Package DENGAN facility requirements - check facility conflict
-        isConflictingWithReservation = existingReservations?.some(reservation => {
-          const reservationStart = new Date(`${date} ${reservation.start_time}`)
-          const reservationEnd = new Date(`${date} ${reservation.end_time}`)
+        // Package WITH facility requirements - check facility conflict
+        isConflictingWithReservation = existingReservations?.some((reservation: any) => {
+          const reservationStart = new Date(`${date} ${reservation.start_time.toTimeString().substring(0, 5)}`)
+          const reservationEnd = new Date(`${date} ${reservation.end_time.toTimeString().substring(0, 5)}`)
 
           // Check time overlap
           const timeOverlap = (
@@ -267,15 +290,19 @@ export async function generateTimeSlotsForDate(
 
           // Only conflict if there's time overlap AND facility conflict
           if (timeOverlap && reservation.selected_facilities) {
-            const hasConflictingFacility = reservation.selected_facilities.some((facility: any) =>
+            const selectedFacilities = Array.isArray(reservation.selected_facilities)
+              ? reservation.selected_facilities
+              : JSON.parse(reservation.selected_facilities as string)
+            
+            const hasConflictingFacility = selectedFacilities.some((facility: any) =>
               requiredFacilityIds.includes(facility.id)
             )
             if (hasConflictingFacility) {
               console.log('⚠️  Facility conflict detected:', {
                 time: timeString,
                 requiredFacilities: requiredFacilityIds,
-                reservedFacilities: reservation.selected_facilities.map((f: any) => f.id),
-                reservationTime: `${reservation.start_time}-${reservation.end_time}`
+                reservedFacilities: selectedFacilities.map((f: any) => f.id),
+                reservationTime: `${reservation.start_time.toTimeString().substring(0, 5)}-${reservation.end_time.toTimeString().substring(0, 5)}`
               })
             }
             return hasConflictingFacility
@@ -283,11 +310,10 @@ export async function generateTimeSlotsForDate(
           return false
         }) || false
       } else if (packageId && requiredFacilityIds.length === 0) {
-        // Package TANPA facility requirements - hanya conflict jika ada reservation yang overlap waktu
-        // Package tanpa facility requirements bisa booking asal tidak bentrok dengan reservation lain
-        isConflictingWithReservation = existingReservations?.some(reservation => {
-          const reservationStart = new Date(`${date} ${reservation.start_time}`)
-          const reservationEnd = new Date(`${date} ${reservation.end_time}`)
+        // Package WITHOUT facility requirements - only conflict if time overlap
+        isConflictingWithReservation = existingReservations?.some((reservation: any) => {
+          const reservationStart = new Date(`${date} ${reservation.start_time.toTimeString().substring(0, 5)}`)
+          const reservationEnd = new Date(`${date} ${reservation.end_time.toTimeString().substring(0, 5)}`)
 
           // Check time overlap
           const timeOverlap = (
@@ -300,7 +326,7 @@ export async function generateTimeSlotsForDate(
             console.log('⚠️  Time conflict for package without facilities:', {
               time: timeString,
               packageId,
-              reservationTime: `${reservation.start_time}-${reservation.end_time}`,
+              reservationTime: `${reservation.start_time.toTimeString().substring(0, 5)}-${reservation.end_time.toTimeString().substring(0, 5)}`,
               reason: 'Time slot overlap with existing reservation'
             })
           }
@@ -315,14 +341,14 @@ export async function generateTimeSlotsForDate(
         })
       }
 
-      // Check if this slot is blocked - need to check facility-specific blocks
+      // Check if this slot is blocked
       let isBlocked = false
 
       if (packageId && requiredFacilityIds.length > 0) {
-        // Package DENGAN facility requirements - check if any required facilities are blocked
-        isBlocked = blockedSlots?.some(blocked => {
-          const blockedStart = new Date(`${date} ${blocked.start_time}`)
-          const blockedEnd = new Date(`${date} ${blocked.end_time}`)
+        // Package WITH facility requirements - check if any required facilities are blocked
+        isBlocked = blockedSlots?.some((blocked: any) => {
+          const blockedStart = new Date(`${date} ${blocked.start_time.toTimeString().substring(0, 5)}`)
+          const blockedEnd = new Date(`${date} ${blocked.end_time.toTimeString().substring(0, 5)}`)
 
           const timeOverlap = (
             (currentTime >= blockedStart && currentTime < blockedEnd) ||
@@ -331,12 +357,10 @@ export async function generateTimeSlotsForDate(
           )
 
           // Only blocked if there's time overlap AND the blocked facility is required by this package
-          // Note: blocked.facility_id should be checked against required facilities
           return timeOverlap && requiredFacilityIds.includes(blocked.facility_id)
         }) || false
       } else if (packageId && requiredFacilityIds.length === 0) {
-        // Package TANPA facility requirements - tidak terpengaruh oleh facility blocks
-        // Hanya terblokir jika ada general time block (yang seharusnya jarang)
+        // Package WITHOUT facility requirements - not affected by facility blocks
         isBlocked = false
         console.log('✅ Package without facilities - not affected by facility blocks:', {
           time: timeString,
@@ -344,9 +368,9 @@ export async function generateTimeSlotsForDate(
         })
       } else {
         // No package specified - use general blocking logic
-        isBlocked = blockedSlots?.some(blocked => {
-          const blockedStart = new Date(`${date} ${blocked.start_time}`)
-          const blockedEnd = new Date(`${date} ${blocked.end_time}`)
+        isBlocked = blockedSlots?.some((blocked: any) => {
+          const blockedStart = new Date(`${date} ${blocked.start_time.toTimeString().substring(0, 5)}`)
+          const blockedEnd = new Date(`${date} ${blocked.end_time.toTimeString().substring(0, 5)}`)
 
           return (
             (currentTime >= blockedStart && currentTime < blockedEnd) ||
@@ -410,21 +434,19 @@ export async function getAvailableTimeSlotsAction(
   studioId: string,
   date: string,
   packageDurationMinutes: number = 90,
-  packageId?: string
+  packageId?: string,
+  excludeReservationId?: string
 ): Promise<ActionResult<AvailableSlot[]>> {
   try {
     // Validate date is not in the past
     const targetDate = new Date(date)
     const today = startOfDay(new Date())
 
-
     if (isBefore(targetDate, today)) {
       return { success: true, data: [] } // No slots for past dates
     }
 
-
-
-    return await generateTimeSlotsForDate(studioId, date, packageDurationMinutes, packageId)
+    return await generateTimeSlotsForDate(studioId, date, packageDurationMinutes, packageId, excludeReservationId)
   } catch (error: any) {
     console.error('Error in getAvailableTimeSlotsAction:', error)
     return { success: false, error: error.message || 'An error occurred' }
@@ -434,55 +456,62 @@ export async function getAvailableTimeSlotsAction(
 // Admin action to get all time slots for management
 export async function getTimeSlotsAction(studioId?: string, date?: string): Promise<ActionResult<TimeSlot[]>> {
   try {
-    const supabase = await createClient()
-
     // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const user = await getCurrentUser()
+    if (!user) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role, studio_id')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true, studio_id: true }
+    })
 
     if (!currentProfile || !['admin', 'cs'].includes(currentProfile.role)) {
       return { success: false, error: 'Insufficient permissions' }
     }
 
-    // Build query
-    let query = supabase
-      .from('time_slots')
-      .select(`
-        *,
-        facility:facilities(id, name)
-      `)
-      .order('slot_date', { ascending: true })
-      .order('start_time', { ascending: true })
+    // Build where clause
+    const where: any = {}
 
     // Filter by studio - admin can see all, cs only their studio
     if (currentProfile.role === 'cs') {
-      query = query.eq('studio_id', currentProfile.studio_id)
+      where.studio_id = currentProfile.studio_id
     } else if (studioId) {
-      query = query.eq('studio_id', studioId)
+      where.studio_id = studioId
     }
 
     // Filter by date if specified
     if (date) {
-      query = query.eq('slot_date', date)
+      where.slot_date = new Date(date)
     }
 
-    const { data: timeSlots, error } = await query
+    const timeSlots = await prisma.timeSlot.findMany({
+      where,
+      include: {
+        facility: {
+          select: {
+            id: true,
+            name: true,
+            capacity: true
+          }
+        }
+      },
+      orderBy: [
+        { slot_date: 'asc' },
+        { start_time: 'asc' }
+      ]
+    })
 
-    if (error) {
-      console.error('Error fetching time slots:', error)
-      return { success: false, error: 'Failed to fetch time slots' }
-    }
+    const formattedTimeSlots: TimeSlot[] = timeSlots.map((slot: any) => ({
+      ...slot,
+      slot_date: slot.slot_date.toISOString().split('T')[0],
+      start_time: slot.start_time.toTimeString().substring(0, 5),
+      end_time: slot.end_time.toTimeString().substring(0, 5)
+    }))
 
-    return { success: true, data: timeSlots || [] }
+    return { success: true, data: formattedTimeSlots }
   } catch (error: any) {
     console.error('Error in getTimeSlotsAction:', error)
     return { success: false, error: error.message || 'An error occurred' }
@@ -500,20 +529,17 @@ export async function createTimeSlotAction(
   notes?: string
 ): Promise<ActionResult> {
   try {
-    const supabase = await createClient()
-
     // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const user = await getCurrentUser()
+    if (!user) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role, studio_id')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true, studio_id: true }
+    })
 
     if (!currentProfile) {
       return { success: false, error: 'User profile not found' }
@@ -529,49 +555,40 @@ export async function createTimeSlotAction(
     }
 
     // Create the time slot
-    const { error } = await supabase
-      .from('time_slots')
-      .insert({
+    await prisma.timeSlot.create({
+      data: {
         studio_id: studioId,
         facility_id: facilityId,
-        slot_date: date,
-        start_time: startTime,
-        end_time: endTime,
+        slot_date: new Date(date),
+        start_time: new Date(`1970-01-01T${startTime}:00`),
+        end_time: new Date(`1970-01-01T${endTime}:00`),
         is_blocked: isBlocked,
         is_available: !isBlocked, // If blocked, not available; if not blocked, available
         notes: notes || null
-      })
-
-    if (error) {
-      console.error('Error creating time slot:', error)
-      return { success: false, error: `Failed to create time slot: ${error.message}` }
-    }
+      }
+    })
 
     return { success: true }
   } catch (error: any) {
     console.error('Error in createTimeSlotAction:', error)
-    return { success: false, error: error.message || 'An error occurred' }
+    return { success: false, error: error.message || 'Failed to create time slot' }
   }
 }
-
 
 // Admin action to delete a time slot
 export async function deleteTimeSlotAction(id: string): Promise<ActionResult> {
   try {
-    const supabase = await createClient()
-
     // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const user = await getCurrentUser()
+    if (!user) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role, studio_id')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true, studio_id: true }
+    })
 
     if (!currentProfile) {
       return { success: false, error: 'User profile not found' }
@@ -579,11 +596,10 @@ export async function deleteTimeSlotAction(id: string): Promise<ActionResult> {
 
     // Check permissions - admin can manage all studios, cs can only manage their studio
     // First get the time slot to check studio ownership
-    const { data: timeSlot } = await supabase
-      .from('time_slots')
-      .select('studio_id')
-      .eq('id', id)
-      .single()
+    const timeSlot = await prisma.timeSlot.findUnique({
+      where: { id },
+      select: { studio_id: true }
+    })
 
     if (!timeSlot) {
       return { success: false, error: 'Time slot not found' }
@@ -598,20 +614,14 @@ export async function deleteTimeSlotAction(id: string): Promise<ActionResult> {
     }
 
     // Delete the time slot
-    const { error } = await supabase
-      .from('time_slots')
-      .delete()
-      .eq('id', id)
-
-    if (error) {
-      console.error('Error deleting time slot:', error)
-      return { success: false, error: `Failed to delete time slot: ${error.message}` }
-    }
+    await prisma.timeSlot.delete({
+      where: { id }
+    })
 
     return { success: true }
   } catch (error: any) {
     console.error('Error in deleteTimeSlotAction:', error)
-    return { success: false, error: error.message || 'An error occurred' }
+    return { success: false, error: error.message || 'Failed to delete time slot' }
   }
 }
 
@@ -621,20 +631,17 @@ export async function toggleTimeSlotBlockingAction(
   isBlocked: boolean
 ): Promise<ActionResult> {
   try {
-    const supabase = await createClient()
-
     // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const user = await getCurrentUser()
+    if (!user) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role, studio_id')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true, studio_id: true }
+    })
 
     if (!currentProfile) {
       return { success: false, error: 'User profile not found' }
@@ -642,11 +649,10 @@ export async function toggleTimeSlotBlockingAction(
 
     // Check permissions - admin can manage all studios, cs can only manage their studio
     // First get the time slot to check studio ownership
-    const { data: timeSlot } = await supabase
-      .from('time_slots')
-      .select('studio_id')
-      .eq('id', id)
-      .single()
+    const timeSlot = await prisma.timeSlot.findUnique({
+      where: { id },
+      select: { studio_id: true }
+    })
 
     if (!timeSlot) {
       return { success: false, error: 'Time slot not found' }
@@ -661,23 +667,18 @@ export async function toggleTimeSlotBlockingAction(
     }
 
     // Update the time slot blocking status
-    const { error } = await supabase
-      .from('time_slots')
-      .update({
+    await prisma.timeSlot.update({
+      where: { id },
+      data: {
         is_blocked: isBlocked,
         is_available: !isBlocked // If blocked, not available; if not blocked, available
-      })
-      .eq('id', id)
-
-    if (error) {
-      console.error('Error toggling time slot blocking:', error)
-      return { success: false, error: `Failed to update time slot: ${error.message}` }
-    }
+      }
+    })
 
     return { success: true }
   } catch (error: any) {
     console.error('Error in toggleTimeSlotBlockingAction:', error)
-    return { success: false, error: error.message || 'An error occurred' }
+    return { success: false, error: error.message || 'Failed to update time slot' }
   }
 }
 
@@ -693,8 +694,6 @@ export async function getPaginatedTimeSlots(
   } = {}
 ): Promise<PaginatedResult<TimeSlot>> {
   try {
-    const supabase = await createClient();
-
     // Set defaults for params
     const {
       page = 1,
@@ -705,85 +704,103 @@ export async function getPaginatedTimeSlots(
       facilityId,
       startDate,
       endDate
-    } = params;
+    } = params
 
-    const { offset, pageSize: validPageSize } = calculatePagination(page, pageSize, 0);
+    const { offset, pageSize: validPageSize } = calculatePagination(page, pageSize, 0)
 
     // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const user = await getCurrentUser()
+    if (!user) {
       throw new Error('Unauthorized')
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role, studio_id')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true, studio_id: true }
+    })
 
     if (!currentProfile || !['admin', 'cs'].includes(currentProfile.role)) {
       throw new Error('Insufficient permissions')
     }
 
-    // Build query
-    let query = supabase
-      .from('time_slots')
-      .select(`
-        *,
-        facility:facilities(id, name)
-      `, { count: 'exact' })
-      .order('slot_date', { ascending: true })
-      .order('start_time', { ascending: true })
+    // Build where clause
+    const where: any = {}
 
     // Filter by studio - admin can see all, cs only their studio
     if (currentProfile.role === 'cs') {
-      query = query.eq('studio_id', currentProfile.studio_id)
+      where.studio_id = currentProfile.studio_id
     } else if (studioId) {
-      query = query.eq('studio_id', studioId)
+      where.studio_id = studioId
     }
 
     // Apply status filter
     if (status === 'available') {
-      query = query.eq('is_available', true).eq('is_blocked', false)
+      where.is_available = true
+      where.is_blocked = false
     } else if (status === 'blocked') {
-      query = query.eq('is_blocked', true)
+      where.is_blocked = true
     } else if (status === 'unavailable') {
-      query = query.eq('is_available', false)
+      where.is_available = false
     }
 
     // Apply facility filter
     if (facilityId) {
-      query = query.eq('facility_id', facilityId)
+      where.facility_id = facilityId
     }
 
     // Apply date range filter
     if (startDate && endDate) {
-      query = query.gte('slot_date', startDate).lte('slot_date', endDate)
+      where.slot_date = {
+        gte: new Date(startDate),
+        lte: new Date(endDate)
+      }
     } else if (startDate) {
-      query = query.eq('slot_date', startDate)
+      where.slot_date = new Date(startDate)
     }
 
     // Apply search filter
-    const searchStr = search ?? '';
-    if (typeof searchStr === 'string' && searchStr.trim()) {
-      query = query.or(`notes.ilike.%${searchStr}%`);
+    if (search && search.trim()) {
+      where.notes = {
+        contains: search,
+        mode: 'insensitive'
+      }
     }
 
-    // Apply pagination
-    const { data, error, count } = await query
-      .range(offset, offset + validPageSize - 1)
+    // Get data with count
+    const [timeSlots, total] = await Promise.all([
+      prisma.timeSlot.findMany({
+        where,
+        include: {
+          facility: {
+            select: {
+              id: true,
+              name: true,
+              capacity: true
+            }
+          }
+        },
+        orderBy: [
+          { slot_date: 'asc' },
+          { start_time: 'asc' }
+        ],
+        skip: offset,
+        take: validPageSize
+      }),
+      prisma.timeSlot.count({ where })
+    ])
 
-    if (error) {
-      console.error('Error fetching paginated time slots:', error)
-      throw new Error(`Failed to fetch time slots: ${error.message}`)
-    }
+    const formattedData: TimeSlot[] = timeSlots.map((slot: any) => ({
+      ...slot,
+      slot_date: slot.slot_date.toISOString().split('T')[0],
+      start_time: slot.start_time.toTimeString().substring(0, 5),
+      end_time: slot.end_time.toTimeString().substring(0, 5)
+    }))
 
-    const total = count || 0
     const pagination = calculatePagination(page, validPageSize, total)
 
     return {
-      data: data || [],
+      data: formattedData,
       pagination
     }
   } catch (error: any) {
@@ -802,20 +819,17 @@ export async function bulkCreateTimeSlotsAction(
   skipWeekends: boolean = false
 ): Promise<ActionResult> {
   try {
-    const supabase = await createClient()
-
     // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const user = await getCurrentUser()
+    if (!user) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role, studio_id')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true, studio_id: true }
+    })
 
     if (!currentProfile) {
       return { success: false, error: 'User profile not found' }
@@ -850,9 +864,9 @@ export async function bulkCreateTimeSlotsAction(
         timeSlotsToCreate.push({
           studio_id: studioId,
           facility_id: facilityId,
-          slot_date: date,
-          start_time: range.startTime,
-          end_time: range.endTime,
+          slot_date: new Date(date),
+          start_time: new Date(`1970-01-01T${range.startTime}:00`),
+          end_time: new Date(`1970-01-01T${range.endTime}:00`),
           is_available: false,
           is_blocked: true
         })
@@ -860,18 +874,13 @@ export async function bulkCreateTimeSlotsAction(
     }
 
     // Insert all time slots
-    const { error } = await supabase
-      .from('time_slots')
-      .insert(timeSlotsToCreate)
-
-    if (error) {
-      console.error('Error bulk creating time slots:', error)
-      return { success: false, error: `Failed to create time slots: ${error.message}` }
-    }
+    await prisma.timeSlot.createMany({
+      data: timeSlotsToCreate
+    })
 
     return { success: true }
   } catch (error: any) {
     console.error('Error in bulkCreateTimeSlotsAction:', error)
-    return { success: false, error: error.message || 'An error occurred' }
+    return { success: false, error: error.message || 'Failed to create time slots' }
   }
 }

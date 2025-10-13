@@ -1,18 +1,20 @@
 "use server"
 
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
+import { auth } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
+import { headers } from 'next/headers'
 import { PaginationParams, PaginatedResult, calculatePagination } from '@/lib/constants/pagination'
 
 export interface Facility {
   id: string
-  studio_id: string
+  studio_id: string | null
   name: string
   description: string | null
   capacity: number
   equipment: Record<string, boolean>
   hourly_rate: number | null
-  is_available: boolean
+  is_available: boolean | null
   icon: string | null
   created_at: string
   updated_at: string
@@ -40,45 +42,48 @@ export interface ActionResult<T = unknown> {
 
 export async function getFacilitiesAction(studioId?: string): Promise<ActionResult<Facility[]>> {
   try {
-    const supabase = await createClient()
-
-    // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    // Get current user session
+    const session = await auth.api.getSession({
+      headers: await headers()
+    })
+    
+    if (!session?.user) {
       return { success: false, error: 'Unauthorized' }
     }
 
-    // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role, studio_id')
-      .eq('id', user.id)
-      .single()
+    // Get current user with role
+    const currentUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, studio_id: true }
+    })
 
-    if (!currentProfile || currentProfile.role !== 'admin') {
+    if (!currentUser || currentUser.role !== 'admin') {
       return { success: false, error: 'Insufficient permissions' }
     }
 
-    // Build query
-    let query = supabase
-      .from('facilities')
-      .select('*')
-      .order('created_at', { ascending: false })
-
     // Filter by studio if specified, otherwise use user's studio
-    const targetStudioId = studioId || currentProfile.studio_id
+    const targetStudioId = studioId || currentUser.studio_id
+    const where: any = {}
     if (targetStudioId) {
-      query = query.eq('studio_id', targetStudioId)
+      where.studio_id = targetStudioId
     }
 
-    const { data: facilities, error } = await query
+    const facilities = await prisma.facility.findMany({
+      where,
+      orderBy: { created_at: 'desc' }
+    })
 
-    if (error) {
-      console.error('Error fetching facilities:', error)
-      return { success: false, error: 'Failed to fetch facilities' }
-    }
+    const formattedFacilities = facilities.map(facility => ({
+      ...facility,
+      created_at: facility.created_at?.toISOString() || '',
+      updated_at: facility.updated_at?.toISOString() || '',
+      capacity: facility.capacity || 1,
+      equipment: facility.equipment as Record<string, boolean> || {},
+      hourly_rate: facility.hourly_rate ? Number(facility.hourly_rate) : null,
+      is_available: facility.is_available || false
+    }))
 
-    return { success: true, data: facilities || [] }
+    return { success: true, data: formattedFacilities }
   } catch (error: unknown) {
     console.error('Error in getFacilitiesAction:', error)
     const errorMessage = error instanceof Error ? error.message : 'An error occurred'
@@ -93,80 +98,95 @@ export async function getPaginatedFacilities(
     status?: 'available' | 'unavailable' | 'all'
   } = {}
 ): Promise<PaginatedResult<Facility>> {
-  const supabase = await createClient()
-
   const { page = 1, pageSize = 10, search = '', status = 'all' } = params
   const { offset, pageSize: validPageSize } = calculatePagination(page, pageSize, 0)
 
-  // Build the query
-  let query = supabase
-    .from('facilities')
-    .select('*', { count: 'exact' })
-    .eq('studio_id', studioId)
+  // Build where clause
+  const where: any = { studio_id: studioId }
 
   // Apply filters
   if (status !== 'all') {
-    query = query.eq('is_available', status === 'available')
+    where.is_available = status === 'available'
   }
 
   // Apply search
   if (search.trim()) {
-    query = query.or(`name.ilike.%${search}%,description.ilike.%${search}%`)
+    where.OR = [
+      { name: { contains: search, mode: 'insensitive' } },
+      { description: { contains: search, mode: 'insensitive' } }
+    ]
   }
 
-  // Apply pagination and ordering
-  const { data, error, count } = await query
-    .order('created_at', { ascending: false })
-    .range(offset, offset + validPageSize - 1)
+  // Get facilities with count
+  const [facilities, total] = await Promise.all([
+    prisma.facility.findMany({
+      where,
+      orderBy: { created_at: 'desc' },
+      skip: offset,
+      take: validPageSize
+    }),
+    prisma.facility.count({ where })
+  ])
 
-  if (error) {
-    console.error('Error fetching paginated facilities:', error)
-    throw new Error(`Failed to fetch facilities: ${error.message}`)
-  }
-
-  const total = count || 0
   const pagination = calculatePagination(page, validPageSize, total)
 
+  const formattedFacilities = facilities.map(facility => ({
+    ...facility,
+    created_at: facility.created_at?.toISOString() || '',
+    updated_at: facility.updated_at?.toISOString() || '',
+    capacity: facility.capacity || 1,
+    equipment: facility.equipment as Record<string, boolean> || {},
+    hourly_rate: facility.hourly_rate ? Number(facility.hourly_rate) : null,
+    is_available: facility.is_available || false
+  }))
+
   return {
-    data: data || [],
+    data: formattedFacilities,
     pagination
   }
 }
 
 export async function getFacilityAction(facilityId: string): Promise<ActionResult<Facility>> {
   try {
-    const supabase = await createClient()
-
-    // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    // Get current user session
+    const session = await auth.api.getSession({
+      headers: await headers()
+    })
+    
+    if (!session?.user) {
       return { success: false, error: 'Unauthorized' }
     }
 
-    // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role, studio_id')
-      .eq('id', user.id)
-      .single()
+    // Get current user with role
+    const currentUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, studio_id: true }
+    })
 
-    if (!currentProfile || currentProfile.role !== 'admin') {
+    if (!currentUser || currentUser.role !== 'admin') {
       return { success: false, error: 'Insufficient permissions' }
     }
 
     // Get facility
-    const { data: facility, error } = await supabase
-      .from('facilities')
-      .select('*')
-      .eq('id', facilityId)
-      .single()
+    const facility = await prisma.facility.findUnique({
+      where: { id: facilityId }
+    })
 
-    if (error) {
-      console.error('Error fetching facility:', error)
+    if (!facility) {
       return { success: false, error: 'Facility not found' }
     }
 
-    return { success: true, data: facility }
+    const formattedFacility = {
+      ...facility,
+      created_at: facility.created_at?.toISOString() || '',
+      updated_at: facility.updated_at?.toISOString() || '',
+      capacity: facility.capacity || 1,
+      equipment: facility.equipment as Record<string, boolean> || {},
+      hourly_rate: facility.hourly_rate ? Number(facility.hourly_rate) : null,
+      is_available: facility.is_available || false
+    }
+
+    return { success: true, data: formattedFacility }
   } catch (error: unknown) {
     console.error('Error in getFacilityAction:', error)
     const errorMessage = error instanceof Error ? error.message : 'An error occurred'
@@ -176,32 +196,35 @@ export async function getFacilityAction(facilityId: string): Promise<ActionResul
 
 export async function createFacilityAction(facilityData: CreateFacilityData): Promise<ActionResult> {
   try {
-    const supabase = await createClient()
-
-    // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    // Get current user session
+    const session = await auth.api.getSession({
+      headers: await headers()
+    })
+    
+    if (!session?.user) {
       return { success: false, error: 'Unauthorized' }
     }
 
-    // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role, studio_id')
-      .eq('id', user.id)
-      .single()
+    // Get current user with role
+    const currentUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, studio_id: true }
+    })
 
-    if (!currentProfile || currentProfile.role !== 'admin') {
+    if (!currentUser || currentUser.role !== 'admin') {
       return { success: false, error: 'Insufficient permissions' }
     }
 
     // Use user's studio_id if not provided
-    const targetStudioId = facilityData.studio_id || currentProfile.studio_id
+    const targetStudioId = facilityData.studio_id || currentUser.studio_id
+
+    if (!targetStudioId) {
+      return { success: false, error: 'Studio ID is required' }
+    }
 
     // Create facility
-    const { error } = await supabase
-      .from('facilities')
-      .insert({
+    await prisma.facility.create({
+      data: {
         studio_id: targetStudioId,
         name: facilityData.name,
         description: facilityData.description,
@@ -209,12 +232,8 @@ export async function createFacilityAction(facilityData: CreateFacilityData): Pr
         equipment: facilityData.equipment || {},
         hourly_rate: facilityData.hourly_rate,
         icon: facilityData.icon,
-      })
-
-    if (error) {
-      console.error('Error creating facility:', error)
-      return { success: false, error: error.message }
-    }
+      }
+    })
 
     revalidatePath('/admin/facilities')
     return { success: true }
@@ -227,38 +246,30 @@ export async function createFacilityAction(facilityData: CreateFacilityData): Pr
 
 export async function updateFacilityAction(facilityId: string, facilityData: UpdateFacilityData): Promise<ActionResult> {
   try {
-    const supabase = await createClient()
-
-    // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    // Get current user session
+    const session = await auth.api.getSession({
+      headers: await headers()
+    })
+    
+    if (!session?.user) {
       return { success: false, error: 'Unauthorized' }
     }
 
-    // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role, studio_id')
-      .eq('id', user.id)
-      .single()
+    // Get current user with role
+    const currentUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, studio_id: true }
+    })
 
-    if (!currentProfile || currentProfile.role !== 'admin') {
+    if (!currentUser || currentUser.role !== 'admin') {
       return { success: false, error: 'Insufficient permissions' }
     }
 
     // Update facility
-    const { error } = await supabase
-      .from('facilities')
-      .update({
-        ...facilityData,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', facilityId)
-
-    if (error) {
-      console.error('Error updating facility:', error)
-      return { success: false, error: error.message }
-    }
+    await prisma.facility.update({
+      where: { id: facilityId },
+      data: facilityData
+    })
 
     revalidatePath('/admin/facilities')
     return { success: true }
@@ -271,51 +282,38 @@ export async function updateFacilityAction(facilityId: string, facilityData: Upd
 
 export async function deleteFacilityAction(facilityId: string): Promise<ActionResult> {
   try {
-    const supabase = await createClient()
-
-    // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    // Get current user session
+    const session = await auth.api.getSession({
+      headers: await headers()
+    })
+    
+    if (!session?.user) {
       return { success: false, error: 'Unauthorized' }
     }
 
-    // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
+    // Get current user with role
+    const currentUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true }
+    })
 
-    if (!currentProfile || currentProfile.role !== 'admin') {
+    if (!currentUser || currentUser.role !== 'admin') {
       return { success: false, error: 'Insufficient permissions' }
     }
 
     // Check for related data that would prevent deletion
-    const { data: timeslots, error: timeslotsError } = await supabase
-      .from('time_slots')
-      .select('id')
-      .eq('facility_id', facilityId)
-      .limit(1)
+    const timeslotsCount = await prisma.timeSlot.count({
+      where: { facility_id: facilityId }
+    })
 
-    if (timeslotsError) {
-      console.error('Error checking time slots:', timeslotsError)
-      return { success: false, error: 'Error checking related data' }
-    }
-
-    if (timeslots && timeslots.length > 0) {
+    if (timeslotsCount > 0) {
       return { success: false, error: 'Cannot delete facility with existing time slots. Please remove all time slots first.' }
     }
 
     // Delete facility
-    const { error } = await supabase
-      .from('facilities')
-      .delete()
-      .eq('id', facilityId)
-
-    if (error) {
-      console.error('Error deleting facility:', error)
-      return { success: false, error: error.message }
-    }
+    await prisma.facility.delete({
+      where: { id: facilityId }
+    })
 
     revalidatePath('/admin/facilities')
     return { success: true }
@@ -328,38 +326,32 @@ export async function deleteFacilityAction(facilityId: string): Promise<ActionRe
 
 export async function toggleFacilityAvailabilityAction(facilityId: string, isAvailable: boolean): Promise<ActionResult> {
   try {
-    const supabase = await createClient()
-
-    // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    // Get current user session
+    const session = await auth.api.getSession({
+      headers: await headers()
+    })
+    
+    if (!session?.user) {
       return { success: false, error: 'Unauthorized' }
     }
 
-    // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
+    // Get current user with role
+    const currentUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true }
+    })
 
-    if (!currentProfile || currentProfile.role !== 'admin') {
+    if (!currentUser || currentUser.role !== 'admin') {
       return { success: false, error: 'Insufficient permissions' }
     }
 
     // Update availability directly to the specified value
-    const { error } = await supabase
-      .from('facilities')
-      .update({
-        is_available: isAvailable,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', facilityId)
-
-    if (error) {
-      console.error('Error updating facility availability:', error)
-      return { success: false, error: error.message }
-    }
+    await prisma.facility.update({
+      where: { id: facilityId },
+      data: {
+        is_available: isAvailable
+      }
+    })
 
     revalidatePath('/admin/facilities')
     return { success: true }

@@ -154,7 +154,6 @@ function ImageUploadComponent({ value, onChange }: {
   const destination = process.env.NEXT_PUBLIC_UPLOAD_DESTINATION || 'server'
   const destinationDisplay = {
     server: 'Local Server',
-    supabase: 'Supabase Storage', 
     vercel: 'Vercel Blob Store'
   }[destination] || destination
 

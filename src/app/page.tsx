@@ -54,6 +54,8 @@ export default function Home() {
   const [isPreloading, setIsPreloading] = useState(true)
   const lastLoadedImages = useRef<string[]>([])
   const allImagesLoadedRef = useRef(false)
+  const heroImagesLengthRef = useRef(0)
+  const isPreloadingRef = useRef(false)
 
   // Load cache on mount
   useEffect(() => {
@@ -70,45 +72,67 @@ export default function Home() {
   
   // Memoize hero images to prevent infinite re-renders
   const heroImages = useMemo(() => {
-    return heroImagesData.length > 0 
+    const images = heroImagesData.length > 0 
       ? heroImagesData.map(img => img.image_url)
       : [
-          'https://qmrilcawunfvjsmckyoj.supabase.co/storage/v1/object/public/homepage-images/KA.RA-11.jpg',
-          'https://qmrilcawunfvjsmckyoj.supabase.co/storage/v1/object/public/homepage-images/KA.RA-2.jpg'
+          '/images/placeholder-hero-1.jpg',
+          '/images/placeholder-hero-2.jpg'
         ]
+    heroImagesLengthRef.current = images.length
+    return images
   }, [heroImagesData])
 
   // Optimized preload function with caching
-  const preloadImages = useCallback(async () => {
-    if (heroImages.length === 0) return
+  const preloadImages = useCallback(async (imagesToPreload: string[]) => {
+    if (imagesToPreload.length === 0) return
+    
+    // Prevent multiple simultaneous calls
+    if (isPreloadingRef.current) return
     
     // Check if these are the same images we already loaded
-    const imagesString = heroImages.join(',')
+    const imagesString = imagesToPreload.join(',')
     if (lastLoadedImages.current.join(',') === imagesString && allImagesLoadedRef.current) {
       return // Don't reload the same images
     }
 
+    isPreloadingRef.current = true
+
     // Check if all images are already cached
-    const allCached = heroImages.every(isImageCached)
+    const allCached = imagesToPreload.every(isImageCached)
     if (allCached) {
-      // Images are cached, just update state
-      setImagesLoaded(new Array(heroImages.length).fill(true))
+      // Images are cached, just update state once
+      const newLoadedArray = new Array(imagesToPreload.length).fill(true)
+      setImagesLoaded(prev => {
+        // Only update if actually different to prevent re-render
+        if (prev.length !== newLoadedArray.length || !prev.every((val, index) => val === newLoadedArray[index])) {
+          return newLoadedArray
+        }
+        return prev
+      })
       setAllImagesLoaded(true)
       allImagesLoadedRef.current = true
       setIsPreloading(false)
-      lastLoadedImages.current = heroImages
+      lastLoadedImages.current = imagesToPreload
+      isPreloadingRef.current = false
       return
     }
 
-    // Reset state only when needed
-    setImagesLoaded(new Array(heroImages.length).fill(false))
-    setIsPreloading(true)
-    setAllImagesLoaded(false)
+    // Reset state only when needed - check if actually different
+    const newLoadedArray = new Array(imagesToPreload.length).fill(false)
+    setImagesLoaded(prev => {
+      // Only update if actually different
+      if (prev.length !== newLoadedArray.length || prev.some((val, index) => val !== newLoadedArray[index])) {
+        return newLoadedArray
+      }
+      return prev
+    })
+    setIsPreloading(prev => prev === false ? true : prev) // Only update if different
+    setAllImagesLoaded(prev => prev === true ? false : prev) // Only update if different
     allImagesLoadedRef.current = false
-    lastLoadedImages.current = heroImages
+    lastLoadedImages.current = imagesToPreload
 
     // Preload images with cache check
-    const preloadPromises = heroImages.map((src, index) => {
+    const preloadPromises = imagesToPreload.map((src, index) => {
       return new Promise<void>((resolve) => {
         // If already cached, skip preloading
         if (isImageCached(src)) {
@@ -151,16 +175,23 @@ export default function Home() {
 
     // Cache the images after loading
     Promise.all(preloadPromises).then(() => {
-      setCachedImages(heroImages)
+      setCachedImages(imagesToPreload)
+      isPreloadingRef.current = false
     })
-  }, [heroImages])
+  }, [])
 
-  // Only run preload when heroImages actually change
+  // Only run preload when heroImages actually change - using custom comparison
+  const prevHeroImagesRef = useRef<string[]>([])
   useEffect(() => {
-    if (heroImages.length > 0) {
-      preloadImages()
+    // Deep comparison to prevent unnecessary calls
+    const imagesChanged = heroImages.length !== prevHeroImagesRef.current.length ||
+      heroImages.some((img, index) => img !== prevHeroImagesRef.current[index])
+    
+    if (heroImages.length > 0 && imagesChanged) {
+      prevHeroImagesRef.current = [...heroImages]
+      preloadImages(heroImages)
     }
-  }, [heroImages]) // Directly depend on heroImages instead of preloadImages function
+  }, [heroImages, preloadImages])
 
   // Get first studio for contact info
   const firstStudio = studiosData.length > 0 ? studiosData[0] : null
@@ -266,12 +297,12 @@ export default function Home() {
 
   // Start carousel only after images are loaded - memoized to prevent unnecessary re-creation
   const startCarousel = useCallback(() => {
-    if (!allImagesLoaded || heroImages.length <= 1) return null
+    if (!allImagesLoaded || heroImagesLengthRef.current <= 1) return null
 
     return setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % heroImages.length)
+      setCurrentSlide((prev) => (prev + 1) % heroImagesLengthRef.current)
     }, 5000)
-  }, [allImagesLoaded, heroImages.length])
+  }, [allImagesLoaded])
 
   useEffect(() => {
     const timer = startCarousel()

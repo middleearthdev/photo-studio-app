@@ -56,16 +56,20 @@ import { useAuthStore } from "@/stores/auth-store"
 
 const statusLabels = {
   pending: 'Menunggu Verifikasi',
-  completed: 'Berhasil',
+  paid: 'Berhasil',
   failed: 'Gagal',
-  partial: 'Sebagian'
+  partial: 'Sebagian',
+  cancelled: 'Dibatalkan',
+  refunded: 'Refund'
 }
 
 const statusColors: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   pending: 'outline',
-  completed: 'default',
+  paid: 'default',
   failed: 'destructive',
-  partial: 'secondary'
+  partial: 'secondary',
+  cancelled: 'destructive',
+  refunded: 'secondary'
 }
 
 const paymentTypeLabels = {
@@ -429,7 +433,7 @@ export default function PaymentsPage() {
                         <div>
                           <div className="font-medium">{payment.reservation?.booking_code}</div>
                           <div className="text-sm text-muted-foreground">
-                            {payment.reservation?.reservation_date ? formatDate(payment.reservation.reservation_date) : ''}
+                            {payment.reservation?.reservation_date ? formatDate(typeof payment.reservation.reservation_date === 'string' ? payment.reservation.reservation_date : payment.reservation.reservation_date.toISOString()) : ''}
                           </div>
                         </div>
                       </TableCell>
@@ -460,7 +464,7 @@ export default function PaymentsPage() {
                       </TableCell>
                       <TableCell>
                         <div className="text-sm">
-                          {payment.created_at ? formatDateTime(payment.created_at) : ''}
+                          {payment.created_at ? formatDateTime(payment.created_at.toString()) : ''}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -481,7 +485,7 @@ export default function PaymentsPage() {
                             {payment.status === 'pending' && (
                               <>
                                 <DropdownMenuItem
-                                  onClick={() => handleStatusUpdate(payment, 'completed')}
+                                  onClick={() => handleStatusUpdate(payment, 'paid')}
                                   className="text-green-600"
                                 >
                                   <CheckCircle className="mr-2 h-4 w-4" />
@@ -498,7 +502,7 @@ export default function PaymentsPage() {
                             )}
 
 
-                            {payment.status !== 'completed' && (
+                            {payment.status !== 'paid' && (
                               <>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem
@@ -624,7 +628,7 @@ export default function PaymentsPage() {
                       <div>
                         <label className="text-sm font-medium text-gray-500">Reservation Date</label>
                         <p className="text-sm">
-                          {selectedPayment.reservation?.reservation_date ? formatDate(selectedPayment.reservation.reservation_date) : '-'}
+                          {selectedPayment.reservation?.reservation_date ? formatDate(typeof selectedPayment.reservation.reservation_date === 'string' ? selectedPayment.reservation.reservation_date : selectedPayment.reservation.reservation_date.toISOString()) : '-'}
                         </p>
                       </div>
                       <div>
@@ -664,7 +668,7 @@ export default function PaymentsPage() {
                         </div>
                         <div>
                           <label className="text-sm font-medium text-gray-500">Gateway Response</label>
-                          <p className="text-sm">{selectedPayment.gateway_response || 'N/A'}</p>
+                          <p className="text-sm">{(selectedPayment as any).gateway_response || 'N/A'}</p>
                         </div>
                       </div>
                     </div>
@@ -685,21 +689,21 @@ export default function PaymentsPage() {
                     <div className="space-y-3">
                       <div>
                         <label className="text-sm font-medium text-gray-500">Created At</label>
-                        <p className="text-sm">{selectedPayment.created_at ? formatDateTime(selectedPayment.created_at) : '-'}</p>
+                        <p className="text-sm">{selectedPayment.created_at ? formatDateTime(selectedPayment.created_at.toString()) : '-'}</p>
                       </div>
                       <div>
                         <label className="text-sm font-medium text-gray-500">Updated At</label>
-                        <p className="text-sm">{selectedPayment.updated_at ? formatDateTime(selectedPayment.updated_at) : '-'}</p>
+                        <p className="text-sm">{selectedPayment.updated_at ? formatDateTime(selectedPayment.updated_at.toString()) : '-'}</p>
                       </div>
                     </div>
                     <div className="space-y-3">
                       <div>
                         <label className="text-sm font-medium text-gray-500">Processed At</label>
-                        <p className="text-sm">{selectedPayment.processed_at ? formatDateTime(selectedPayment.processed_at) : 'Not processed yet'}</p>
+                        <p className="text-sm">{(selectedPayment as any).processed_at ? formatDateTime((selectedPayment as any).processed_at.toString()) : 'Not processed yet'}</p>
                       </div>
                       <div>
                         <label className="text-sm font-medium text-gray-500">Verification Notes</label>
-                        <p className="text-sm">{selectedPayment.verification_notes || 'No notes'}</p>
+                        <p className="text-sm">{(selectedPayment as any).verification_notes || 'No notes'}</p>
                       </div>
                     </div>
                   </div>
@@ -719,7 +723,7 @@ export default function PaymentsPage() {
                           variant="default"
                           size="sm"
                           onClick={() => {
-                            handleStatusUpdate(selectedPayment, 'completed')
+                            handleStatusUpdate(selectedPayment, 'paid')
                             setIsDetailModalOpen(false)
                           }}
                           className="bg-green-600 hover:bg-green-700"
@@ -805,7 +809,7 @@ export default function PaymentsPage() {
             <AlertDialogTitle>
               Ubah Status Payment
             </AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogDescription asChild>
               {statusChangeData && (
                 <div className="space-y-2">
                   <p>
@@ -814,7 +818,7 @@ export default function PaymentsPage() {
                     menjadi <span className="font-medium">{statusLabels[statusChangeData.newStatus as keyof typeof statusLabels]}</span>?
                   </p>
 
-                  {statusChangeData.newStatus === 'completed' && (
+                  {statusChangeData.newStatus === 'paid' && (
                     <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
                       <p className="text-green-800 text-sm font-medium">
                         ✅ Payment akan diverifikasi dan reservasi akan diupdate.
@@ -847,16 +851,16 @@ export default function PaymentsPage() {
             <AlertDialogAction
               onClick={confirmStatusUpdate}
               className={
-                statusChangeData?.newStatus === 'completed'
+                statusChangeData?.newStatus === 'paid'
                   ? "bg-green-600 hover:bg-green-700"
                   : statusChangeData?.newStatus === 'failed'
                     ? "bg-red-600 hover:bg-red-700"
                     : "bg-blue-600 hover:bg-blue-700"
               }
             >
-              {statusChangeData?.newStatus === 'completed' && 'Approve Payment'}
+              {statusChangeData?.newStatus === 'paid' && 'Approve Payment'}
               {statusChangeData?.newStatus === 'failed' && 'Reject Payment'}
-              {!['completed', 'failed'].includes(statusChangeData?.newStatus || '') && 'Update Status'}
+              {!['paid', 'failed'].includes(statusChangeData?.newStatus || '') && 'Update Status'}
               {statusChangeData?.newStatus === 'partial' && 'Mark as Partial'}
             </AlertDialogAction>
           </AlertDialogFooter>

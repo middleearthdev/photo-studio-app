@@ -1,6 +1,6 @@
 "use server"
 
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
 import { getAvailableTimeSlotsAction as getTimeSlotsAction } from '@/actions/time-slots'
 
 export interface Package {
@@ -48,39 +48,67 @@ export interface ActionResult<T = any> {
 // Public action to get active packages for customers
 export async function getPublicPackagesAction(studioId?: string): Promise<ActionResult<Package[]>> {
   try {
-    const supabase = await createClient()
-
-    // Build query for active packages only
-    let query = supabase
-      .from('packages')
-      .select(`
-        *,
-        category:package_categories(id, name),
-        package_facilities!inner(
-          facility:facilities(id, name, description)
-        )
-      `)
-      .eq('is_active', true)
-      .order('is_popular', { ascending: false })
-      .order('created_at', { ascending: false })
+    const whereClause: any = {
+      is_active: true
+    }
 
     // If studioId is provided, filter by studio
     if (studioId) {
-      query = query.eq('studio_id', studioId)
+      whereClause.studio_id = studioId
     }
 
-    const { data: packages, error } = await query
+    const packages = await prisma.package.findMany({
+      where: whereClause,
+      include: {
+        category: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        package_facilities: {
+          include: {
+            facility: {
+              select: {
+                id: true,
+                name: true,
+                description: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: [
+        { is_popular: 'desc' },
+        { created_at: 'desc' }
+      ]
+    })
 
-    if (error) {
-      console.error('Error fetching public packages:', error)
-      return { success: false, error: 'Failed to fetch packages' }
-    }
-
-    // Transform the data to include facilities
-    const transformedPackages = packages?.map(pkg => ({
-      ...pkg,
-      facilities: pkg.package_facilities?.map((pf: any) => pf.facility) || []
-    })) || []
+    // Transform the data to include facilities and match expected interface
+    const transformedPackages: Package[] = packages.map(pkg => ({
+      id: pkg.id,
+      studio_id: pkg.studio_id || '',
+      category_id: pkg.category_id,
+      name: pkg.name,
+      description: pkg.description,
+      duration_minutes: pkg.duration_minutes,
+      price: Number(pkg.price),
+      dp_percentage: Number(pkg.dp_percentage || 30),
+      includes: Array.isArray(pkg.includes) ? pkg.includes as string[] : null,
+      is_popular: pkg.is_popular || false,
+      is_active: pkg.is_active || false,
+      created_at: pkg.created_at?.toISOString() || '',
+      updated_at: pkg.updated_at?.toISOString() || '',
+      category: pkg.category ? {
+        id: pkg.category.id,
+        name: pkg.category.name
+      } : undefined,
+      facilities: pkg.package_facilities?.map(pf => ({
+        id: pf.facility?.id || '',
+        name: pf.facility?.name || '',
+        description: pf.facility?.description || null
+      })) || []
+    }))
 
     return { success: true, data: transformedPackages }
   } catch (error: any) {
@@ -92,31 +120,61 @@ export async function getPublicPackagesAction(studioId?: string): Promise<Action
 // Public action to get a specific package for customers
 export async function getPublicPackageAction(packageId: string): Promise<ActionResult<Package>> {
   try {
-    const supabase = await createClient()
-
     // Get package with relations
-    const { data: packageData, error } = await supabase
-      .from('packages')
-      .select(`
-        *,
-        category:package_categories(id, name),
-        package_facilities!inner(
-          facility:facilities(id, name, description)
-        )
-      `)
-      .eq('id', packageId)
-      .eq('is_active', true)
-      .single()
+    const packageData = await prisma.package.findFirst({
+      where: {
+        id: packageId,
+        is_active: true
+      },
+      include: {
+        category: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        package_facilities: {
+          include: {
+            facility: {
+              select: {
+                id: true,
+                name: true,
+                description: true
+              }
+            }
+          }
+        }
+      }
+    })
 
-    if (error) {
-      console.error('Error fetching public package:', error)
+    if (!packageData) {
       return { success: false, error: 'Package not found or inactive' }
     }
 
-    // Transform the data to include facilities
-    const transformedPackage = {
-      ...packageData,
-      facilities: packageData.package_facilities?.map((pf: any) => pf.facility) || []
+    // Transform the data to include facilities and match expected interface
+    const transformedPackage: Package = {
+      id: packageData.id,
+      studio_id: packageData.studio_id || '',
+      category_id: packageData.category_id,
+      name: packageData.name,
+      description: packageData.description,
+      duration_minutes: packageData.duration_minutes,
+      price: Number(packageData.price),
+      dp_percentage: Number(packageData.dp_percentage || 30),
+      includes: Array.isArray(packageData.includes) ? packageData.includes as string[] : null,
+      is_popular: packageData.is_popular || false,
+      is_active: packageData.is_active || false,
+      created_at: packageData.created_at?.toISOString() || '',
+      updated_at: packageData.updated_at?.toISOString() || '',
+      category: packageData.category ? {
+        id: packageData.category.id,
+        name: packageData.category.name
+      } : undefined,
+      facilities: packageData.package_facilities?.map(pf => ({
+        id: pf.facility?.id || '',
+        name: pf.facility?.name || '',
+        description: pf.facility?.description || null
+      })) || []
     }
 
     return { success: true, data: transformedPackage }
@@ -129,28 +187,34 @@ export async function getPublicPackageAction(packageId: string): Promise<ActionR
 // Public action to get active package categories for customers
 export async function getPublicPackageCategoriesAction(studioId?: string): Promise<ActionResult<PackageCategory[]>> {
   try {
-    const supabase = await createClient()
-
-    // Build query for active categories only
-    let query = supabase
-      .from('package_categories')
-      .select('*')
-      .eq('is_active', true)
-      .order('display_order', { ascending: true })
+    const whereClause: any = {
+      is_active: true
+    }
 
     // If studioId is provided, filter by studio
     if (studioId) {
-      query = query.eq('studio_id', studioId)
+      whereClause.studio_id = studioId
     }
 
-    const { data: categories, error } = await query
+    const categories = await prisma.packageCategory.findMany({
+      where: whereClause,
+      orderBy: {
+        display_order: 'asc'
+      }
+    })
 
-    if (error) {
-      console.error('Error fetching public package categories:', error)
-      return { success: false, error: 'Failed to fetch package categories' }
-    }
+    // Transform to match expected interface
+    const transformedCategories: PackageCategory[] = categories.map(category => ({
+      id: category.id,
+      studio_id: category.studio_id || '',
+      name: category.name,
+      description: category.description,
+      display_order: category.display_order || 0,
+      is_active: category.is_active || false,
+      created_at: category.created_at?.toISOString() || ''
+    }))
 
-    return { success: true, data: categories || [] }
+    return { success: true, data: transformedCategories }
   } catch (error: any) {
     console.error('Error in getPublicPackageCategoriesAction:', error)
     return { success: false, error: error.message || 'An error occurred' }
@@ -158,7 +222,7 @@ export async function getPublicPackageCategoriesAction(studioId?: string): Promi
 }
 
 // Public action to get available time slots for a package on a specific date
-export async function getCustomerPackageTimeSlotsAction(packageId: string, date: string): Promise<ActionResult<{ id: string, time: string, available: boolean }[]>> {
+export async function getCustomerPackageTimeSlotsAction(packageId: string, date: string, excludeReservationId?: string): Promise<ActionResult<{ id: string, time: string, available: boolean }[]>> {
   try {
     // Get package details to get studioId and duration
     const packageResult = await getPublicPackageAction(packageId)
@@ -169,7 +233,7 @@ export async function getCustomerPackageTimeSlotsAction(packageId: string, date:
     const studioId = packageResult?.data?.studio_id
     const duration = packageResult?.data?.duration_minutes
 
-    return await getTimeSlotsAction(studioId || '', date, duration, packageId)
+    return await getTimeSlotsAction(studioId || '', date, duration, packageId, excludeReservationId)
   } catch (error: any) {
     console.error('Error in getCustomerPackageTimeSlotsAction:', error)
     return { success: false, error: error.message || 'An error occurred' }

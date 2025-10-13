@@ -1,6 +1,6 @@
 "use server"
 
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
 import { PaginationParams, PaginatedResult, calculatePagination } from '@/lib/constants/pagination'
 
@@ -13,24 +13,24 @@ export interface Customer {
   address: string | null
   birth_date: string | null
   notes: string | null
-  is_guest: boolean
+  is_guest: boolean | null
   guest_token: string | null
   created_at: string
   updated_at: string
   
   // Relations
-  user_profile?: {
+  user?: {
     id: string
-    full_name: string
-    avatar_url: string | null
+    name: string | null
+    image: string | null
     role: string
-    is_active: boolean
-  }
+    is_active: boolean | null
+  } | null
   
   // Aggregated data
   total_reservations?: number
   total_spent?: number
-  last_reservation_date?: string
+  last_reservation_date?: string | null
 }
 
 export interface CreateCustomerData {
@@ -61,8 +61,6 @@ export async function getPaginatedCustomers(
     studioId?: string
   } = {}
 ): Promise<PaginatedResult<Customer>> {
-  const supabase = await createClient()
-  
   const { 
     page = 1, 
     pageSize = 10, 
@@ -73,58 +71,83 @@ export async function getPaginatedCustomers(
   
   const { offset, pageSize: validPageSize } = calculatePagination(page, pageSize, 0)
 
-  // Build the query with aggregated reservation data
-  let query = supabase
-    .from('customers')
-    .select(`
-      *,
-      user_profile:user_profiles(id, full_name, avatar_url, role, is_active),
-      reservations(id, total_amount, reservation_date, status, studio_id)
-    `, { count: 'exact' })
-    
-  // Filter by studio if provided
-  if (studioId) {
-    query = query.eq('reservations.studio_id', studioId)
-  }
-
-  // Apply filters
+  // Build where clause
+  const where: any = {}
+  
+  // Filter by type
   if (type === 'registered') {
-    query = query.not('user_id', 'is', null)
+    where.user_id = { not: null }
   } else if (type === 'guest') {
-    query = query.is('user_id', null)
+    where.user_id = null
   }
 
   // Apply search
   if (search.trim()) {
-    query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`)
+    where.OR = [
+      { full_name: { contains: search, mode: 'insensitive' } },
+      { email: { contains: search, mode: 'insensitive' } },
+      { phone: { contains: search, mode: 'insensitive' } }
+    ]
   }
 
-  // Apply pagination and ordering
-  const { data, error, count } = await query
-    .order('created_at', { ascending: false })
-    .range(offset, offset + validPageSize - 1)
-
-  if (error) {
-    console.error('Error fetching paginated customers:', error)
-    throw new Error(`Failed to fetch customers: ${error.message}`)
+  // Filter by studio if provided (through reservations)
+  if (studioId) {
+    where.reservations = {
+      some: {
+        studio_id: studioId
+      }
+    }
   }
+
+  // Get customers with relations
+  const [customers, total] = await Promise.all([
+    prisma.customer.findMany({
+      where,
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            image: true,
+            role: true,
+            is_active: true
+          }
+        },
+        reservations: {
+          select: {
+            id: true,
+            total_amount: true,
+            reservation_date: true,
+            status: true,
+            studio_id: true
+          }
+        }
+      },
+      orderBy: { created_at: 'desc' },
+      skip: offset,
+      take: validPageSize
+    }),
+    prisma.customer.count({ where })
+  ])
 
   // Process the data to add aggregated information
-  const processedData = (data || []).map((customer: any) => {
+  const processedData = customers.map((customer) => {
     const reservations = customer.reservations || []
-    const completedReservations = reservations.filter((r: any) => r.status === 'completed')
+    const completedReservations = reservations.filter((r) => r.status === 'completed')
     
     return {
       ...customer,
+      created_at: customer.created_at?.toISOString() || '',
+      updated_at: customer.updated_at?.toISOString() || '',
+      birth_date: customer.birth_date?.toISOString() || null,
       total_reservations: reservations.length,
-      total_spent: completedReservations.reduce((sum: number, r: any) => sum + (r.total_amount || 0), 0),
+      total_spent: completedReservations.reduce((sum, r) => sum + Number(r.total_amount || 0), 0),
       last_reservation_date: reservations.length > 0 
-        ? reservations.sort((a: any, b: any) => new Date(b.reservation_date).getTime() - new Date(a.reservation_date).getTime())[0].reservation_date
+        ? reservations.sort((a, b) => new Date(b.reservation_date).getTime() - new Date(a.reservation_date).getTime())[0].reservation_date.toISOString()
         : null
     }
   })
 
-  const total = count || 0
   const pagination = calculatePagination(page, validPageSize, total)
 
   return {
@@ -135,177 +158,189 @@ export async function getPaginatedCustomers(
 
 // Get customer by ID
 export async function getCustomerById(id: string): Promise<Customer | null> {
-  const supabase = await createClient()
-  
-  const { data, error } = await supabase
-    .from('customers')
-    .select(`
-      *,
-      user_profile:user_profiles(id, full_name, avatar_url, role, is_active),
-      reservations(id, booking_code, total_amount, reservation_date, status, payment_status)
-    `)
-    .eq('id', id)
-    .single()
-  
-  if (error) {
-    if (error.code === 'PGRST116') {
-      return null
+  const customer = await prisma.customer.findUnique({
+    where: { id },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          image: true,
+          role: true,
+          is_active: true
+        }
+      },
+      reservations: {
+        select: {
+          id: true,
+          booking_code: true,
+          total_amount: true,
+          reservation_date: true,
+          status: true,
+          payment_status: true
+        }
+      }
     }
-    console.error('Error fetching customer:', error)
-    throw new Error(`Failed to fetch customer: ${error.message}`)
+  })
+  
+  if (!customer) {
+    return null
   }
   
   // Process aggregated data
-  const reservations = data.reservations || []
-  const completedReservations = reservations.filter((r: any) => r.status === 'completed')
+  const reservations = customer.reservations || []
+  const completedReservations = reservations.filter((r) => r.status === 'completed')
   
   return {
-    ...data,
+    ...customer,
+    created_at: customer.created_at?.toISOString() || '',
+    updated_at: customer.updated_at?.toISOString() || '',
+    birth_date: customer.birth_date?.toISOString() || null,
     total_reservations: reservations.length,
-    total_spent: completedReservations.reduce((sum: number, r: any) => sum + (r.total_amount || 0), 0),
+    total_spent: completedReservations.reduce((sum, r) => sum + Number(r.total_amount || 0), 0),
     last_reservation_date: reservations.length > 0 
-      ? reservations.sort((a: any, b: any) => new Date(b.reservation_date).getTime() - new Date(a.reservation_date).getTime())[0].reservation_date
+      ? reservations.sort((a, b) => new Date(b.reservation_date).getTime() - new Date(a.reservation_date).getTime())[0].reservation_date.toISOString()
       : null
   }
 }
 
 // Create new customer
 export async function createCustomer(data: CreateCustomerData): Promise<Customer> {
-  const supabase = await createClient()
-  
   const customerData = {
     user_id: data.user_id || null,
     full_name: data.full_name,
     email: data.email,
     phone: data.phone,
     address: data.address || null,
-    birth_date: data.birth_date || null,
+    birth_date: data.birth_date ? new Date(data.birth_date) : null,
     notes: data.notes || null,
     is_guest: data.is_guest ?? !data.user_id,
   }
   
-  const { data: customer, error } = await supabase
-    .from('customers')
-    .insert(customerData)
-    .select(`
-      *,
-      user_profile:user_profiles(id, full_name, avatar_url, role, is_active)
-    `)
-    .single()
-  
-  if (error) {
-    console.error('Error creating customer:', error)
-    throw new Error(`Failed to create customer: ${error.message}`)
-  }
+  const customer = await prisma.customer.create({
+    data: customerData,
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          image: true,
+          role: true,
+          is_active: true
+        }
+      }
+    }
+  })
   
   revalidatePath('/admin/customers')
-  return { ...customer, total_reservations: 0, total_spent: 0 }
+  return { 
+    ...customer, 
+    created_at: customer.created_at?.toISOString() || '',
+    updated_at: customer.updated_at?.toISOString() || '',
+    birth_date: customer.birth_date?.toISOString() || null,
+    total_reservations: 0, 
+    total_spent: 0 
+  }
 }
 
 // Update customer
 export async function updateCustomer(id: string, data: UpdateCustomerData): Promise<Customer> {
-  const supabase = await createClient()
+  const updateData: any = { ...data }
   
-  const updateData = {
-    ...data,
-    updated_at: new Date().toISOString(),
+  if (data.birth_date) {
+    updateData.birth_date = new Date(data.birth_date)
   }
   
-  const { data: customer, error } = await supabase
-    .from('customers')
-    .update(updateData)
-    .eq('id', id)
-    .select(`
-      *,
-      user_profile:user_profiles(id, full_name, avatar_url, role, is_active)
-    `)
-    .single()
-  
-  if (error) {
-    console.error('Error updating customer:', error)
-    throw new Error(`Failed to update customer: ${error.message}`)
-  }
+  const customer = await prisma.customer.update({
+    where: { id },
+    data: updateData,
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          image: true,
+          role: true,
+          is_active: true
+        }
+      }
+    }
+  })
   
   revalidatePath('/admin/customers')
-  return customer
+  return {
+    ...customer,
+    created_at: customer.created_at?.toISOString() || '',
+    updated_at: customer.updated_at?.toISOString() || '',
+    birth_date: customer.birth_date?.toISOString() || null,
+  }
 }
 
 // Delete customer
 export async function deleteCustomer(id: string): Promise<void> {
-  const supabase = await createClient()
-  
   // Check if customer has any reservations
-  const { data: reservations } = await supabase
-    .from('reservations')
-    .select('id')
-    .eq('customer_id', id)
-    .limit(1)
+  const reservationCount = await prisma.reservation.count({
+    where: { customer_id: id }
+  })
   
-  if (reservations && reservations.length > 0) {
+  if (reservationCount > 0) {
     throw new Error('Cannot delete customer with existing reservations')
   }
   
-  const { error } = await supabase
-    .from('customers')
-    .delete()
-    .eq('id', id)
-  
-  if (error) {
-    console.error('Error deleting customer:', error)
-    throw new Error(`Failed to delete customer: ${error.message}`)
-  }
+  await prisma.customer.delete({
+    where: { id }
+  })
   
   revalidatePath('/admin/customers')
 }
 
 // Get customer statistics
 export async function getCustomerStats(studioId?: string) {
-  const supabase = await createClient()
-  
-  // Get customer counts - filter by studio if provided
-  let customersQuery = supabase
-    .from('customers')
-    .select(`
-      id, user_id, created_at,
-      reservations!inner(studio_id)
-    `)
-  
-  if (studioId) {
-    customersQuery = customersQuery.eq('reservations.studio_id', studioId)
-  }
-
-  const { data: customers, error: customersError } = await customersQuery
-  
-  if (customersError) {
-    console.error('Error fetching customer stats:', customersError)
-    throw new Error(`Failed to fetch customer stats: ${customersError.message}`)
-  }
-  
-  // Get reservation data for revenue calculation - filter by studio if provided  
-  let reservationsQuery = supabase
-    .from('reservations')
-    .select('customer_id, total_amount, status, created_at, studio_id')
-  
-  if (studioId) {
-    reservationsQuery = reservationsQuery.eq('studio_id', studioId)
-  }
-
-  const { data: reservations, error: reservationsError } = await reservationsQuery
-  
-  if (reservationsError) {
-    console.error('Error fetching reservation stats:', reservationsError)
-    throw new Error(`Failed to fetch reservation stats: ${reservationsError.message}`)
-  }
-  
   const today = new Date()
   const thisMonth = new Date(today.getFullYear(), today.getMonth(), 1)
-  const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+  
+  // Build where clause for customers with reservations filter
+  const customerWhere: any = {}
+  if (studioId) {
+    customerWhere.reservations = {
+      some: {
+        studio_id: studioId
+      }
+    }
+  }
+  
+  // Build where clause for reservations
+  const reservationWhere: any = {}
+  if (studioId) {
+    reservationWhere.studio_id = studioId
+  }
+  
+  // Get customers with reservations
+  const customers = await prisma.customer.findMany({
+    where: customerWhere,
+    select: {
+      id: true,
+      user_id: true,
+      created_at: true
+    }
+  })
+  
+  // Get reservation data for revenue calculation
+  const reservations = await prisma.reservation.findMany({
+    where: reservationWhere,
+    select: {
+      customer_id: true,
+      total_amount: true,
+      status: true,
+      created_at: true
+    }
+  })
   
   // Calculate stats
   const totalCustomers = customers.length
   const registeredCustomers = customers.filter(c => c.user_id).length
   const guestCustomers = customers.filter(c => !c.user_id).length
-  const newThisMonth = customers.filter(c => new Date(c.created_at) >= thisMonth).length
+  const newThisMonth = customers.filter(c => c.created_at && c.created_at >= thisMonth).length
   
   // Calculate customer lifetime value
   const customerRevenueMap = new Map()
@@ -313,7 +348,7 @@ export async function getCustomerStats(studioId?: string) {
     .filter(r => r.status === 'completed')
     .forEach(r => {
       const current = customerRevenueMap.get(r.customer_id) || 0
-      customerRevenueMap.set(r.customer_id, current + r.total_amount)
+      customerRevenueMap.set(r.customer_id, current + Number(r.total_amount))
     })
   
   const totalRevenue = Array.from(customerRevenueMap.values()).reduce((sum, val) => sum + val, 0)
@@ -331,22 +366,39 @@ export async function getCustomerStats(studioId?: string) {
 
 // Get customer reservation history
 export async function getCustomerReservations(customerId: string) {
-  const supabase = await createClient()
+  const reservations = await prisma.reservation.findMany({
+    where: { customer_id: customerId },
+    include: {
+      package: {
+        select: {
+          name: true,
+          duration_minutes: true
+        }
+      },
+      payments: {
+        select: {
+          amount: true,
+          status: true,
+          paid_at: true
+        }
+      }
+    },
+    orderBy: { reservation_date: 'desc' }
+  })
   
-  const { data, error } = await supabase
-    .from('reservations')
-    .select(`
-      *,
-      package:packages(name, duration_minutes),
-      payments(amount, status, paid_at)
-    `)
-    .eq('customer_id', customerId)
-    .order('reservation_date', { ascending: false })
-  
-  if (error) {
-    console.error('Error fetching customer reservations:', error)
-    throw new Error(`Failed to fetch customer reservations: ${error.message}`)
-  }
-  
-  return data || []
+  return reservations.map(reservation => ({
+    ...reservation,
+    reservation_date: reservation.reservation_date.toISOString(),
+    start_time: reservation.start_time.toISOString(),
+    end_time: reservation.end_time.toISOString(),
+    confirmed_at: reservation.confirmed_at?.toISOString() || null,
+    completed_at: reservation.completed_at?.toISOString() || null,
+    cancelled_at: reservation.cancelled_at?.toISOString() || null,
+    created_at: reservation.created_at?.toISOString() || '',
+    updated_at: reservation.updated_at?.toISOString() || '',
+    payments: reservation.payments.map(payment => ({
+      ...payment,
+      paid_at: payment.paid_at?.toISOString() || null
+    }))
+  }))
 }

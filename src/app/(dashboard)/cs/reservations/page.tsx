@@ -48,6 +48,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { usePaginatedReservations, useReservationStats, useUpdateReservationStatus, useDeleteReservation, reservationKeys, type ReservationStatus } from "@/hooks/use-reservations"
+import { timeSlotKeys } from "@/hooks/use-time-slots"
 import { useQueryClient } from "@tanstack/react-query"
 import { type Reservation } from "@/actions/reservations"
 import { PaginationControls } from "@/components/pagination-controls"
@@ -75,7 +76,8 @@ const statusLabels: Record<ReservationStatus, string> = {
   confirmed: 'Terkonfirmasi',
   in_progress: 'Berlangsung',
   completed: 'Selesai',
-  cancelled: 'Dibatalkan'
+  cancelled: 'Dibatalkan',
+  no_show: 'Tidak Hadir'
 }
 
 const statusColors: Record<ReservationStatus, 'default' | 'secondary' | 'destructive' | 'outline'> = {
@@ -83,21 +85,26 @@ const statusColors: Record<ReservationStatus, 'default' | 'secondary' | 'destruc
   confirmed: 'default',
   in_progress: 'secondary',
   completed: 'default',
-  cancelled: 'destructive'
+  cancelled: 'destructive',
+  no_show: 'destructive'
 }
 
 const paymentStatusLabels = {
   pending: 'Belum Bayar',
   partial: 'DP',
-  completed: 'Lunas',
-  failed: 'Gagal'
+  paid: 'Lunas',
+  failed: 'Gagal',
+  cancelled: 'Dibatalkan',
+  refunded: 'Refund'
 }
 
 const paymentStatusColors: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   pending: 'outline',
   partial: 'secondary',
-  completed: 'default',
-  failed: 'destructive'
+  paid: 'default',
+  failed: 'destructive',
+  cancelled: 'destructive',
+  refunded: 'secondary'
 }
 
 export default function ReservationsPage() {
@@ -337,7 +344,7 @@ export default function ReservationsPage() {
   }
 
   const formatTime2 = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('id-ID', {
+    return new Date(dateString).toLocaleTimeString('id-ID', {
       hour: '2-digit',
       minute: '2-digit'
     })
@@ -670,7 +677,7 @@ export default function ReservationsPage() {
                             <div className="font-medium">
                               {formatCurrency(reservation.total_amount)}
                             </div>
-                            {reservation.payment_status !== 'completed' && (
+                            {reservation.payment_status !== 'paid' && (
                               <div className="text-sm text-muted-foreground">
                                 DP: {formatCurrency(reservation.dp_amount)}
                               </div>
@@ -717,7 +724,7 @@ export default function ReservationsPage() {
 
                               {reservation.status === 'pending' && (
                                 <>
-                                  {(reservation.payment_status === 'partial' || reservation.payment_status === 'completed') && (
+                                  {(reservation.payment_status === 'partial' || reservation.payment_status === 'paid') && (
                                     <DropdownMenuItem
                                       onClick={() => handleStatusUpdate(reservation, 'confirmed')}
                                     >
@@ -737,7 +744,7 @@ export default function ReservationsPage() {
 
                               {reservation.status === 'confirmed' && (
                                 <>
-                                  {reservation.payment_status === 'completed' ? (
+                                  {reservation.payment_status === 'paid' ? (
                                     <DropdownMenuItem
                                       onClick={() => handleStatusUpdate(reservation, 'in_progress')}
                                     >
@@ -874,7 +881,7 @@ export default function ReservationsPage() {
                           <div className="pt-4 border-t">
                             <div className="font-medium text-sm mb-2">📱 WhatsApp Reminders</div>
                             <div className="flex gap-2">
-                              {paymentRule.allowed && selectedReservation.payment_status !== 'completed' && (
+                              {paymentRule.allowed && selectedReservation.payment_status !== 'paid' && (
                                 <Button
                                   size="sm"
                                   variant="outline"
@@ -1235,7 +1242,7 @@ export default function ReservationsPage() {
                             <CheckCircle className="mr-2 h-4 w-4" />
                             Konfirmasi Booking
                           </Button>
-                        ) : (selectedReservation.payment_status === 'partial' || selectedReservation.payment_status === 'completed') ? (
+                        ) : (selectedReservation.payment_status === 'partial' || selectedReservation.payment_status === 'paid') ? (
                           <Button
                             variant="default"
                             size="sm"
@@ -1264,7 +1271,7 @@ export default function ReservationsPage() {
 
                     {selectedReservation.status === 'confirmed' && (
                       <>
-                        {selectedReservation.payment_status === 'completed' ? (
+                        {selectedReservation.payment_status === 'paid' ? (
                           <Button
                             variant="default"
                             size="sm"
@@ -1279,7 +1286,7 @@ export default function ReservationsPage() {
                         ) : (
                           <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                             <p className="text-yellow-800 text-sm font-medium">
-                              ⚠️ Start Session hanya tersedia setelah customer melakukan pelunasan (payment status: completed).
+                              ⚠️ Start Session hanya tersedia setelah customer melakukan pelunasan (payment status: paid).
                             </p>
                           </div>
                         )}
@@ -1427,12 +1434,14 @@ export default function ReservationsPage() {
       {/* Manual Booking Form */}
       <ManualBookingForm
         isOpen={isManualBookingOpen}
-        onClose={() => {
-          setIsManualBookingOpen(false)
-          // Invalidate queries after closing (assuming success)
+        onClose={() => setIsManualBookingOpen(false)}
+        onSuccess={() => {
+          // Invalidate queries when booking is successfully created
           queryClient.invalidateQueries({ queryKey: reservationKeys.all })
           queryClient.invalidateQueries({ queryKey: ['reservation-stats', studioId] })
           queryClient.invalidateQueries({ queryKey: ['payment-reminders', studioId] })
+          // Invalidate time slot cache to refresh availability
+          queryClient.invalidateQueries({ queryKey: timeSlotKeys.all })
         }}
         studioId={studioId || ''}
       />
@@ -1448,6 +1457,8 @@ export default function ReservationsPage() {
           // Invalidate queries instead of handleRefresh
           queryClient.invalidateQueries({ queryKey: reservationKeys.all })
           queryClient.invalidateQueries({ queryKey: ['reservation-stats', studioId] })
+          // Invalidate time slot cache when rescheduling
+          queryClient.invalidateQueries({ queryKey: timeSlotKeys.all })
         }}
         reservation={reservationToReschedule}
       />
@@ -1463,6 +1474,8 @@ export default function ReservationsPage() {
           // Invalidate queries instead of handleRefresh
           queryClient.invalidateQueries({ queryKey: reservationKeys.all })
           queryClient.invalidateQueries({ queryKey: ['reservation-stats', studioId] })
+          // Invalidate time slot cache when editing reservation
+          queryClient.invalidateQueries({ queryKey: timeSlotKeys.all })
         }}
         reservation={reservationToEdit}
       />

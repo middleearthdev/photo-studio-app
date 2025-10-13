@@ -100,15 +100,15 @@ export default function CustomersPage() {
   }
 
   const getCustomerTypeColor = (customer: Customer) => {
-    if (customer.user_profile) {
-      return customer.user_profile.is_active ? 'default' : 'secondary'
+    if (customer.user) {
+      return customer.user.is_active ? 'default' : 'secondary'
     }
     return 'outline' // guest
   }
 
   const getCustomerTypeLabel = (customer: Customer) => {
-    if (customer.user_profile) {
-      return customer.user_profile.is_active ? 'Registered' : 'Inactive User'
+    if (customer.user) {
+      return customer.user.is_active ? 'Registered' : 'Inactive User'
     }
     return 'Guest'
   }
@@ -139,10 +139,6 @@ export default function CustomersPage() {
           <Button variant="outline" onClick={() => refetch()}>
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
-          </Button>
-          <Button>
-            <Plus className="h-4 w-4 mr-2" />
-            Tambah Customer
           </Button>
         </div>
       </div>
@@ -275,7 +271,7 @@ export default function CustomersPage() {
                       <TableCell>
                         <div className="flex items-center space-x-4">
                           <Avatar className="h-10 w-10">
-                            <AvatarImage src={customer.user_profile?.avatar_url || ''} />
+                            <AvatarImage src={customer.user?.image || ''} />
                             <AvatarFallback>
                               {customer.full_name.split(' ').map(n => n[0]).join('').toUpperCase() || 'C'}
                             </AvatarFallback>
@@ -303,9 +299,9 @@ export default function CustomersPage() {
                         <Badge variant={getCustomerTypeColor(customer)}>
                           {getCustomerTypeLabel(customer)}
                         </Badge>
-                        {customer.user_profile?.role && customer.user_profile.role !== 'customer' && (
+                        {customer.user?.role && customer.user.role !== 'customer' && (
                           <Badge variant="outline" className="ml-1 text-xs">
-                            {customer.user_profile.role}
+                            {customer.user.role}
                           </Badge>
                         )}
                       </TableCell>

@@ -191,20 +191,22 @@ export default function UsersPage() {
         {Object.entries(roleLabels).map(([role, label]) => {
           // Show current page counts for role breakdown
           const count = users.filter(u => u.role === role && u.is_active).length
-          return (
-            <Card key={role}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{label}</CardTitle>
-                <Shield className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{count}</div>
-                <p className="text-xs text-muted-foreground">
-                  {pagination ? `Halaman ${currentPage}` : 'Pengguna aktif'}
-                </p>
-              </CardContent>
-            </Card>
-          )
+          if (role != 'customer') {
+            return (
+              <Card key={role}>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">{label}</CardTitle>
+                  <Shield className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{count}</div>
+                  <p className="text-xs text-muted-foreground">
+                    {pagination ? `Halaman ${currentPage}` : 'Pengguna aktif'}
+                  </p>
+                </CardContent>
+              </Card>
+            )
+          }
         })}
       </div>
 
@@ -259,7 +261,6 @@ export default function UsersPage() {
                   <TableHead>Role</TableHead>
                   <TableHead>Contact</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Last Login</TableHead>
                   <TableHead className="w-[70px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -319,14 +320,6 @@ export default function UsersPage() {
                         <Badge variant={user.is_active ? 'default' : 'secondary'}>
                           {user.is_active ? 'Aktif' : 'Tidak Aktif'}
                         </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm text-muted-foreground">
-                          {user.last_login
-                            ? new Date(user.last_login).toLocaleDateString('id-ID')
-                            : 'Belum pernah'
-                          }
-                        </div>
                       </TableCell>
                       <TableCell>
                         <DropdownMenu>
@@ -398,13 +391,15 @@ export default function UsersPage() {
             <AlertDialogTitle>Hapus Pengguna Secara Permanen</AlertDialogTitle>
             <AlertDialogDescription className="space-y-2" asChild>
               <div>
-                Apakah Anda yakin ingin menghapus permanen pengguna "{userToDelete?.full_name}"?
-              </div>
-              <div className="text-red-600 font-medium">
-                Tindakan ini tidak dapat dibatalkan. Semua data terkait akan dihapus permanen.
-              </div>
-              <div className="text-sm text-muted-foreground">
-                Pengguna harus dalam status tidak aktif dan tidak memiliki reservasi aktif untuk dapat dihapus.
+                <div>
+                  Apakah Anda yakin ingin menghapus permanen pengguna "{userToDelete?.full_name}"?
+                </div>
+                <div className="text-red-600 font-medium">
+                  Tindakan ini tidak dapat dibatalkan. Semua data terkait akan dihapus permanen.
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  Pengguna harus dalam status tidak aktif dan tidak memiliki reservasi aktif untuk dapat dihapus.
+                </div>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -458,12 +453,11 @@ export default function UsersPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Aktifkan Pengguna</AlertDialogTitle>
             <AlertDialogDescription className="space-y-2">
-              <div>
-                Apakah Anda yakin ingin mengaktifkan pengguna "{userToActivate?.full_name}"?
-              </div>
-              <div className="text-sm text-muted-foreground">
+              Apakah Anda yakin ingin mengaktifkan pengguna "{userToActivate?.full_name}"?
+              <br />
+              <span className="text-sm text-muted-foreground">
                 Pengguna yang diaktifkan akan dapat login dan mengakses sistem kembali.
-              </div>
+              </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

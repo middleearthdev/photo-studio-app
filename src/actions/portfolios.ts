@@ -1,31 +1,33 @@
 "use server"
 
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
+import { auth } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
+import { headers } from 'next/headers'
 import { PaginationParams, PaginatedResult, calculatePagination } from '@/lib/constants/pagination'
 
 export interface PortfolioCategory {
   id: string
-  studio_id: string
+  studio_id: string | null
   name: string
   description: string | null
-  display_order: number
-  is_active: boolean
+  display_order: number | null
+  is_active: boolean | null
   created_at: string
   updated_at?: string
 }
 
 export interface Portfolio {
   id: string
-  studio_id: string
+  studio_id: string | null
   category_id: string | null
   title: string
   description: string | null
   image_url: string
   alt_text: string | null
-  display_order: number
-  is_featured: boolean
-  is_active: boolean
+  display_order: number | null
+  is_featured: boolean | null
+  is_active: boolean | null
   metadata: any
   created_at: string
   updated_at: string
@@ -33,7 +35,7 @@ export interface Portfolio {
   category?: {
     id: string
     name: string
-  }
+  } | null
 }
 
 export interface CreatePortfolioData {
@@ -76,26 +78,48 @@ export interface UpdateCategoryData {
   is_active?: boolean
 }
 
+export interface ActionResult<T = any> {
+  success: boolean
+  data?: T
+  error?: string
+}
+
+// Helper function to get current user session
+async function getCurrentUser() {
+  const session = await auth.api.getSession({
+    headers: await headers()
+  })
+  return session?.user || null
+}
+
 // Get all portfolios for a studio (legacy - without pagination)
 export async function getPortfolios(studioId: string): Promise<Portfolio[]> {
-  const supabase = await createClient()
-  
-  const { data, error } = await supabase
-    .from('portfolios')
-    .select(`
-      *,
-      category:portfolio_categories(id, name)
-    `)
-    .eq('studio_id', studioId)
-    .order('display_order', { ascending: true })
-    .order('created_at', { ascending: false })
-  
-  if (error) {
+  try {
+    const portfolios = await prisma.portfolio.findMany({
+      where: { studio_id: studioId },
+      include: {
+        category: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
+      },
+      orderBy: [
+        { display_order: 'asc' },
+        { created_at: 'desc' }
+      ]
+    })
+
+    return portfolios.map(portfolio => ({
+      ...portfolio,
+      created_at: portfolio.created_at?.toISOString() || '',
+      updated_at: portfolio.updated_at?.toISOString() || ''
+    }))
+  } catch (error: any) {
     console.error('Error fetching portfolios:', error)
     throw new Error(`Failed to fetch portfolios: ${error.message}`)
   }
-  
-  return data || []
 }
 
 // Get paginated portfolios for a studio
@@ -107,380 +131,401 @@ export async function getPaginatedPortfolios(
     featured?: 'featured' | 'not_featured' | 'all'
   } = {}
 ): Promise<PaginatedResult<Portfolio>> {
-  const supabase = await createClient()
-  
-  const { page = 1, pageSize = 10, search = '', status = 'all', category, featured = 'all' } = params
-  const { offset, pageSize: validPageSize } = calculatePagination(page, pageSize, 0)
+  try {
+    const { page = 1, pageSize = 10, search = '', status = 'all', category, featured = 'all' } = params
+    const { offset, pageSize: validPageSize } = calculatePagination(page, pageSize, 0)
 
-  // Build the query
-  let query = supabase
-    .from('portfolios')
-    .select(`
-      *,
-      category:portfolio_categories(id, name)
-    `, { count: 'exact' })
-    .eq('studio_id', studioId)
-
-  // Apply filters
-  if (status !== 'all') {
-    query = query.eq('is_active', status === 'active')
-  }
-
-  if (category && category !== 'all') {
-    if (category === 'uncategorized') {
-      query = query.is('category_id', null)
-    } else {
-      query = query.eq('category_id', category)
+    // Build where clause
+    const where: any = {
+      studio_id: studioId
     }
-  }
 
-  if (featured !== 'all') {
-    query = query.eq('is_featured', featured === 'featured')
-  }
+    // Apply filters
+    if (status !== 'all') {
+      where.is_active = status === 'active'
+    }
 
-  // Apply search
-  if (search.trim()) {
-    query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%,alt_text.ilike.%${search}%`)
-  }
+    if (category && category !== 'all') {
+      if (category === 'uncategorized') {
+        where.category_id = null
+      } else {
+        where.category_id = category
+      }
+    }
 
-  // Apply pagination and ordering
-  const { data, error, count } = await query
-    .order('display_order', { ascending: true })
-    .order('created_at', { ascending: false })
-    .range(offset, offset + validPageSize - 1)
+    if (featured !== 'all') {
+      where.is_featured = featured === 'featured'
+    }
 
-  if (error) {
+    // Apply search
+    if (search.trim()) {
+      where.OR = [
+        { title: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+        { alt_text: { contains: search, mode: 'insensitive' } }
+      ]
+    }
+
+    // Get portfolios with count
+    const [portfolios, total] = await Promise.all([
+      prisma.portfolio.findMany({
+        where,
+        include: {
+          category: {
+            select: {
+              id: true,
+              name: true
+            }
+          }
+        },
+        orderBy: [
+          { display_order: 'asc' },
+          { created_at: 'desc' }
+        ],
+        skip: offset,
+        take: validPageSize
+      }),
+      prisma.portfolio.count({ where })
+    ])
+
+    const formattedData = portfolios.map(portfolio => ({
+      ...portfolio,
+      created_at: portfolio.created_at?.toISOString() || '',
+      updated_at: portfolio.updated_at?.toISOString() || ''
+    }))
+
+    const pagination = calculatePagination(page, validPageSize, total)
+
+    return {
+      data: formattedData,
+      pagination
+    }
+  } catch (error: any) {
     console.error('Error fetching paginated portfolios:', error)
     throw new Error(`Failed to fetch portfolios: ${error.message}`)
-  }
-
-  const total = count || 0
-  const pagination = calculatePagination(page, validPageSize, total)
-
-  return {
-    data: data || [],
-    pagination
   }
 }
 
 // Get portfolio by ID
 export async function getPortfolioById(id: string): Promise<Portfolio | null> {
-  const supabase = await createClient()
-  
-  const { data, error } = await supabase
-    .from('portfolios')
-    .select(`
-      *,
-      category:portfolio_categories(id, name)
-    `)
-    .eq('id', id)
-    .single()
-  
-  if (error) {
-    if (error.code === 'PGRST116') {
+  try {
+    const portfolio = await prisma.portfolio.findUnique({
+      where: { id },
+      include: {
+        category: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
+      }
+    })
+
+    if (!portfolio) {
       return null
     }
+
+    return {
+      ...portfolio,
+      created_at: portfolio.created_at?.toISOString() || '',
+      updated_at: portfolio.updated_at?.toISOString() || ''
+    }
+  } catch (error: any) {
     console.error('Error fetching portfolio:', error)
     throw new Error(`Failed to fetch portfolio: ${error.message}`)
   }
-  
-  return data
 }
 
 // Create new portfolio
 export async function createPortfolio(data: CreatePortfolioData): Promise<Portfolio> {
-  const supabase = await createClient()
-  
-  const portfolioData = {
-    studio_id: data.studio_id,
-    category_id: data.category_id || null,
-    title: data.title,
-    description: data.description || null,
-    image_url: data.image_url,
-    alt_text: data.alt_text || null,
-    display_order: data.display_order || 0,
-    is_featured: data.is_featured || false,
-    is_active: data.is_active ?? true,
-    metadata: data.metadata || {},
-  }
-  
-  const { data: portfolio, error } = await supabase
-    .from('portfolios')
-    .insert(portfolioData)
-    .select(`
-      *,
-      category:portfolio_categories(id, name)
-    `)
-    .single()
-  
-  if (error) {
+  try {
+    const portfolio = await prisma.portfolio.create({
+      data: {
+        studio_id: data.studio_id,
+        category_id: data.category_id || null,
+        title: data.title,
+        description: data.description || null,
+        image_url: data.image_url,
+        alt_text: data.alt_text || null,
+        display_order: data.display_order || 0,
+        is_featured: data.is_featured || false,
+        is_active: data.is_active ?? true,
+        metadata: data.metadata || {},
+      },
+      include: {
+        category: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
+      }
+    })
+
+    revalidatePath('/admin/portfolio')
+    return {
+      ...portfolio,
+      created_at: portfolio.created_at?.toISOString() || '',
+      updated_at: portfolio.updated_at?.toISOString() || ''
+    }
+  } catch (error: any) {
     console.error('Error creating portfolio:', error)
     throw new Error(`Failed to create portfolio: ${error.message}`)
   }
-  
-  revalidatePath('/admin/portfolio')
-  return portfolio
 }
 
 // Update portfolio
 export async function updatePortfolio(id: string, data: UpdatePortfolioData): Promise<Portfolio> {
-  const supabase = await createClient()
-  
-  const updateData = {
-    ...data,
-    category_id: data.category_id === '' ? null : data.category_id,
-    updated_at: new Date().toISOString(),
-  }
-  
-  const { data: portfolio, error } = await supabase
-    .from('portfolios')
-    .update(updateData)
-    .eq('id', id)
-    .select(`
-      *,
-      category:portfolio_categories(id, name)
-    `)
-    .single()
-  
-  if (error) {
+  try {
+    const updateData = {
+      ...data,
+      category_id: data.category_id === '' ? null : data.category_id,
+    }
+
+    const portfolio = await prisma.portfolio.update({
+      where: { id },
+      data: updateData,
+      include: {
+        category: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
+      }
+    })
+
+    revalidatePath('/admin/portfolio')
+    return {
+      ...portfolio,
+      created_at: portfolio.created_at?.toISOString() || '',
+      updated_at: portfolio.updated_at?.toISOString() || ''
+    }
+  } catch (error: any) {
     console.error('Error updating portfolio:', error)
     throw new Error(`Failed to update portfolio: ${error.message}`)
   }
-  
-  revalidatePath('/admin/portfolio')
-  return portfolio
 }
 
 // Delete portfolio
 export async function deletePortfolio(id: string): Promise<void> {
-  const supabase = await createClient()
-  
-  // Get portfolio data to clean up image
-  const { data: portfolio, error: fetchError } = await supabase
-    .from('portfolios')
-    .select('image_url')
-    .eq('id', id)
-    .single()
-  
-  if (fetchError) {
-    console.error('Error fetching portfolio for deletion:', fetchError)
-    throw new Error(`Failed to fetch portfolio: ${fetchError.message}`)
-  }
-  
-  // Delete the portfolio record
-  const { error } = await supabase
-    .from('portfolios')
-    .delete()
-    .eq('id', id)
-  
-  if (error) {
+  try {
+    // Get portfolio data to clean up image
+    const portfolio = await prisma.portfolio.findUnique({
+      where: { id },
+      select: { image_url: true }
+    })
+
+    if (!portfolio) {
+      throw new Error('Portfolio not found')
+    }
+
+    // Delete the portfolio record
+    await prisma.portfolio.delete({
+      where: { id }
+    })
+
+    // Clean up the image from storage (async, don't wait for it)
+    if (portfolio.image_url) {
+      cleanupPortfolioImage(portfolio.image_url).catch(err => 
+        console.warn('Failed to cleanup image after portfolio deletion:', err)
+      )
+    }
+
+    revalidatePath('/admin/portfolio')
+  } catch (error: any) {
     console.error('Error deleting portfolio:', error)
     throw new Error(`Failed to delete portfolio: ${error.message}`)
   }
-  
-  // Clean up the image from storage (async, don't wait for it)
-  if (portfolio?.image_url) {
-    cleanupPortfolioImage(portfolio.image_url).catch(err => 
-      console.warn('Failed to cleanup image after portfolio deletion:', err)
-    )
-  }
-  
-  revalidatePath('/admin/portfolio')
 }
 
 // Toggle portfolio status
 export async function togglePortfolioStatus(id: string): Promise<Portfolio> {
-  const supabase = await createClient()
-  
-  // Get current status
-  const { data: currentPortfolio, error: fetchError } = await supabase
-    .from('portfolios')
-    .select('is_active')
-    .eq('id', id)
-    .single()
-  
-  if (fetchError) {
-    console.error('Error fetching portfolio:', fetchError)
-    throw new Error(`Failed to fetch portfolio: ${fetchError.message}`)
-  }
-  
-  // Toggle status
-  const { data: portfolio, error } = await supabase
-    .from('portfolios')
-    .update({ 
-      is_active: !currentPortfolio.is_active,
-      updated_at: new Date().toISOString()
+  try {
+    // Get current status
+    const currentPortfolio = await prisma.portfolio.findUnique({
+      where: { id },
+      select: { is_active: true }
     })
-    .eq('id', id)
-    .select(`
-      *,
-      category:portfolio_categories(id, name)
-    `)
-    .single()
-  
-  if (error) {
+
+    if (!currentPortfolio) {
+      throw new Error('Portfolio not found')
+    }
+
+    // Toggle status
+    const portfolio = await prisma.portfolio.update({
+      where: { id },
+      data: { 
+        is_active: !currentPortfolio.is_active
+      },
+      include: {
+        category: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
+      }
+    })
+
+    revalidatePath('/admin/portfolio')
+    return {
+      ...portfolio,
+      created_at: portfolio.created_at?.toISOString() || '',
+      updated_at: portfolio.updated_at?.toISOString() || ''
+    }
+  } catch (error: any) {
     console.error('Error toggling portfolio status:', error)
     throw new Error(`Failed to toggle portfolio status: ${error.message}`)
   }
-  
-  revalidatePath('/admin/portfolio')
-  return portfolio
 }
 
 // Toggle portfolio featured status
 export async function togglePortfolioFeatured(id: string): Promise<Portfolio> {
-  const supabase = await createClient()
-  
-  // Get current featured status
-  const { data: currentPortfolio, error: fetchError } = await supabase
-    .from('portfolios')
-    .select('is_featured')
-    .eq('id', id)
-    .single()
-  
-  if (fetchError) {
-    console.error('Error fetching portfolio:', fetchError)
-    throw new Error(`Failed to fetch portfolio: ${fetchError.message}`)
-  }
-  
-  // Toggle featured status
-  const { data: portfolio, error } = await supabase
-    .from('portfolios')
-    .update({ 
-      is_featured: !currentPortfolio.is_featured,
-      updated_at: new Date().toISOString()
+  try {
+    // Get current featured status
+    const currentPortfolio = await prisma.portfolio.findUnique({
+      where: { id },
+      select: { is_featured: true }
     })
-    .eq('id', id)
-    .select(`
-      *,
-      category:portfolio_categories(id, name)
-    `)
-    .single()
-  
-  if (error) {
+
+    if (!currentPortfolio) {
+      throw new Error('Portfolio not found')
+    }
+
+    // Toggle featured status
+    const portfolio = await prisma.portfolio.update({
+      where: { id },
+      data: { 
+        is_featured: !currentPortfolio.is_featured
+      },
+      include: {
+        category: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
+      }
+    })
+
+    revalidatePath('/admin/portfolio')
+    return {
+      ...portfolio,
+      created_at: portfolio.created_at?.toISOString() || '',
+      updated_at: portfolio.updated_at?.toISOString() || ''
+    }
+  } catch (error: any) {
     console.error('Error toggling portfolio featured status:', error)
     throw new Error(`Failed to toggle portfolio featured status: ${error.message}`)
   }
-  
-  revalidatePath('/admin/portfolio')
-  return portfolio
 }
 
 // ===== PORTFOLIO CATEGORIES =====
 
 // Get all categories for a studio
 export async function getPortfolioCategories(studioId: string): Promise<PortfolioCategory[]> {
-  const supabase = await createClient()
-  
-  const { data, error } = await supabase
-    .from('portfolio_categories')
-    .select('*')
-    .eq('studio_id', studioId)
-    .order('display_order', { ascending: true })
-    .order('name', { ascending: true })
-  
-  if (error) {
+  try {
+    const categories = await prisma.portfolioCategory.findMany({
+      where: { studio_id: studioId },
+      orderBy: [
+        { display_order: 'asc' },
+        { name: 'asc' }
+      ]
+    })
+
+    return categories.map(category => ({
+      ...category,
+      created_at: category.created_at?.toISOString() || '',
+      updated_at: category.created_at?.toISOString() || '' // Use created_at since schema doesn't have updated_at
+    }))
+  } catch (error: any) {
     console.error('Error fetching portfolio categories:', error)
     throw new Error(`Failed to fetch portfolio categories: ${error.message}`)
   }
-  
-  return data || []
 }
 
 // Create new category
 export async function createPortfolioCategory(data: CreateCategoryData): Promise<PortfolioCategory> {
-  const supabase = await createClient()
-  
-  const categoryData = {
-    studio_id: data.studio_id,
-    name: data.name,
-    description: data.description || null,
-    display_order: data.display_order || 0,
-    is_active: data.is_active ?? true,
-  }
-  
-  const { data: category, error } = await supabase
-    .from('portfolio_categories')
-    .insert(categoryData)
-    .select()
-    .single()
-  
-  if (error) {
+  try {
+    const category = await prisma.portfolioCategory.create({
+      data: {
+        studio_id: data.studio_id,
+        name: data.name,
+        description: data.description || null,
+        display_order: data.display_order || 0,
+        is_active: data.is_active ?? true,
+      }
+    })
+
+    revalidatePath('/admin/portfolio')
+    return {
+      ...category,
+      created_at: category.created_at?.toISOString() || '',
+      updated_at: category.created_at?.toISOString() || ''
+    }
+  } catch (error: any) {
     console.error('Error creating portfolio category:', error)
     throw new Error(`Failed to create portfolio category: ${error.message}`)
   }
-  
-  revalidatePath('/admin/portfolio')
-  return category
 }
 
 // Update category
 export async function updatePortfolioCategory(id: string, data: UpdateCategoryData): Promise<PortfolioCategory> {
-  const supabase = await createClient()
-  
-  const updateData = {
-    ...data,
-    updated_at: new Date().toISOString(),
-  }
-  
-  const { data: category, error } = await supabase
-    .from('portfolio_categories')
-    .update(updateData)
-    .eq('id', id)
-    .select()
-    .single()
-  
-  if (error) {
+  try {
+    const category = await prisma.portfolioCategory.update({
+      where: { id },
+      data: data
+    })
+
+    revalidatePath('/admin/portfolio')
+    return {
+      ...category,
+      created_at: category.created_at?.toISOString() || '',
+      updated_at: category.created_at?.toISOString() || ''
+    }
+  } catch (error: any) {
     console.error('Error updating portfolio category:', error)
     throw new Error(`Failed to update portfolio category: ${error.message}`)
   }
-  
-  revalidatePath('/admin/portfolio')
-  return category
 }
 
 // Delete category
 export async function deletePortfolioCategory(id: string): Promise<void> {
-  const supabase = await createClient()
-  
-  // Check if category is being used by any portfolios
-  const { data: portfolios } = await supabase
-    .from('portfolios')
-    .select('id')
-    .eq('category_id', id)
-    .limit(1)
-  
-  if (portfolios && portfolios.length > 0) {
-    throw new Error('Cannot delete category that is being used by portfolios')
-  }
-  
-  const { error } = await supabase
-    .from('portfolio_categories')
-    .delete()
-    .eq('id', id)
-  
-  if (error) {
+  try {
+    // Check if category is being used by any portfolios
+    const portfolioCount = await prisma.portfolio.count({
+      where: { category_id: id }
+    })
+
+    if (portfolioCount > 0) {
+      throw new Error('Cannot delete category that is being used by portfolios')
+    }
+
+    await prisma.portfolioCategory.delete({
+      where: { id }
+    })
+
+    revalidatePath('/admin/portfolio')
+  } catch (error: any) {
     console.error('Error deleting portfolio category:', error)
     throw new Error(`Failed to delete portfolio category: ${error.message}`)
   }
-  
-  revalidatePath('/admin/portfolio')
 }
 
 // ===== IMAGE MANAGEMENT HELPERS =====
 
 /**
- * Extract storage path from Supabase URL for cleanup
+ * Extract storage path from URL for cleanup
  */
 function extractStoragePathFromUrl(url: string): string | null {
   try {
     const urlObj = new URL(url)
     const pathParts = urlObj.pathname.split('/')
-    const storageIndex = pathParts.findIndex(part => part === 'storage')
+    const uploadsIndex = pathParts.findIndex(part => part === 'uploads')
     
-    if (storageIndex !== -1 && pathParts[storageIndex + 2]) {
-      // Remove /storage/v1/object/public/bucket-name/ and get the file path
-      return pathParts.slice(storageIndex + 4).join('/')
+    if (uploadsIndex !== -1 && pathParts[uploadsIndex + 2]) {
+      return pathParts.slice(uploadsIndex + 2).join('/')
     }
     
     return null
@@ -494,16 +539,15 @@ function extractStoragePathFromUrl(url: string): string | null {
  */
 export async function cleanupPortfolioImage(imageUrl: string): Promise<void> {
   try {
-    const supabase = await createClient()
     const path = extractStoragePathFromUrl(imageUrl)
     
     if (path && imageUrl.includes('portfolio-images')) {
-      const { error } = await supabase.storage
-        .from('portfolio-images')
-        .remove([path])
+      // Use the deleteFile function from storage.ts
+      const { deleteFile } = await import('@/lib/storage')
+      const result = await deleteFile('portfolio-images', path)
       
-      if (error) {
-        console.warn('Failed to cleanup portfolio image:', error.message)
+      if (result.error) {
+        console.warn('Failed to cleanup portfolio image:', result.error.message)
       }
     }
   } catch (error) {
@@ -516,22 +560,26 @@ export async function cleanupPortfolioImage(imageUrl: string): Promise<void> {
  */
 export async function validateStudioUploadPermission(studioId: string): Promise<boolean> {
   try {
-    const supabase = await createClient()
-    
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const user = await getCurrentUser()
+    if (!user) {
       return false
     }
 
-    // Check if user has access to this studio
-    const { data, error } = await supabase
-      .from('user_studios')
-      .select('studio_id')
-      .eq('studio_id', studioId)
-      .eq('user_id', user.id)
-      .single()
+    // Get current user profile to check studio access
+    const userProfile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { 
+        role: true, 
+        studio_id: true 
+      }
+    })
 
-    return !error && !!data
+    if (!userProfile) {
+      return false
+    }
+
+    // Admin users or users assigned to the specific studio can upload
+    return userProfile.role === 'admin' || userProfile.studio_id === studioId
   } catch {
     return false
   }

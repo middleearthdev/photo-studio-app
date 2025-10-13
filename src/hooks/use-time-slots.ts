@@ -15,23 +15,23 @@ import { PaginationParams } from '@/lib/constants/pagination'
 
 export const timeSlotKeys = {
   all: ['timeSlots'] as const,
-  availableSlots: (studioId?: string, date?: string, duration?: number, packageId?: string) =>
-    [...timeSlotKeys.all, 'available', { studioId, date, duration, packageId }] as const,
+  availableSlots: (studioId?: string, date?: string, duration?: number, packageId?: string, excludeReservationId?: string) =>
+    [...timeSlotKeys.all, 'available', { studioId, date, duration, packageId, excludeReservationId }] as const,
   paginatedLists: () => [...timeSlotKeys.all, 'paginated'] as const,
   paginatedList: (params: any) => [...timeSlotKeys.paginatedLists(), params] as const,
   details: () => [...timeSlotKeys.all, 'detail'] as const,
   detail: (id: string) => [...timeSlotKeys.details(), id] as const,
 }
 
-export function useAvailableTimeSlots(studioId?: string, date?: string, packageDurationMinutes?: number, packageId?: string) {
+export function useAvailableTimeSlots(studioId?: string, date?: string, packageDurationMinutes?: number, packageId?: string, excludeReservationId?: string) {
   return useQuery({
-    queryKey: timeSlotKeys.availableSlots(studioId, date, packageDurationMinutes, packageId),
+    queryKey: timeSlotKeys.availableSlots(studioId, date, packageDurationMinutes, packageId, excludeReservationId),
     queryFn: async () => {
       if (!studioId || !date) {
         return []
       }
 
-      const result = await getAvailableTimeSlotsAction(studioId, date, packageDurationMinutes, packageId)
+      const result = await getAvailableTimeSlotsAction(studioId, date, packageDurationMinutes, packageId, excludeReservationId)
       if (!result.success) {
         throw new Error(result.error || 'Failed to fetch time slots')
       }

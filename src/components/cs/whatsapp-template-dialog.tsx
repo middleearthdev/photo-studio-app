@@ -101,7 +101,7 @@ export function WhatsAppTemplateDialog({ isOpen, onClose, reservation }: WhatsAp
 
   const getSuccessLink = () => {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-    return `${baseUrl}/booking/success?payment=completed&booking=${reservation.booking_code}`
+    return `${baseUrl}/booking/success?payment=paid&booking=${reservation.booking_code}`
   }
 
   return (
@@ -318,7 +318,7 @@ export function WhatsAppTemplateDialog({ isOpen, onClose, reservation }: WhatsAp
                             <div>
                               <p className="text-xs font-medium text-red-700">Status DP:</p>
                               <p className="text-xs font-semibold text-red-800">
-                                {['partial', 'completed'].includes(reservation.payment_status) 
+                                {['partial', 'paid'].includes(reservation.payment_status) 
                                   ? `${formatCurrency(reservation.dp_amount)} - HANGUS` 
                                   : 'Belum bayar DP'
                                 }

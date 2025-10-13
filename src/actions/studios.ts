@@ -1,7 +1,9 @@
 "use server"
 
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
+import { auth } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
+import { headers } from 'next/headers'
 
 export interface Studio {
   id: string
@@ -11,8 +13,8 @@ export interface Studio {
   phone: string | null
   email: string | null
   operating_hours: Record<string, { open: string; close: string }> | null
-  is_active: boolean
-  settings: Record<string, any>
+  is_active: boolean | null
+  settings: Record<string, any> | null
   created_at: string
   updated_at: string
 }
@@ -37,81 +39,88 @@ export interface ActionResult<T = any> {
   error?: string
 }
 
+// Helper function to get current user session
+async function getCurrentUser() {
+  const session = await auth.api.getSession({
+    headers: await headers()
+  })
+  return session?.user || null
+}
+
 export async function getStudiosAction(): Promise<ActionResult<Studio[]>> {
   try {
-    const supabase = await createClient()
-
     // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const user = await getCurrentUser()
+    if (!user) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role, studio_id')
-      .eq('id', user.id)
-      .single()
-
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true, studio_id: true }
+    })
 
     if (!currentProfile || currentProfile.role !== 'admin') {
       return { success: false, error: 'Insufficient permissions' }
     }
 
     // Get studios
-    const { data: studios, error } = await supabase
-      .from('studios')
-      .select('*')
-      .order('created_at', { ascending: false })
+    const studios = await prisma.studio.findMany({
+      orderBy: { created_at: 'desc' }
+    })
 
-    if (error) {
-      console.error('Error fetching studios:', error)
-      return { success: false, error: 'Failed to fetch studios' }
-    }
+    const formattedStudios: Studio[] = studios.map(studio => ({
+      ...studio,
+      created_at: studio.created_at?.toISOString() || '',
+      updated_at: studio.updated_at?.toISOString() || '',
+      operating_hours: studio.operating_hours as Record<string, { open: string; close: string }> | null,
+      settings: studio.settings as Record<string, any> | null
+    }))
 
-    return { success: true, data: studios || [] }
+    return { success: true, data: formattedStudios }
   } catch (error: any) {
     console.error('Error in getStudiosAction:', error)
     return { success: false, error: error.message || 'An error occurred' }
   }
 }
 
-
 export async function getStudioAction(studioId: string): Promise<ActionResult<Studio>> {
   try {
-    const supabase = await createClient()
-
     // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const user = await getCurrentUser()
+    if (!user) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true }
+    })
 
     if (!currentProfile || currentProfile.role !== 'admin') {
       return { success: false, error: 'Insufficient permissions' }
     }
 
     // Get studio
-    const { data: studio, error } = await supabase
-      .from('studios')
-      .select('*')
-      .eq('id', studioId)
-      .single()
+    const studio = await prisma.studio.findUnique({
+      where: { id: studioId }
+    })
 
-    if (error) {
-      console.error('Error fetching studio:', error)
+    if (!studio) {
       return { success: false, error: 'Studio not found' }
     }
 
-    return { success: true, data: studio }
+    const formattedStudio: Studio = {
+      ...studio,
+      created_at: studio.created_at?.toISOString() || '',
+      updated_at: studio.updated_at?.toISOString() || '',
+      operating_hours: studio.operating_hours as Record<string, { open: string; close: string }> | null,
+      settings: studio.settings as Record<string, any> | null
+    }
+
+    return { success: true, data: formattedStudio }
   } catch (error: any) {
     console.error('Error in getStudioAction:', error)
     return { success: false, error: error.message || 'Failed to fetch studio' }
@@ -121,21 +130,21 @@ export async function getStudioAction(studioId: string): Promise<ActionResult<St
 // Public action to get active studios for customers
 export async function getPublicStudiosAction(): Promise<ActionResult<Studio[]>> {
   try {
-    const supabase = await createClient()
+    // Get active studios only
+    const studios = await prisma.studio.findMany({
+      where: { is_active: true },
+      orderBy: { name: 'asc' }
+    })
 
-    // Build query for active studios only
-    const { data: studios, error } = await supabase
-      .from('studios')
-      .select('*')
-      .eq('is_active', true)
-      .order('name', { ascending: true })
+    const formattedStudios: Studio[] = studios.map(studio => ({
+      ...studio,
+      created_at: studio.created_at?.toISOString() || '',
+      updated_at: studio.updated_at?.toISOString() || '',
+      operating_hours: studio.operating_hours as Record<string, { open: string; close: string }> | null,
+      settings: studio.settings as Record<string, any> | null
+    }))
 
-    if (error) {
-      console.error('Error fetching public studios:', error)
-      return { success: false, error: 'Failed to fetch studios' }
-    }
-
-    return { success: true, data: studios || [] }
+    return { success: true, data: formattedStudios }
   } catch (error: any) {
     console.error('Error in getPublicStudiosAction:', error)
     return { success: false, error: error.message || 'An error occurred' }
@@ -144,42 +153,34 @@ export async function getPublicStudiosAction(): Promise<ActionResult<Studio[]>> 
 
 export async function createStudioAction(studioData: CreateStudioData): Promise<ActionResult> {
   try {
-    const supabase = await createClient()
-
     // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const user = await getCurrentUser()
+    if (!user) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true }
+    })
 
     if (!currentProfile || currentProfile.role !== 'admin') {
       return { success: false, error: 'Insufficient permissions' }
     }
 
     // Create studio
-    const { error } = await supabase
-      .from('studios')
-      .insert({
+    await prisma.studio.create({
+      data: {
         name: studioData.name,
-        description: studioData.description,
+        description: studioData.description || null,
         address: studioData.address,
-        phone: studioData.phone,
-        email: studioData.email,
-        operating_hours: studioData.operating_hours,
+        phone: studioData.phone || null,
+        email: studioData.email || null,
+        operating_hours: studioData.operating_hours || undefined,
         settings: studioData.settings || {},
-      })
-
-    if (error) {
-      console.error('Error creating studio:', error)
-      return { success: false, error: error.message }
-    }
+      }
+    })
 
     revalidatePath('/admin/studio')
     return { success: true }
@@ -191,38 +192,31 @@ export async function createStudioAction(studioData: CreateStudioData): Promise<
 
 export async function updateStudioAction(studioId: string, studioData: UpdateStudioData): Promise<ActionResult> {
   try {
-    const supabase = await createClient()
-
     // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const user = await getCurrentUser()
+    if (!user) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true }
+    })
 
     if (!currentProfile || currentProfile.role !== 'admin') {
       return { success: false, error: 'Insufficient permissions' }
     }
 
     // Update studio
-    const { error } = await supabase
-      .from('studios')
-      .update({
+    await prisma.studio.update({
+      where: { id: studioId },
+      data: {
         ...studioData,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', studioId)
-
-    if (error) {
-      console.error('Error updating studio:', error)
-      return { success: false, error: error.message }
-    }
+        operating_hours: studioData.operating_hours || undefined,
+        settings: studioData.settings || undefined
+      }
+    })
 
     revalidatePath('/admin/studio')
     return { success: true }
@@ -234,51 +228,40 @@ export async function updateStudioAction(studioId: string, studioData: UpdateStu
 
 export async function deleteStudioAction(studioId: string): Promise<ActionResult> {
   try {
-    const supabase = await createClient()
-
     // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const user = await getCurrentUser()
+    if (!user) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true }
+    })
 
     if (!currentProfile || currentProfile.role !== 'admin') {
       return { success: false, error: 'Insufficient permissions' }
     }
 
     // Get current studio status
-    const { data: studio, error: fetchError } = await supabase
-      .from('studios')
-      .select('is_active')
-      .eq('id', studioId)
-      .single()
+    const studio = await prisma.studio.findUnique({
+      where: { id: studioId },
+      select: { is_active: true }
+    })
 
-    if (fetchError) {
-      console.error('Error fetching studio:', fetchError)
+    if (!studio) {
       return { success: false, error: 'Studio not found' }
     }
 
     // Toggle studio status
     const newStatus = !studio.is_active
-    const { error } = await supabase
-      .from('studios')
-      .update({
-        is_active: newStatus,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', studioId)
-
-    if (error) {
-      console.error('Error updating studio status:', error)
-      return { success: false, error: error.message }
-    }
+    await prisma.studio.update({
+      where: { id: studioId },
+      data: {
+        is_active: newStatus
+      }
+    })
 
     revalidatePath('/admin/studio')
     return { success: true }
@@ -290,34 +273,29 @@ export async function deleteStudioAction(studioId: string): Promise<ActionResult
 
 export async function hardDeleteStudioAction(studioId: string): Promise<ActionResult> {
   try {
-    const supabase = await createClient()
-
     // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const user = await getCurrentUser()
+    if (!user) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true }
+    })
 
     if (!currentProfile || currentProfile.role !== 'admin') {
       return { success: false, error: 'Insufficient permissions' }
     }
 
     // Check if studio is inactive (required for hard delete)
-    const { data: studio, error: fetchError } = await supabase
-      .from('studios')
-      .select('is_active')
-      .eq('id', studioId)
-      .single()
+    const studio = await prisma.studio.findUnique({
+      where: { id: studioId },
+      select: { is_active: true }
+    })
 
-    if (fetchError) {
-      console.error('Error fetching studio:', fetchError)
+    if (!studio) {
       return { success: false, error: 'Studio not found' }
     }
 
@@ -326,46 +304,26 @@ export async function hardDeleteStudioAction(studioId: string): Promise<ActionRe
     }
 
     // Check for related data that would prevent deletion
-    const { data: facilities, error: facilitiesError } = await supabase
-      .from('facilities')
-      .select('id')
-      .eq('studio_id', studioId)
-      .limit(1)
+    const facilitiesCount = await prisma.facility.count({
+      where: { studio_id: studioId }
+    })
 
-    if (facilitiesError) {
-      console.error('Error checking facilities:', facilitiesError)
-      return { success: false, error: 'Error checking related data' }
-    }
+    const reservationsCount = await prisma.reservation.count({
+      where: { studio_id: studioId }
+    })
 
-    const { data: reservations, error: reservationsError } = await supabase
-      .from('reservations')
-      .select('id')
-      .eq('studio_id', studioId)
-      .limit(1)
-
-    if (reservationsError) {
-      console.error('Error checking reservations:', reservationsError)
-      return { success: false, error: 'Error checking related data' }
-    }
-
-    if (facilities && facilities.length > 0) {
+    if (facilitiesCount > 0) {
       return { success: false, error: 'Cannot delete studio with existing facilities. Please remove all facilities first.' }
     }
 
-    if (reservations && reservations.length > 0) {
+    if (reservationsCount > 0) {
       return { success: false, error: 'Cannot delete studio with existing reservations.' }
     }
 
     // Hard delete - permanently remove from database
-    const { error: deleteError } = await supabase
-      .from('studios')
-      .delete()
-      .eq('id', studioId)
-
-    if (deleteError) {
-      console.error('Error hard deleting studio:', deleteError)
-      return { success: false, error: deleteError.message }
-    }
+    await prisma.studio.delete({
+      where: { id: studioId }
+    })
 
     revalidatePath('/admin/studio')
     return { success: true }

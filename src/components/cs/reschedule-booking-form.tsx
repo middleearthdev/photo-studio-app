@@ -56,7 +56,8 @@ export function RescheduleBookingForm({ isOpen, onClose, onSuccess, reservation 
     reservation?.studio_id,
     formData.new_date,
     reservation?.total_duration,
-    reservation?.package_id || undefined
+    reservation?.package_id || undefined,
+    reservation?.id // Exclude current reservation from conflict check
   )
 
   // Reset form when reservation changes

@@ -168,7 +168,7 @@ export default function PaymentMethodsPage() {
     setFormData({
       name: method.name,
       type: method.type,
-      provider: method.provider,
+      provider: method.provider || "",
       // Account details fields (only for bank_transfer)
       account_number: accountDetails.account_number || "",
       account_name: accountDetails.account_name || "",
@@ -186,7 +186,7 @@ export default function PaymentMethodsPage() {
       fee_type: method.fee_type || "percentage",
       fee_percentage: method.fee_percentage || 0,
       fee_amount: method.fee_amount || 0,
-      is_active: method.is_active,
+      is_active: method.is_active ?? true,
     })
     setIsDialogOpen(true)
   }
@@ -528,18 +528,18 @@ export default function PaymentMethodsPage() {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <Badge variant={method.is_active ? "default" : "secondary"}>
-                              {method.is_active ? "Active" : "Inactive"}
+                            <Badge variant={(method.is_active ?? true) ? "default" : "secondary"}>
+                              {(method.is_active ?? true) ? "Active" : "Inactive"}
                             </Badge>
                             <Switch
-                              checked={method.is_active}
+                              checked={method.is_active ?? true}
                               onCheckedChange={() => handleToggleActive(method.id)}
                             />
                           </div>
                         </TableCell>
                         <TableCell>
                           <div className="text-sm text-muted-foreground">
-                            {new Date(method.created_at).toLocaleDateString()}
+                            {method.created_at ? new Date(method.created_at).toLocaleDateString() : 'N/A'}
                           </div>
                         </TableCell>
                         <TableCell>

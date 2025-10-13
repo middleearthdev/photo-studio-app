@@ -107,11 +107,11 @@ export function AddonDialog({
           description: addonData.description || "",
           price: addonData.price,
           type: (addonData.type as FormData['type']) || "photography",
-          max_quantity: addonData.max_quantity,
+          max_quantity: addonData.max_quantity || 1,
           facility_id: addonData.facility_id || "general",
-          is_conditional: addonData.is_conditional,
+          is_conditional: addonData.is_conditional || false,
           conditional_logic: JSON.stringify(addonData.conditional_logic, null, 2),
-          is_active: addonData.is_active,
+          is_active: addonData.is_active || true,
         })
       } else {
         // Create mode

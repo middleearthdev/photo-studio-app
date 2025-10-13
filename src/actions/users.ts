@@ -1,8 +1,12 @@
 "use server"
 
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
 import { PaginationParams, PaginatedResult, calculatePagination } from '@/lib/constants/pagination'
+import { auth } from '@/lib/auth'
+import { headers } from 'next/headers'
+import crypto from 'crypto'
+import { hashPassword } from 'better-auth/crypto'
 
 export type UserRole = 'customer' | 'admin' | 'cs'
 
@@ -15,10 +19,15 @@ export interface UserProfile {
   address: string | null
   avatar_url: string | null
   is_active: boolean
-  last_login: string | null
-  created_at: string
-  updated_at: string
-  email?: string
+  last_login: Date | null
+  created_at: Date
+  updated_at: Date
+  email: string
+  emailVerified: boolean
+  name: string | null
+  image: string | null
+  birth_date: Date | null
+  preferences: any
 }
 
 export interface CreateUserData {
@@ -46,54 +55,55 @@ export interface ActionResult<T = unknown> {
 
 export async function getUsersAction(): Promise<ActionResult<UserProfile[]>> {
   try {
-    const supabase = await createClient()
+    const session = await auth.api.getSession({
+      headers: await headers()
+    })
 
-    // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    if (!session?.user) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role, studio_id')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, studio_id: true }
+    })
 
     if (!currentProfile || currentProfile.role !== 'admin') {
       return { success: false, error: 'Insufficient permissions' }
     }
 
-    // Get users from user_profiles table
-    const { data: profiles, error: profilesError } = await supabase
-      .from('user_profiles')
-      .select('*')
-      .order('created_at', { ascending: false })
-
-    if (profilesError) {
-      console.error('Error fetching users:', profilesError)
-      return { success: false, error: 'Failed to fetch users' }
-    }
-
-    // Get auth users to get email information
-    const { data: { users: authUsers }, error: authError2 } = await supabase.auth.admin.listUsers()
-
-    if (authError2) {
-      console.error('Error fetching auth users:', authError2)
-      // Continue without email data if auth fetch fails
-    }
-
-    // Merge profiles with email data
-    const usersWithEmail = profiles?.map(profile => {
-      const authUser = authUsers?.find(user => user.id === profile.id)
-      return {
-        ...profile,
-        email: authUser?.email || 'No email'
+    // Get all users
+    const users = await prisma.user.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: {
+        studio: {
+          select: { id: true, name: true }
+        }
       }
-    }) as UserProfile[]
+    })
 
-    return { success: true, data: usersWithEmail || [] }
+    const userProfiles: UserProfile[] = users.map(user => ({
+      id: user.id,
+      studio_id: user.studio_id,
+      role: user.role,
+      full_name: user.full_name,
+      phone: user.phone,
+      address: user.address,
+      avatar_url: user.avatar_url,
+      is_active: user.is_active || false,
+      last_login: user.last_login,
+      created_at: user.createdAt,
+      updated_at: user.updatedAt,
+      email: user.email,
+      emailVerified: user.emailVerified,
+      name: user.name,
+      image: user.image,
+      birth_date: user.birth_date,
+      preferences: user.preferences
+    }))
+
+    return { success: true, data: userProfiles }
   } catch (error: unknown) {
     console.error('Error in getUsersAction:', error)
     const errorMessage = error instanceof Error ? error.message : 'An error occurred'
@@ -109,131 +119,135 @@ export async function getPaginatedUsers(
     studioId?: string
   } = {}
 ): Promise<PaginatedResult<UserProfile>> {
-  const supabase = await createClient()
-
   const { page = 1, pageSize = 10, search = '', role = 'all', status = 'all', studioId } = params
   const { offset, pageSize: validPageSize } = calculatePagination(page, pageSize, 0)
 
-  // Build the query
-  let query = supabase
-    .from('user_profiles')
-    .select('*', { count: 'exact' })
+  // Build the where clause
+  const where: any = {}
 
-  // Apply filters
   if (role !== 'all') {
-    query = query.eq('role', role)
+    where.role = role
   }
 
   if (status !== 'all') {
-    query = query.eq('is_active', status === 'active')
+    where.is_active = status === 'active'
   }
 
   if (studioId && studioId !== 'all') {
-    query = query.eq('studio_id', studioId)
+    where.studio_id = studioId
   }
 
   // Apply search
   if (search.trim()) {
-    query = query.or(`full_name.ilike.%${search}%,phone.ilike.%${search}%`)
+    where.OR = [
+      { full_name: { contains: search, mode: 'insensitive' } },
+      { phone: { contains: search, mode: 'insensitive' } },
+      { email: { contains: search, mode: 'insensitive' } }
+    ]
   }
 
-  // Apply pagination and ordering
-  const { data: profiles, error, count } = await query
-    .order('created_at', { ascending: false })
-    .range(offset, offset + validPageSize - 1)
-
-  if (error) {
-    console.error('Error fetching paginated users:', error)
-    throw new Error(`Failed to fetch users: ${error.message}`)
-  }
-
-  // Get auth users to get email information (for current page only)
-  let usersWithEmail = profiles || []
   try {
-    const { data: { users: authUsers }, error: authError } = await supabase.auth.admin.listUsers()
-
-    if (!authError && authUsers) {
-      usersWithEmail = profiles?.map(profile => {
-        const authUser = authUsers.find(user => user.id === profile.id)
-        return {
-          ...profile,
-          email: authUser?.email || 'No email'
+    const [users, total] = await Promise.all([
+      prisma.user.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: offset,
+        take: validPageSize,
+        include: {
+          studio: {
+            select: { id: true, name: true }
+          }
         }
-      }) as UserProfile[] || []
+      }),
+      prisma.user.count({ where })
+    ])
+
+    const userProfiles: UserProfile[] = users.map(user => ({
+      id: user.id,
+      studio_id: user.studio_id,
+      role: user.role,
+      full_name: user.full_name,
+      phone: user.phone,
+      address: user.address,
+      avatar_url: user.avatar_url,
+      is_active: user.is_active || false,
+      last_login: user.last_login,
+      created_at: user.createdAt,
+      updated_at: user.updatedAt,
+      email: user.email,
+      emailVerified: user.emailVerified,
+      name: user.name,
+      image: user.image,
+      birth_date: user.birth_date,
+      preferences: user.preferences
+    }))
+
+    const pagination = calculatePagination(page, validPageSize, total)
+
+    return {
+      data: userProfiles,
+      pagination
     }
   } catch (error) {
-    console.warn('Could not fetch email data:', error)
-  }
-
-  const total = count || 0
-  const pagination = calculatePagination(page, validPageSize, total)
-
-  return {
-    data: usersWithEmail,
-    pagination
+    console.error('Error fetching paginated users:', error)
+    throw new Error(`Failed to fetch users: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
 }
 
 export async function createUserAction(userData: CreateUserData): Promise<ActionResult> {
   try {
-    const supabase = await createClient()
+    const session = await auth.api.getSession({
+      headers: await headers()
+    })
 
-    // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    if (!session?.user) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role, studio_id')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, studio_id: true }
+    })
 
     if (!currentProfile || currentProfile.role !== 'admin') {
       return { success: false, error: 'Insufficient permissions' }
     }
 
-    // Create new user with admin API
-    const { data: authData, error: authError2 } = await supabase.auth.admin.createUser({
-      email: userData.email,
-      password: userData.password,
-      email_confirm: true,
-      user_metadata: {
-        full_name: userData.full_name,
-        phone: userData.phone,
-      }
+    // Check if email already exists
+    const existingUser = await prisma.user.findUnique({
+      where: { email: userData.email }
     })
 
-    if (authError2) {
-      return { success: false, error: authError2.message }
+    if (existingUser) {
+      return { success: false, error: 'Email already exists' }
     }
 
-    if (!authData.user) {
-      return { success: false, error: 'Failed to create user' }
-    }
-
-    // Create user profile
-    // Admin users have studio_id = null (general access)
-    // CS users have studio_id = currentProfile.studio_id (studio-specific access)
-    const { error: profileError } = await supabase
-      .from('user_profiles')
-      .insert({
-        id: authData.user.id,
-        studio_id: userData.role === 'admin' ? null : currentProfile.studio_id,
-        role: userData.role,
+    // Hash the password using Better Auth's crypto
+    const hashedPassword = await hashPassword(userData.password)
+    
+    // Create new user
+    const userId = crypto.randomUUID()
+    await prisma.user.create({
+      data: {
+        id: userId,
+        email: userData.email,
+        emailVerified: true,
         full_name: userData.full_name,
         phone: userData.phone,
+        role: userData.role,
         is_active: userData.is_active,
-      })
-
-    if (profileError) {
-      // If profile creation fails, try to delete the auth user
-      await supabase.auth.admin.deleteUser(authData.user.id)
-      return { success: false, error: profileError.message }
-    }
-
+        studio_id: userData.role === 'admin' ? null : currentProfile.studio_id,
+        accounts: {
+          create: {
+            id: crypto.randomUUID(),
+            accountId: userData.email,
+            providerId: 'credential',
+            password: hashedPassword
+          }
+        }
+      }
+    })
 
     revalidatePath('/admin/users')
     return { success: true }
@@ -246,51 +260,42 @@ export async function createUserAction(userData: CreateUserData): Promise<Action
 
 export async function updateUserAction(userId: string, userData: UpdateUserData): Promise<ActionResult> {
   try {
-    const supabase = await createClient()
+    const session = await auth.api.getSession({
+      headers: await headers()
+    })
 
-    // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    if (!session?.user) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role, studio_id')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, studio_id: true }
+    })
 
     if (!currentProfile || currentProfile.role !== 'admin') {
       return { success: false, error: 'Insufficient permissions' }
     }
 
     // Update user profile
-    const { error: profileError } = await supabase
-      .from('user_profiles')
-      .update({
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
         full_name: userData.full_name,
         phone: userData.phone,
         role: userData.role,
-        is_active: userData.is_active,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', userId)
-
-    if (profileError) {
-      return { success: false, error: profileError.message }
-    }
+        is_active: userData.is_active
+      }
+    })
 
     // Update password if provided
     if (userData.password && userData.password.length > 0) {
-      const { error: authError2 } = await supabase.auth.admin.updateUserById(userId, {
-        password: userData.password
+      const hashedPassword = await hashPassword(userData.password)
+      await prisma.account.updateMany({
+        where: { userId, providerId: 'credential' },
+        data: { password: hashedPassword }
       })
-
-      if (authError2) {
-        console.error('Password update error:', authError2)
-        // Don't throw error for password update as profile update succeeded
-      }
     }
 
     revalidatePath('/admin/users')
@@ -304,42 +309,34 @@ export async function updateUserAction(userId: string, userData: UpdateUserData)
 
 export async function deactivateUserAction(userId: string): Promise<ActionResult> {
   try {
-    const supabase = await createClient()
+    const session = await auth.api.getSession({
+      headers: await headers()
+    })
 
-    // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    if (!session?.user) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role, studio_id')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, studio_id: true }
+    })
 
     if (!currentProfile || currentProfile.role !== 'admin') {
       return { success: false, error: 'Insufficient permissions' }
     }
 
     // Prevent self-deactivation
-    if (userId === user.id) {
+    if (userId === session.user.id) {
       return { success: false, error: 'Cannot deactivate your own account' }
     }
 
     // Deactivate user
-    const { error } = await supabase
-      .from('user_profiles')
-      .update({
-        is_active: false,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', userId)
-
-    if (error) {
-      return { success: false, error: error.message }
-    }
+    await prisma.user.update({
+      where: { id: userId },
+      data: { is_active: false }
+    })
 
     revalidatePath('/admin/users')
     return { success: true }
@@ -352,37 +349,29 @@ export async function deactivateUserAction(userId: string): Promise<ActionResult
 
 export async function activateUserAction(userId: string): Promise<ActionResult> {
   try {
-    const supabase = await createClient()
+    const session = await auth.api.getSession({
+      headers: await headers()
+    })
 
-    // Get current user to check permissions
-    const { data: { user }, error: authError1 } = await supabase.auth.getUser()
-    if (authError1 || !user) {
+    if (!session?.user) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role, studio_id')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, studio_id: true }
+    })
 
     if (!currentProfile || currentProfile.role !== 'admin') {
       return { success: false, error: 'Insufficient permissions' }
     }
 
     // Activate user
-    const { error } = await supabase
-      .from('user_profiles')
-      .update({
-        is_active: true,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', userId)
-
-    if (error) {
-      return { success: false, error: error.message }
-    }
+    await prisma.user.update({
+      where: { id: userId },
+      data: { is_active: true }
+    })
 
     revalidatePath('/admin/users')
     return { success: true }
@@ -395,73 +384,68 @@ export async function activateUserAction(userId: string): Promise<ActionResult> 
 
 export async function deleteUserPermanentlyAction(userId: string): Promise<ActionResult> {
   try {
-    const supabase = await createClient()
+    const session = await auth.api.getSession({
+      headers: await headers()
+    })
 
-    // Get current user to check permissions
-    const { data: { user }, error: authError1 } = await supabase.auth.getUser()
-    if (authError1 || !user) {
+    if (!session?.user) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role, studio_id')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, studio_id: true }
+    })
 
     if (!currentProfile || currentProfile.role !== 'admin') {
       return { success: false, error: 'Insufficient permissions' }
     }
 
     // Prevent self-deletion
-    if (userId === user.id) {
+    if (userId === session.user.id) {
       return { success: false, error: 'Cannot delete your own account' }
     }
 
     // Get user to be deleted
-    const { data: userToDelete } = await supabase
-      .from('user_profiles')
-      .select('role')
-      .eq('id', userId)
-      .single()
+    const userToDelete = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true }
+    })
 
     if (!userToDelete) {
       return { success: false, error: 'User not found' }
     }
 
     // Check if user has related data that would prevent deletion
-    const { data: relatedData } = await supabase
-      .from('reservations')
-      .select('id')
-      .eq('user_id', userId)
-      .limit(1)
+    const relatedReservations = await prisma.reservation.findFirst({
+      where: { user_id: userId }
+    })
 
-    if (relatedData && relatedData.length > 0) {
+    if (relatedReservations) {
       return {
         success: false,
         error: 'Cannot delete user with existing reservations. Deactivate instead.'
       }
     }
 
-    // Start transaction-like operations
-    // 1. Delete user profile first
-    const { error: profileError } = await supabase
-      .from('user_profiles')
-      .delete()
-      .eq('id', userId)
-
-    if (profileError) {
-      return { success: false, error: profileError.message }
-    }
-
-    // 2. Delete from auth.users (this will cascade delete the profile via trigger)
-    const { error: authError2 } = await supabase.auth.admin.deleteUser(userId)
-
-    if (authError2) {
-      console.error('Warning: Profile deleted but auth user deletion failed:', authError2)
-      // Don't return error here as profile is already deleted
-    }
+    // Delete user and related data in a transaction
+    await prisma.$transaction(async (tx) => {
+      // Delete accounts first (though cascade should handle this)
+      await tx.account.deleteMany({
+        where: { userId }
+      })
+      
+      // Delete sessions (though cascade should handle this)
+      await tx.session.deleteMany({
+        where: { userId }
+      })
+      
+      // Finally delete the user
+      await tx.user.delete({
+        where: { id: userId }
+      })
+    })
 
     revalidatePath('/admin/users')
     return { success: true }

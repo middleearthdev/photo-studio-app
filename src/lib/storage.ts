@@ -1,5 +1,3 @@
-import { createClient } from '@/lib/supabase/client'
-
 // Types
 export interface UploadOptions {
   bucket: string
@@ -100,7 +98,7 @@ export const resizeImage = (file: File, maxWidth = 2048, maxHeight = 2048, quali
   })
 }
 
-// Main upload function following Supabase docs
+// Main upload function using server endpoint
 export const uploadFile = async ({
   bucket,
   path,
@@ -108,8 +106,6 @@ export const uploadFile = async ({
   onProgress
 }: UploadOptions): Promise<UploadResult> => {
   try {
-    const supabase = createClient()
-
     // Validate file
     const validation = validateFile(file)
     if (!validation.valid) {
@@ -124,14 +120,13 @@ export const uploadFile = async ({
     if (file.size > 1024 * 1024 && file.type.startsWith('image/')) {
       try {
         console.log("resize")
-
         fileToUpload = await resizeImage(file)
       } catch (resizeError) {
         console.warn('Image resize failed, uploading original:', resizeError)
       }
     }
 
-    // Progress simulation (Supabase doesn't provide native progress for uploads)
+    // Progress simulation
     let progressInterval: NodeJS.Timeout | null = null
     if (onProgress) {
       let progress = 10
@@ -142,53 +137,56 @@ export const uploadFile = async ({
         }
       }, 200)
     }
+
     console.log("upload")
 
+    // Create FormData for file upload
+    const formData = new FormData()
+    formData.append('file', fileToUpload)
+    formData.append('bucket', bucket)
+    formData.append('path', path)
 
-    const { data, error } = await supabase.storage
-      .from(bucket)
-      .upload(path, fileToUpload, {
-        cacheControl: '3600',
-        upsert: false,            // akan error 409 kalau file sudah ada
-        contentType: fileToUpload.type || 'application/octet-stream', // bantu deteksi MIME
-      });
-
-    if (error) {
-      console.error('[UPLOAD ERROR]', {
-        name: error.name,
-        message: error.message,
-        status: (error as any).status,
-      });
-      // optional: lempar biar ketangkep di error boundary
-      throw error;
-    }
+    // Upload to server endpoint
+    const uploadEndpoint = process.env.NEXT_PUBLIC_UPLOAD_ENDPOINT || '/api/upload'
+    const response = await fetch(uploadEndpoint, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        ...(process.env.UPLOAD_API_KEY && {
+          'Authorization': `Bearer ${process.env.UPLOAD_API_KEY}`
+        })
+      }
+    })
 
     // Clear progress interval
     if (progressInterval) {
       clearInterval(progressInterval)
     }
 
-    // if (error) {
-    //   return {
-    //     data: null,
-    //     error: new Error(error.message)
-    //   }
-    // }
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Upload failed: ${response.status} ${errorText}`)
+    }
+
+    const result = await response.json()
 
     // Complete progress
     if (onProgress) {
       onProgress(100)
     }
 
-    // Get public URL
-    const { data: urlData } = supabase.storage
-      .from(bucket)
-      .getPublicUrl(path)
+    // Construct public URL
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || ''
+    const publicUrl = `${baseUrl}/uploads/${bucket}/${path}`
 
     return {
-      data,
+      data: {
+        path: result.path || path,
+        id: result.id || path,
+        fullPath: result.fullPath || `${bucket}/${path}`
+      },
       error: null,
-      publicUrl: urlData.publicUrl
+      publicUrl
     }
 
   } catch (err) {
@@ -202,13 +200,22 @@ export const uploadFile = async ({
 // Delete file
 export const deleteFile = async (bucket: string, path: string): Promise<{ error: Error | null }> => {
   try {
-    const supabase = createClient()
+    const deleteEndpoint = process.env.NEXT_PUBLIC_UPLOAD_ENDPOINT || '/api/upload'
+    const response = await fetch(`${deleteEndpoint}?bucket=${bucket}&path=${encodeURIComponent(path)}`, {
+      method: 'DELETE',
+      headers: {
+        ...(process.env.UPLOAD_API_KEY && {
+          'Authorization': `Bearer ${process.env.UPLOAD_API_KEY}`
+        })
+      }
+    })
 
-    const { error } = await supabase.storage
-      .from(bucket)
-      .remove([path])
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Delete failed: ${response.status} ${errorText}`)
+    }
 
-    return { error: error ? new Error(error.message) : null }
+    return { error: null }
 
   } catch (err) {
     return {
@@ -222,10 +229,10 @@ export const getPathFromUrl = (url: string): string | null => {
   try {
     const urlObj = new URL(url)
     const pathParts = urlObj.pathname.split('/')
-    const bucketIndex = pathParts.findIndex(part => part === 'storage')
+    const uploadsIndex = pathParts.findIndex(part => part === 'uploads')
 
-    if (bucketIndex !== -1 && pathParts[bucketIndex + 4]) {
-      return pathParts.slice(bucketIndex + 4).join('/')
+    if (uploadsIndex !== -1 && pathParts[uploadsIndex + 2]) {
+      return pathParts.slice(uploadsIndex + 2).join('/')
     }
 
     return null

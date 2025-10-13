@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { useAuthStore } from "@/stores/auth-store"
+import { authClient } from "@/lib/auth-client"
 import { toast } from "sonner"
 
 const loginSchema = z.object({
@@ -35,7 +36,6 @@ export function LoginForm({ onSuccess, redirectTo = "/" }: LoginFormProps) {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
-  const { signIn, profile } = useAuthStore()
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -48,26 +48,52 @@ export function LoginForm({ onSuccess, redirectTo = "/" }: LoginFormProps) {
   const onSubmit = async (data: LoginFormValues) => {
     try {
       setIsLoading(true)
-      const { error } = await signIn(data.email, data.password)
+
+      const { data: authData, error } = await authClient.signIn.email({
+        email: data.email,
+        password: data.password,
+      })
 
       if (error) {
         toast.error(error.message)
         return
       }
 
-      toast.success("Login berhasil!")
+      if (authData?.user) {
+        toast.success("Login berhasil!")
 
-      if (onSuccess) {
-        onSuccess()
-      } else {
-        // Redirect based on user role
-        const userProfile = useAuthStore.getState().profile
-        if (userProfile?.role === 'admin') {
-          router.push('/admin')
-        } else if (userProfile?.role === 'cs') {
-          router.push('/cs')
+        // Refresh auth store
+        await useAuthStore.getState().initialize()
+
+        if (onSuccess) {
+          onSuccess()
         } else {
-          router.push(redirectTo)
+          // Wait for profile to load then redirect based on role and redirectTo
+          setTimeout(async () => {
+            const userProfile = useAuthStore.getState().profile
+            
+            // If redirectTo is provided and user has staff/admin role, use it
+            if (redirectTo !== "/" && (userProfile?.role === 'admin' || userProfile?.role === 'cs')) {
+              // Check if the redirect URL is allowed for this user role
+              const isAdminRoute = redirectTo.startsWith('/admin')
+              const isCsRoute = redirectTo.startsWith('/cs')
+              
+              if ((userProfile.role === 'admin' && (isAdminRoute || isCsRoute)) ||
+                  (userProfile.role === 'cs' && isCsRoute)) {
+                router.push(redirectTo)
+                return
+              }
+            }
+            
+            // Default role-based redirects
+            if (userProfile?.role === 'admin') {
+              router.push('/admin/dashboard')
+            } else if (userProfile?.role === 'cs') {
+              router.push('/cs')
+            } else {
+              router.push(redirectTo)
+            }
+          }, 500)
         }
       }
     } catch (error) {

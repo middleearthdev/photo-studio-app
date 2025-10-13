@@ -1,12 +1,12 @@
 "use client"
 
 import { useState } from "react"
-import { 
-  Plus, 
-  Search, 
-  MoreHorizontal, 
-  Edit, 
-  Trash, 
+import {
+  Plus,
+  Search,
+  MoreHorizontal,
+  Edit,
+  Trash,
   Tag,
   Package,
   AlertCircle,
@@ -88,7 +88,7 @@ export function PackageCategoriesManagement({
 
   const handleDelete = async (category: any) => {
     const packagesInCategory = packages.filter(pkg => pkg.category_id === category.id)
-    
+
     if (packagesInCategory.length > 0) {
       alert(`Tidak dapat menghapus kategori karena masih ada ${packagesInCategory.length} paket yang menggunakan kategori ini. Hapus atau pindahkan paket terlebih dahulu.`)
       setCategoryToDelete(null)
@@ -134,7 +134,7 @@ export function PackageCategoriesManagement({
                   <div className="text-2xl font-bold">{categories.length}</div>
                 </CardContent>
               </Card>
-              
+
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Total Paket</CardTitle>
@@ -214,7 +214,7 @@ export function PackageCategoriesManagement({
                         ) : (
                           filteredCategories.map((category) => {
                             const packageCount = getPackageCount(category.id)
-                            
+
                             return (
                               <TableRow key={category.id}>
                                 <TableCell>
@@ -259,7 +259,7 @@ export function PackageCategoriesManagement({
                                         <Edit className="mr-2 h-4 w-4" />
                                         Edit
                                       </DropdownMenuItem>
-                                      <DropdownMenuItem 
+                                      <DropdownMenuItem
                                         className="text-red-600"
                                         onClick={() => setCategoryToDelete(category)}
                                       >
@@ -297,14 +297,14 @@ export function PackageCategoriesManagement({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Hapus Kategori</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogDescription asChild>
               <div className="space-y-2">
                 <p className="font-semibold text-red-600">⚠️ PERINGATAN: Aksi ini tidak dapat dibatalkan!</p>
                 <p>
-                  Apakah Anda yakin ingin menghapus kategori "{categoryToDelete?.name}" secara permanen? 
+                  Apakah Anda yakin ingin menghapus kategori "{categoryToDelete?.name}" secara permanen?
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Kategori dan semua data terkaitnya akan dihapus dari database dan tidak dapat dipulihkan. 
+                  Kategori dan semua data terkaitnya akan dihapus dari database dan tidak dapat dipulihkan.
                   Pastikan tidak ada paket yang masih menggunakan kategori ini.
                 </p>
               </div>

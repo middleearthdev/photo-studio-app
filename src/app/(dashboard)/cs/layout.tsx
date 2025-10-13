@@ -4,19 +4,12 @@ import React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
-  MessageSquare,
   Calendar,
-  Users,
   Bell,
-  FileText,
   LogOut,
   HeadphonesIcon,
-  Settings,
   ChevronDown,
   DollarSign,
-  CheckSquare,
-  Clock,
-  Star,
 } from "lucide-react"
 
 import {
@@ -36,7 +29,6 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -45,8 +37,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Badge } from "@/components/ui/badge"
-import { useProfile } from "@/hooks/use-profile"
 import { signOutAction } from "@/actions/auth"
 import { toast } from "sonner"
 import { RemindersNotification } from "@/components/cs/reminders-notification"
@@ -81,15 +71,10 @@ export default function CSLayout({ children }: CSLayoutProps) {
 
   const handleSignOut = async () => {
     try {
-      const result = await signOutAction()
-      if (result.success) {
-        toast.success("Logout berhasil")
-        window.location.href = "/staff/login"
-      } else {
-        toast.error("Gagal logout")
-      }
+      await signOutAction()
+      // signOutAction redirects automatically, no need for additional handling
     } catch (error) {
-      toast.error("Terjadi kesalahan")
+      toast.error("Terjadi kesalahan saat logout")
     }
   }
 

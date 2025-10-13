@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { createClient } from '@/lib/supabase/client'
+import { prisma } from '@/lib/prisma'
 import { type Reservation } from '@/actions/reservations'
 
 export interface PaymentReminder {
@@ -12,50 +12,53 @@ export interface PaymentReminder {
 }
 
 async function getPaymentReminders(studioId: string): Promise<PaymentReminder[]> {
-  const supabase = createClient()
-  
-  // Get pending reservations with pending payment that need reminders
-  const { data: reservations, error } = await supabase
-    .from('reservations')
-    .select(`
-      *,
-      customer:customers(*),
-      package:packages(*)
-    `)
-    .eq('studio_id', studioId)
-    .eq('status', 'pending')
-    .eq('payment_status', 'pending')
-    .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()) // Last 24 hours
-    .order('created_at', { ascending: false })
+  try {
+    // Get pending reservations with pending payment that need reminders
+    const reservations = await prisma.reservation.findMany({
+      where: {
+        studio_id: studioId,
+        status: 'pending',
+        payment_status: 'pending',
+        created_at: {
+          gte: new Date(Date.now() - 24 * 60 * 60 * 1000) // Last 24 hours
+        }
+      },
+      include: {
+        customer: true,
+        package: true
+      },
+      orderBy: {
+        created_at: 'desc'
+      }
+    })
 
-  if (error) {
-    throw new Error(`Failed to fetch payment reminders: ${error.message}`)
+    const now = new Date()
+    
+    return reservations.map((reservation: any) => {
+      const createdAt = new Date(reservation.created_at)
+      const reminderTime = new Date(createdAt.getTime() + 10 * 60 * 1000) // 10 minutes after creation
+      const cancellationTime = new Date(createdAt.getTime() + 15 * 60 * 1000) // 15 minutes after creation
+      
+      // Check if reminder should be shown (between 10-15 minutes after creation)
+      const shouldShowReminder = now >= reminderTime && now < cancellationTime
+      
+      // Calculate time until cancellation
+      const timeUntilCancellation = cancellationTime > now 
+        ? formatTimeUntil(cancellationTime)
+        : 'Expired'
+      
+      return {
+        id: reservation.id,
+        reservation,
+        reminderTime,
+        cancellationTime,
+        timeUntilCancellation,
+        shouldShowReminder
+      }
+    }).filter((reminder: PaymentReminder) => reminder.shouldShowReminder || reminder.timeUntilCancellation !== 'Expired')
+  } catch (error) {
+    throw new Error(`Failed to fetch payment reminders: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
-
-  const now = new Date()
-  
-  return reservations.map((reservation) => {
-    const createdAt = new Date(reservation.created_at)
-    const reminderTime = new Date(createdAt.getTime() + 10 * 60 * 1000) // 10 minutes after creation
-    const cancellationTime = new Date(createdAt.getTime() + 15 * 60 * 1000) // 15 minutes after creation
-    
-    // Check if reminder should be shown (between 10-15 minutes after creation)
-    const shouldShowReminder = now >= reminderTime && now < cancellationTime
-    
-    // Calculate time until cancellation
-    const timeUntilCancellation = cancellationTime > now 
-      ? formatTimeUntil(cancellationTime)
-      : 'Expired'
-    
-    return {
-      id: reservation.id,
-      reservation,
-      reminderTime,
-      cancellationTime,
-      timeUntilCancellation,
-      shouldShowReminder
-    }
-  }).filter(reminder => reminder.shouldShowReminder || reminder.timeUntilCancellation !== 'Expired')
 }
 
 function formatTimeUntil(targetTime: Date): string {

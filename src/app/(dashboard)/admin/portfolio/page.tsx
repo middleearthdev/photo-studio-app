@@ -1,11 +1,11 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { 
-  Plus, 
-  Search, 
-  MoreHorizontal, 
-  Edit, 
+import {
+  Plus,
+  Search,
+  MoreHorizontal,
+  Edit,
   Trash,
   Eye,
   EyeOff,
@@ -41,9 +41,9 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { 
-  usePaginatedPortfolios, 
-  useDeletePortfolio, 
+import {
+  usePaginatedPortfolios,
+  useDeletePortfolio,
   useTogglePortfolioStatus,
   useTogglePortfolioFeatured,
   usePortfolioCategories
@@ -81,13 +81,13 @@ export default function PortfolioPage() {
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
 
   const { data: studios = [], isLoading: studiosLoading } = useStudios()
-  
+
   // Use paginated hook
-  const { 
-    data: paginatedResult, 
-    isLoading: loading, 
-    error, 
-    refetch 
+  const {
+    data: paginatedResult,
+    isLoading: loading,
+    error,
+    refetch
   } = usePaginatedPortfolios(selectedStudioId, {
     page: currentPage,
     pageSize,
@@ -99,7 +99,7 @@ export default function PortfolioPage() {
 
   const portfolios = paginatedResult?.data || []
   const pagination = paginatedResult?.pagination
-  
+
   const { data: categories = [] } = usePortfolioCategories(selectedStudioId)
   const deletePortfolioMutation = useDeletePortfolio()
   const toggleStatusMutation = useTogglePortfolioStatus()
@@ -424,7 +424,7 @@ export default function PortfolioPage() {
                                         <Edit className="mr-2 h-4 w-4" />
                                         Edit
                                       </DropdownMenuItem>
-                                      <DropdownMenuItem 
+                                      <DropdownMenuItem
                                         onClick={() => handleToggleFeatured(portfolio)}
                                       >
                                         {portfolio.is_featured ? (
@@ -440,14 +440,14 @@ export default function PortfolioPage() {
                                         )}
                                       </DropdownMenuItem>
                                       <DropdownMenuSeparator />
-                                      <DropdownMenuItem 
+                                      <DropdownMenuItem
                                         onClick={() => setPortfolioToToggle(portfolio)}
                                         className="text-orange-600"
                                       >
                                         {portfolio.is_active ? <EyeOff className="mr-2 h-4 w-4" /> : <Eye className="mr-2 h-4 w-4" />}
                                         {portfolio.is_active ? "Nonaktifkan" : "Aktifkan"}
                                       </DropdownMenuItem>
-                                      <DropdownMenuItem 
+                                      <DropdownMenuItem
                                         className="text-red-600"
                                         onClick={() => setPortfolioToDelete(portfolio)}
                                       >
@@ -547,14 +547,14 @@ export default function PortfolioPage() {
                                             )}
                                           </DropdownMenuItem>
                                           <DropdownMenuSeparator />
-                                          <DropdownMenuItem 
+                                          <DropdownMenuItem
                                             onClick={() => setPortfolioToToggle(portfolio)}
                                             className="text-orange-600"
                                           >
                                             {portfolio.is_active ? <EyeOff className="mr-2 h-4 w-4" /> : <Eye className="mr-2 h-4 w-4" />}
                                             {portfolio.is_active ? "Nonaktifkan" : "Aktifkan"}
                                           </DropdownMenuItem>
-                                          <DropdownMenuItem 
+                                          <DropdownMenuItem
                                             className="text-red-600"
                                             onClick={() => setPortfolioToDelete(portfolio)}
                                           >
@@ -611,7 +611,7 @@ export default function PortfolioPage() {
               {portfolioToToggle?.is_active ? 'Nonaktifkan' : 'Aktifkan'} Portfolio
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Apakah Anda yakin ingin {portfolioToToggle?.is_active ? 'menonaktifkan' : 'mengaktifkan'} 
+              Apakah Anda yakin ingin {portfolioToToggle?.is_active ? 'menonaktifkan' : 'mengaktifkan'}
               portfolio "{portfolioToToggle?.title}"?
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -631,7 +631,7 @@ export default function PortfolioPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Hapus Portfolio</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogDescription asChild>
               <div className="space-y-2">
                 <p className="font-semibold text-red-600">⚠️ PERINGATAN: Aksi ini tidak dapat dibatalkan!</p>
                 <p>

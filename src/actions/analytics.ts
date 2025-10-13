@@ -1,6 +1,6 @@
 "use server"
 
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
 
 export type AnalyticsTimeRange = "last-30-days" | "last-3-months" | "last-6-months" | "last-year" | "all-time"
 
@@ -70,55 +70,41 @@ function getDateRangeFromTimeRange(timeRange: AnalyticsTimeRange): { start: stri
   return { start, end }
 }
 
-async function getCurrentUserStudio() {
-  const supabase = await createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  
-  if (authError || !user) {
-    throw new Error('Unauthorized')
-  }
-
-  const { data: profile, error: profileError } = await supabase
-    .from('user_profiles')
-    .select('studio_id, role')
-    .eq('id', user.id)
-    .single()
-
-  if (profileError || !profile?.studio_id) {
-    throw new Error('No studio access')
-  }
-
-  return { studioId: profile.studio_id, role: profile.role }
-}
 
 export async function getRevenueAnalytics(
   studioId: string,
   timeRange: AnalyticsTimeRange = 'last-6-months'
 ): Promise<RevenueAnalytics[]> {
   try {
-    const supabase = await createClient()
     const dateRange = getDateRangeFromTimeRange(timeRange)
     
     console.log('Fetching revenue analytics for studio:', studioId)
     console.log('Date range:', dateRange)
     
-    const { data: reservations, error } = await supabase
-      .from('reservations')
-      .select('total_amount, created_at, status')
-      .eq('studio_id', studioId)
-      .in('status', ['confirmed', 'in_progress', 'completed'])
-      .gte('created_at', dateRange.start)
-      .lte('created_at', dateRange.end)
-      .order('created_at', { ascending: true })
+    const reservations = await prisma.reservation.findMany({
+      where: {
+        studio_id: studioId,
+        status: {
+          in: ['confirmed', 'in_progress', 'completed']
+        },
+        created_at: {
+          gte: new Date(dateRange.start),
+          lte: new Date(dateRange.end)
+        }
+      },
+      select: {
+        total_amount: true,
+        created_at: true,
+        status: true
+      },
+      orderBy: {
+        created_at: 'asc'
+      }
+    })
 
-    if (error) {
-      console.error('Error fetching reservations:', error)
-      return []
-    }
+    console.log('Found reservations:', reservations.length)
 
-    console.log('Found reservations:', reservations?.length || 0)
-
-    if (!reservations || reservations.length === 0) {
+    if (reservations.length === 0) {
       return []
     }
 
@@ -126,7 +112,7 @@ export async function getRevenueAnalytics(
     const monthlyData = new Map<string, { revenue: number; bookings: number }>()
     
     reservations.forEach(reservation => {
-      const date = new Date(reservation.created_at)
+      const date = new Date(reservation.created_at || '')
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
       
       const existing = monthlyData.get(monthKey) || { revenue: 0, bookings: 0 }
@@ -152,44 +138,48 @@ export async function getPackagePerformance(
   timeRange: AnalyticsTimeRange = 'last-6-months'
 ): Promise<PackagePerformance[]> {
   try {
-    const supabase = await createClient()
     const dateRange = getDateRangeFromTimeRange(timeRange)
     
     console.log('Fetching package performance for studio:', studioId)
     
-    const { data: reservations, error } = await supabase
-      .from('reservations')
-      .select(`
-        package_id,
-        total_amount,
-        status,
-        created_at,
-        packages!inner(name)
-      `)
-      .eq('studio_id', studioId)
-      .in('status', ['confirmed', 'in_progress', 'completed'])
-      .not('package_id', 'is', null)
-      .gte('created_at', dateRange.start)
-      .lte('created_at', dateRange.end)
+    const reservations = await prisma.reservation.findMany({
+      where: {
+        studio_id: studioId,
+        status: {
+          in: ['confirmed', 'in_progress', 'completed']
+        },
+        package_id: {
+          not: null
+        },
+        created_at: {
+          gte: new Date(dateRange.start),
+          lte: new Date(dateRange.end)
+        }
+      },
+      select: {
+        package_id: true,
+        total_amount: true,
+        status: true,
+        created_at: true,
+        package: {
+          select: {
+            name: true
+          }
+        }
+      }
+    })
 
-    if (error) {
-      console.error('Error fetching package performance:', error)
-      return []
-    }
+    console.log('Found package reservations:', reservations.length)
 
-    console.log('Found package reservations:', reservations?.length || 0)
-
-    if (!reservations || reservations.length === 0) {
+    if (reservations.length === 0) {
       return []
     }
 
     const packageStats = new Map<string, { name: string; bookings: number; revenue: number }>()
     
     reservations.forEach(reservation => {
-      if (reservation.package_id && reservation.packages) {
-        // Handle both single object and array responses from Supabase
-        const packageData = Array.isArray(reservation.packages) ? reservation.packages[0] : reservation.packages
-        const packageName = packageData?.name || 'Unknown Package'
+      if (reservation.package_id && reservation.package) {
+        const packageName = reservation.package.name || 'Unknown Package'
         const key = reservation.package_id
         const existing = packageStats.get(key) || {
           name: packageName,
@@ -218,37 +208,45 @@ export async function getFacilityUsage(
   timeRange: AnalyticsTimeRange = 'last-6-months'
 ): Promise<FacilityUsage[]> {
   try {
-    const supabase = await createClient()
     const dateRange = getDateRangeFromTimeRange(timeRange)
     
     // Get all facilities for this studio
-    const { data: facilities, error: facilityError } = await supabase
-      .from('facilities')
-      .select('id, name')
-      .eq('studio_id', studioId)
-      .eq('is_available', true)
+    const facilities = await prisma.facility.findMany({
+      where: {
+        studio_id: studioId,
+        is_available: true
+      },
+      select: {
+        id: true,
+        name: true
+      }
+    })
 
-    if (facilityError || !facilities) {
-      console.error('Error fetching facilities:', facilityError)
+    if (!facilities || facilities.length === 0) {
+      console.error('No facilities found for studio')
       return []
     }
 
     // Get reservations with facility usage
-    const { data: reservations, error } = await supabase
-      .from('reservations')
-      .select('selected_facilities, created_at')
-      .eq('studio_id', studioId)
-      .in('status', ['confirmed', 'in_progress', 'completed'])
-      .gte('created_at', dateRange.start)
-      .lte('created_at', dateRange.end)
-
-    if (error) {
-      console.error('Error fetching facility reservations:', error)
-      return []
-    }
+    const reservations = await prisma.reservation.findMany({
+      where: {
+        studio_id: studioId,
+        status: {
+          in: ['confirmed', 'in_progress', 'completed']
+        },
+        created_at: {
+          gte: new Date(dateRange.start),
+          lte: new Date(dateRange.end)
+        }
+      },
+      select: {
+        selected_facilities: true,
+        created_at: true
+      }
+    })
 
     const facilityUsage = new Map<string, number>()
-    const totalBookings = reservations?.length || 0
+    const totalBookings = reservations.length
 
     // Initialize all facilities with 0 usage
     facilities.forEach(facility => {
@@ -256,7 +254,7 @@ export async function getFacilityUsage(
     })
 
     // Count facility usage from reservations
-    reservations?.forEach(reservation => {
+    reservations.forEach(reservation => {
       if (reservation.selected_facilities) {
         try {
           const selectedFacilities = typeof reservation.selected_facilities === 'string' 
@@ -264,7 +262,7 @@ export async function getFacilityUsage(
             : reservation.selected_facilities
 
           if (Array.isArray(selectedFacilities)) {
-            selectedFacilities.forEach(facilityId => {
+            selectedFacilities.forEach((facilityId: string) => {
               if (facilityUsage.has(facilityId)) {
                 facilityUsage.set(facilityId, facilityUsage.get(facilityId)! + 1)
               }
@@ -300,42 +298,40 @@ export async function getCustomerAnalytics(
   timeRange: AnalyticsTimeRange = 'last-6-months'
 ): Promise<CustomerAnalytics> {
   try {
-    const supabase = await createClient()
     const dateRange = getDateRangeFromTimeRange(timeRange)
 
     // Get reservations with customer data (both registered and guest customers)
-    const { data: reservations, error } = await supabase
-      .from('reservations')
-      .select(`
-        id,
-        customer_id,
-        guest_email,
-        guest_phone,
-        is_guest_booking,
-        created_at,
-        customers(email, phone, full_name)
-      `)
-      .eq('studio_id', studioId)
-      .in('status', ['confirmed', 'in_progress', 'completed'])
-
-    if (error) {
-      console.error('Error fetching customer data:', error)
-      return {
-        totalCustomers: 0,
-        newCustomers: 0,
-        returningCustomers: 0,
-        averageRating: 4.8,
-        totalReviews: 0
+    const reservations = await prisma.reservation.findMany({
+      where: {
+        studio_id: studioId,
+        status: {
+          in: ['confirmed', 'in_progress', 'completed']
+        }
+      },
+      select: {
+        id: true,
+        customer_id: true,
+        guest_email: true,
+        guest_phone: true,
+        is_guest_booking: true,
+        created_at: true,
+        customer: {
+          select: {
+            email: true,
+            phone: true,
+            full_name: true
+          }
+        }
       }
-    }
+    })
 
-    console.log('Found reservations for customer analytics:', reservations?.length || 0)
+    console.log('Found reservations for customer analytics:', reservations.length)
 
     const uniqueCustomers = new Set()
     const newCustomers = new Set()
     const allCustomerData = new Map()
     
-    reservations?.forEach(reservation => {
+    reservations.forEach(reservation => {
       let customerKey: string | null = null
       let customerData: any = null
 
@@ -347,14 +343,14 @@ export async function getCustomerAnalytics(
           phone: reservation.guest_phone,
           isGuest: true
         }
-      } else if (reservation.customer_id && reservation.customers) {
+      } else if (reservation.customer_id && reservation.customer) {
         // For registered customers, use customer data
-        const customer = Array.isArray(reservation.customers) ? reservation.customers[0] : reservation.customers
-        customerKey = customer?.email || customer?.phone
+        const customer = reservation.customer
+        customerKey = customer.email || customer.phone
         customerData = {
-          email: customer?.email,
-          phone: customer?.phone,
-          name: customer?.full_name,
+          email: customer.email,
+          phone: customer.phone,
+          name: customer.full_name,
           isGuest: false
         }
       }
@@ -363,7 +359,7 @@ export async function getCustomerAnalytics(
         uniqueCustomers.add(customerKey)
         allCustomerData.set(customerKey, customerData)
         
-        const reservationDate = new Date(reservation.created_at)
+        const reservationDate = new Date(reservation.created_at || '')
         if (reservationDate >= new Date(dateRange.start) && reservationDate <= new Date(dateRange.end)) {
           newCustomers.add(customerKey)
         }
@@ -383,14 +379,20 @@ export async function getCustomerAnalytics(
     })
 
     // Get average rating from reviews if available
-    const reservationIds = reservations?.map(r => r.id).filter(Boolean) || []
-    const { data: reviews } = await supabase
-      .from('reviews')
-      .select('rating')
-      .in('reservation_id', reservationIds)
+    const reservationIds = reservations.map(r => r.id).filter(Boolean)
+    const reviews = await prisma.review.findMany({
+      where: {
+        reservation_id: {
+          in: reservationIds
+        }
+      },
+      select: {
+        rating: true
+      }
+    })
 
     const averageRating = reviews && reviews.length > 0 
-      ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+      ? reviews.reduce((sum, r) => sum + (r.rating || 0), 0) / reviews.length
       : 4.8
 
     return {
@@ -417,28 +419,36 @@ export async function getTimeSlotAnalysis(
   timeRange: AnalyticsTimeRange = 'last-6-months'
 ): Promise<TimeSlotAnalysis[]> {
   try {
-    const supabase = await createClient()
     const dateRange = getDateRangeFromTimeRange(timeRange)
     
-    const { data: reservations, error } = await supabase
-      .from('reservations')
-      .select('start_time, end_time, reservation_date')
-      .eq('studio_id', studioId)
-      .in('status', ['confirmed', 'in_progress', 'completed'])
-      .gte('reservation_date', dateRange.start)
-      .lte('reservation_date', dateRange.end)
-
-    if (error) {
-      console.error('Error fetching time slot data:', error)
-      return []
-    }
+    const reservations = await prisma.reservation.findMany({
+      where: {
+        studio_id: studioId,
+        status: {
+          in: ['confirmed', 'in_progress', 'completed']
+        },
+        reservation_date: {
+          gte: new Date(dateRange.start),
+          lte: new Date(dateRange.end)
+        }
+      },
+      select: {
+        start_time: true,
+        end_time: true,
+        reservation_date: true
+      }
+    })
 
     const timeSlotStats = new Map<string, number>()
     
-    reservations?.forEach(reservation => {
+    reservations.forEach(reservation => {
       if (reservation.start_time && reservation.end_time) {
-        const startHour = parseInt(reservation.start_time.split(':')[0])
-        const endHour = parseInt(reservation.end_time.split(':')[0])
+        // Convert Time to string if needed
+        const startTimeStr = reservation.start_time.toString()
+        const endTimeStr = reservation.end_time.toString()
+        
+        const startHour = parseInt(startTimeStr.split(':')[0])
+        const endHour = parseInt(endTimeStr.split(':')[0])
         
         // Create time slot range
         const timeSlot = `${String(startHour).padStart(2, '0')}:00-${String(endHour).padStart(2, '0')}:00`

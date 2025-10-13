@@ -3,11 +3,13 @@
 import Link from "next/link"
 import { Shield } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { StaffLoginForm } from "@/app/(auth)/_components/staff-login-form"
 import { Button } from "@/components/ui/button"
 import { LoginForm } from "../../_components/login-form"
+import { useSearchParams } from "next/navigation"
 
 export default function StaffLoginPage() {
+  const searchParams = useSearchParams()
+  const redirectTo = searchParams.get('redirect') || '/admin/dashboard'
   return (
     <div className="flex items-center justify-center min-h-screen py-8 bg-slate-50">
       <Card className="w-full max-w-md border-2">
@@ -28,7 +30,7 @@ export default function StaffLoginPage() {
         </CardHeader>
         <CardContent className="space-y-6">
           {/* <StaffLoginForm /> */}
-          <LoginForm />
+          <LoginForm redirectTo={redirectTo} />
 
           <div className="text-center space-y-3">
             <div className="relative">

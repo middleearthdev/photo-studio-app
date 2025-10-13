@@ -52,10 +52,11 @@ interface SelectedDiscount {
 interface ManualBookingFormProps {
   isOpen: boolean
   onClose: () => void
+  onSuccess?: () => void
   studioId: string
 }
 
-export function ManualBookingForm({ isOpen, onClose, studioId }: ManualBookingFormProps) {
+export function ManualBookingForm({ isOpen, onClose, onSuccess, studioId }: ManualBookingFormProps) {
 
   // Form state
   const [formData, setFormData] = useState({
@@ -319,7 +320,7 @@ export function ManualBookingForm({ isOpen, onClose, studioId }: ManualBookingFo
         setSelectedDiscount({
           id: discount.id,
           name: discount.name,
-          type: discount.type,
+          type: discount.type as 'percentage' | 'fixed_amount',
           value: discount.value,
           discount_amount: discountAmount
         })
@@ -468,7 +469,7 @@ export function ManualBookingForm({ isOpen, onClose, studioId }: ManualBookingFo
         name: addon.name,
         price: finalPrice,
         quantity: 1,
-        max_quantity: addon.max_quantity
+        max_quantity: addon.max_quantity || 999
       }])
     }
   }
@@ -582,6 +583,7 @@ export function ManualBookingForm({ isOpen, onClose, studioId }: ManualBookingFo
 
       if (result.success) {
         toast.success("Manual booking berhasil dibuat")
+        onSuccess?.() // Call success callback to invalidate cache
         onClose()
         resetForm()
       } else {
@@ -947,7 +949,7 @@ export function ManualBookingForm({ isOpen, onClose, studioId }: ManualBookingFo
                                   size="sm"
                                   variant="outline"
                                   onClick={() => handleAddonQuantityChange(addon.id, selectedAddon.quantity + 1)}
-                                  disabled={selectedAddon.quantity >= addon.max_quantity}
+                                  disabled={selectedAddon.quantity >= (addon.max_quantity || 999)}
                                   className="h-8 w-8 p-0 flex-shrink-0"
                                 >
                                   <Plus className="h-3 w-3" />

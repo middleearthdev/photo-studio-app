@@ -1,6 +1,6 @@
 "use server"
 
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
 
 export interface Portfolio {
   id: string
@@ -36,177 +36,278 @@ export interface PortfolioCategory {
 
 // Get all public portfolios (only active ones)
 export async function getPublicPortfolios(): Promise<Portfolio[]> {
-  const supabase = await createClient()
-  
-  const { data, error } = await supabase
-    .from('portfolios')
-    .select(`
-      *,
-      category:portfolio_categories(id, name)
-    `)
-    .eq('is_active', true)
-    .order('is_featured', { ascending: false })
-    .order('display_order', { ascending: true })
-    .order('created_at', { ascending: false })
-  
-  if (error) {
+  try {
+    const portfolios = await prisma.portfolio.findMany({
+      where: {
+        is_active: true
+      },
+      include: {
+        category: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
+      },
+      orderBy: [
+        { is_featured: 'desc' },
+        { display_order: 'asc' },
+        { created_at: 'desc' }
+      ]
+    })
+
+    // Transform to match expected interface
+    const transformedPortfolios: Portfolio[] = portfolios.map(portfolio => ({
+      id: portfolio.id,
+      studio_id: portfolio.studio_id || '',
+      category_id: portfolio.category_id,
+      title: portfolio.title,
+      description: portfolio.description,
+      image_url: portfolio.image_url,
+      alt_text: portfolio.alt_text,
+      display_order: portfolio.display_order || 0,
+      is_featured: portfolio.is_featured || false,
+      is_active: portfolio.is_active || false,
+      metadata: portfolio.metadata as Record<string, unknown> | null,
+      created_at: portfolio.created_at?.toISOString() || '',
+      updated_at: portfolio.updated_at?.toISOString() || '',
+      category: portfolio.category ? {
+        id: portfolio.category.id,
+        name: portfolio.category.name
+      } : undefined
+    }))
+
+    return transformedPortfolios
+  } catch (error) {
     console.error('Error fetching public portfolios:', error)
-    // Return empty array as fallback instead of throwing error
     return []
   }
-  
-  return data || []
 }
 
 // Get all public portfolio categories with cover images
 export async function getPublicPortfolioCategoriesWithCovers(): Promise<(PortfolioCategory & { cover_image?: string, portfolios_count?: number })[]> {
-  const supabase = await createClient()
-  
-  // First get categories with counts
-  const { data: categories, error: categoriesError } = await supabase
-    .from('portfolio_categories')
-    .select(`
-      *,
-      portfolios:portfolios(count)
-    `)
-    .eq('is_active', true)
-    .order('display_order', { ascending: true })
-    .order('name', { ascending: true })
-  
-  if (categoriesError) {
-    console.error('Error fetching public portfolio categories:', categoriesError)
-    // Return empty array as fallback instead of throwing error
+  try {
+    // Get categories with counts
+    const categories = await prisma.portfolioCategory.findMany({
+      where: {
+        is_active: true
+      },
+      include: {
+        _count: {
+          select: {
+            portfolios: true
+          }
+        }
+      },
+      orderBy: [
+        { display_order: 'asc' },
+        { name: 'asc' }
+      ]
+    })
+
+    // For each category, get the first portfolio image as cover
+    const categoriesWithCovers = await Promise.all(
+      categories.map(async (category) => {
+        const portfolio = await prisma.portfolio.findFirst({
+          where: {
+            category_id: category.id,
+            is_active: true
+          },
+          select: {
+            image_url: true
+          },
+          orderBy: [
+            { display_order: 'asc' },
+            { created_at: 'desc' }
+          ]
+        })
+
+        return {
+          id: category.id,
+          studio_id: category.studio_id || '',
+          name: category.name,
+          description: category.description,
+          display_order: category.display_order || 0,
+          is_active: category.is_active || false,
+          created_at: category.created_at?.toISOString() || '',
+          updated_at: undefined,
+          portfolios_count: category._count.portfolios,
+          cover_image: portfolio?.image_url
+        }
+      })
+    )
+
+    return categoriesWithCovers
+  } catch (error) {
+    console.error('Error fetching public portfolio categories:', error)
     return []
   }
-  
-  // Transform the data to include portfolio counts
-  const categoriesWithCounts = (categories || []).map((category: any) => ({
-    ...category,
-    portfolios_count: category.portfolios?.[0]?.count || 0
-  }))
-  
-  // For each category, get the first portfolio image as cover
-  const categoriesWithCovers = await Promise.all(
-    categoriesWithCounts.map(async (category) => {
-      const { data: portfolios, error: portfoliosError } = await supabase
-        .from('portfolios')
-        .select('image_url')
-        .eq('category_id', category.id)
-        .eq('is_active', true)
-        .order('display_order', { ascending: true })
-        .order('created_at', { ascending: false })
-        .limit(1)
-      
-      if (portfoliosError || !portfolios || portfolios.length === 0) {
-        return {
-          ...category,
-          cover_image: undefined
-        }
-      }
-      
-      return {
-        ...category,
-        cover_image: portfolios[0].image_url
-      }
-    })
-  )
-  
-  return categoriesWithCovers
 }
 
 // Get all public portfolio categories (only active ones) with portfolio counts
 export async function getPublicPortfolioCategoriesWithCounts(): Promise<(PortfolioCategory & { portfolios_count?: number })[]> {
-  const supabase = await createClient()
-  
-  const { data, error } = await supabase
-    .from('portfolio_categories')
-    .select(`
-      *,
-      portfolios:portfolios(count)
-    `)
-    .eq('is_active', true)
-    .order('display_order', { ascending: true })
-    .order('name', { ascending: true })
-  
-  if (error) {
+  try {
+    const categories = await prisma.portfolioCategory.findMany({
+      where: {
+        is_active: true
+      },
+      include: {
+        _count: {
+          select: {
+            portfolios: true
+          }
+        }
+      },
+      orderBy: [
+        { display_order: 'asc' },
+        { name: 'asc' }
+      ]
+    })
+
+    // Transform to match expected interface
+    return categories.map(category => ({
+      id: category.id,
+      studio_id: category.studio_id || '',
+      name: category.name,
+      description: category.description,
+      display_order: category.display_order || 0,
+      is_active: category.is_active || false,
+      created_at: category.created_at?.toISOString() || '',
+      updated_at: undefined,
+      portfolios_count: category._count.portfolios
+    }))
+  } catch (error) {
     console.error('Error fetching public portfolio categories:', error)
-    // Return empty array as fallback instead of throwing error
     return []
   }
-  
-  // Transform the data to include portfolio counts
-  return (data || []).map((category: any) => ({
-    ...category,
-    portfolios_count: category.portfolios?.[0]?.count || 0
-  }))
 }
 
 // Get featured portfolios
 export async function getFeaturedPortfolios(): Promise<Portfolio[]> {
-  const supabase = await createClient()
-  
-  const { data, error } = await supabase
-    .from('portfolios')
-    .select(`
-      *,
-      category:portfolio_categories(id, name)
-    `)
-    .eq('is_active', true)
-    .eq('is_featured', true)
-    .order('display_order', { ascending: true })
-    .order('created_at', { ascending: false })
-  
-  if (error) {
+  try {
+    const portfolios = await prisma.portfolio.findMany({
+      where: {
+        is_active: true,
+        is_featured: true
+      },
+      include: {
+        category: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
+      },
+      orderBy: [
+        { display_order: 'asc' },
+        { created_at: 'desc' }
+      ]
+    })
+
+    // Transform to match expected interface
+    const transformedPortfolios: Portfolio[] = portfolios.map(portfolio => ({
+      id: portfolio.id,
+      studio_id: portfolio.studio_id || '',
+      category_id: portfolio.category_id,
+      title: portfolio.title,
+      description: portfolio.description,
+      image_url: portfolio.image_url,
+      alt_text: portfolio.alt_text,
+      display_order: portfolio.display_order || 0,
+      is_featured: portfolio.is_featured || false,
+      is_active: portfolio.is_active || false,
+      metadata: portfolio.metadata as Record<string, unknown> | null,
+      created_at: portfolio.created_at?.toISOString() || '',
+      updated_at: portfolio.updated_at?.toISOString() || '',
+      category: portfolio.category ? {
+        id: portfolio.category.id,
+        name: portfolio.category.name
+      } : undefined
+    }))
+
+    return transformedPortfolios
+  } catch (error) {
     console.error('Error fetching featured portfolios:', error)
-    // Return empty array as fallback instead of throwing error
     return []
   }
-  
-  return data || []
 }
 
 // Get portfolio by ID (public)
 export async function getPublicPortfolioById(id: string): Promise<Portfolio | null> {
-  const supabase = await createClient()
-  
-  const { data, error } = await supabase
-    .from('portfolios')
-    .select(`
-      *,
-      category:portfolio_categories(id, name)
-    `)
-    .eq('id', id)
-    .eq('is_active', true)
-    .single()
-  
-  if (error) {
-    if (error.code === 'PGRST116') {
+  try {
+    const portfolio = await prisma.portfolio.findFirst({
+      where: {
+        id: id,
+        is_active: true
+      },
+      include: {
+        category: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
+      }
+    })
+
+    if (!portfolio) {
       return null
     }
+
+    // Transform to match expected interface
+    const transformedPortfolio: Portfolio = {
+      id: portfolio.id,
+      studio_id: portfolio.studio_id || '',
+      category_id: portfolio.category_id,
+      title: portfolio.title,
+      description: portfolio.description,
+      image_url: portfolio.image_url,
+      alt_text: portfolio.alt_text,
+      display_order: portfolio.display_order || 0,
+      is_featured: portfolio.is_featured || false,
+      is_active: portfolio.is_active || false,
+      metadata: portfolio.metadata as Record<string, unknown> | null,
+      created_at: portfolio.created_at?.toISOString() || '',
+      updated_at: portfolio.updated_at?.toISOString() || '',
+      category: portfolio.category ? {
+        id: portfolio.category.id,
+        name: portfolio.category.name
+      } : undefined
+    }
+
+    return transformedPortfolio
+  } catch (error) {
     console.error('Error fetching public portfolio:', error)
-    // Return null as fallback instead of throwing error
     return null
   }
-  
-  return data
 }
 
 // Get all public portfolio categories (only active ones)
 export async function getPublicPortfolioCategories(): Promise<PortfolioCategory[]> {
-  const supabase = await createClient()
-  
-  const { data, error } = await supabase
-    .from('portfolio_categories')
-    .select('*')
-    .eq('is_active', true)
-    .order('display_order', { ascending: true })
-    .order('name', { ascending: true })
-  
-  if (error) {
+  try {
+    const categories = await prisma.portfolioCategory.findMany({
+      where: {
+        is_active: true
+      },
+      orderBy: [
+        { display_order: 'asc' },
+        { name: 'asc' }
+      ]
+    })
+
+    // Transform to match expected interface
+    return categories.map(category => ({
+      id: category.id,
+      studio_id: category.studio_id || '',
+      name: category.name,
+      description: category.description,
+      display_order: category.display_order || 0,
+      is_active: category.is_active || false,
+      created_at: category.created_at?.toISOString() || '',
+      updated_at: undefined
+    }))
+  } catch (error) {
     console.error('Error fetching public portfolio categories:', error)
-    // Return empty array as fallback instead of throwing error
     return []
   }
-  
-  return data || []
 }

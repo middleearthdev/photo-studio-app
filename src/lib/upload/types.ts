@@ -1,6 +1,6 @@
 // Upload Provider Types & Interfaces
 
-export type UploadProvider = 'supabase' | 'server' | 'uploadcare'
+export type UploadProvider = 'server' | 'uploadcare'
 
 export interface UploadOptions {
   file: File
@@ -38,12 +38,6 @@ export interface IUploadProvider {
 }
 
 // Provider-specific configurations
-export interface SupabaseConfig {
-  url: string
-  anonKey: string
-  bucket?: string
-}
-
 export interface ServerConfig {
   endpoint: string
   apiKey?: string

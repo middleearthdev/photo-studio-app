@@ -1,0 +1,821 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Better Auth related enums and models
+enum UserRole {
+  customer
+  admin
+  cs
+  
+}
+
+enum ReservationStatus {
+  pending
+  confirmed
+  in_progress
+  completed
+  cancelled
+  no_show
+  
+}
+
+enum PaymentStatus {
+  pending
+  paid
+  partial
+  failed
+  cancelled
+  refunded
+  
+}
+
+// Core Studio Models
+model Studio {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name             String   @db.VarChar(255)
+  description      String?
+  address          String
+  phone            String?  @db.VarChar(20)
+  email            String?  @db.VarChar(255)
+  operating_hours  Json?
+  is_active        Boolean? @default(true)
+  settings         Json?    @default("{}")
+  created_at       DateTime? @default(now()) @db.Timestamptz
+  updated_at       DateTime? @default(now()) @db.Timestamptz
+
+  // Relations
+  users                    User[]
+  facilities               Facility[]
+  packages                 Package[]
+  portfolios              Portfolio[]
+  portfolio_categories    PortfolioCategory[]
+  package_categories      PackageCategory[]
+  addons                  Addon[]
+  time_slots             TimeSlot[]
+  reservations           Reservation[]
+  payment_methods        PaymentMethod[]
+  discounts              Discount[]
+  homepage_banners       HomepageBanner[]
+  homepage_facilities    HomepageFacility[]
+  homepage_hero          HomepageHero[]
+  homepage_hero_images   HomepageHeroImage[]
+  homepage_lighting      HomepageLighting[]
+  homepage_properties    HomepageProperty[]
+  homepage_services      HomepageService[]
+  homepage_specifications HomepageSpecification[]
+  homepage_terms         HomepageTerm[]
+  homepage_testimonials  HomepageTestimonial[]
+
+  @@map("studios")
+}
+
+// Better Auth User Model (adapted for Prisma) with UserProfile attributes
+model User {
+  id            String   @id
+  email         String   @unique @db.VarChar(255)
+  emailVerified Boolean  @default(false)
+  name          String?  @db.VarChar(255)
+  image         String?
+  createdAt     DateTime @default(now()) @db.Timestamptz
+  updatedAt     DateTime @updatedAt @db.Timestamptz
+
+  // User profile attributes (moved from UserProfile)
+  studio_id     String?   @db.Uuid
+  role          UserRole  @default(customer)
+  full_name     String?   @db.VarChar(255)
+  phone         String?   @db.VarChar(20)
+  address       String?
+  birth_date    DateTime? @db.Date
+  preferences   Json?     @default("{}")
+  avatar_url    String?
+  is_active     Boolean?  @default(true)
+  last_login    DateTime? @db.Timestamptz
+
+  // Relations
+  accounts                      Account[]
+  sessions                      Session[]
+  studio                        Studio?                  @relation(fields: [studio_id], references: [id], onDelete: SetNull)
+  customers                     Customer[]
+  reservations                  Reservation[]
+  discounts_created             Discount[]               @relation("DiscountCreator")
+  reservation_discounts_applied ReservationDiscount[]    @relation("DiscountApplier")
+
+  @@index([studio_id], name: "idx_users_studio_id")
+  @@map("user")
+}
+
+model Account {
+  id                String  @id
+  userId            String
+  accountId         String
+  providerId        String
+  accessToken       String?
+  refreshToken      String?
+  expiresAt         DateTime?
+  password          String?
+  createdAt         DateTime @default(now()) @db.Timestamptz
+  updatedAt         DateTime @updatedAt @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, accountId])
+  @@map("account")
+}
+
+model Session {
+  id           String   @id
+  token        String   @unique
+  userId       String
+  expiresAt    DateTime
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime @default(now()) @db.Timestamptz
+  updatedAt    DateTime @updatedAt @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("session")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now()) @db.Timestamptz
+  updatedAt  DateTime @updatedAt @db.Timestamptz
+
+  @@unique([identifier, value])
+  @@map("verification")
+}
+
+// Customer Model
+model Customer {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id      String?   @db.Uuid
+  full_name    String    @db.VarChar(255)
+  email        String    @db.VarChar(255)
+  phone        String    @db.VarChar(20)
+  address      String?
+  birth_date   DateTime? @db.Date
+  notes        String?
+  is_guest     Boolean?  @default(false)
+  guest_token  String?   @db.VarChar(255)
+  created_at   DateTime? @default(now()) @db.Timestamptz
+  updated_at   DateTime? @default(now()) @db.Timestamptz
+
+  // Relations
+  user         User? @relation(fields: [user_id], references: [id], onDelete: SetNull)
+  reservations Reservation[]
+  reviews      Review[]
+
+  @@unique([user_id, email], name: "unique_user_email")
+  @@map("customers")
+}
+
+// Facility Model
+model Facility {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studio_id     String?   @db.Uuid
+  name          String    @db.VarChar(255)
+  description   String?
+  capacity      Int?      @default(1)
+  equipment     Json?
+  hourly_rate   Decimal?  @db.Decimal(10, 2)
+  is_available  Boolean?  @default(true)
+  created_at    DateTime? @default(now()) @db.Timestamptz
+  updated_at    DateTime? @default(now()) @db.Timestamptz
+  icon          String?   @db.VarChar(50)
+
+  // Relations
+  studio            Studio?           @relation(fields: [studio_id], references: [id], onDelete: Cascade)
+  time_slots        TimeSlot[]
+  addons            Addon[]
+  package_facilities PackageFacility[]
+
+  @@index([studio_id, is_available], map: "idx_facilities_studio_available")
+  @@map("facilities")
+}
+
+// Time Slot Model
+model TimeSlot {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studio_id    String?   @db.Uuid
+  facility_id  String?   @db.Uuid
+  slot_date    DateTime  @db.Date
+  start_time   DateTime  @db.Time
+  end_time     DateTime  @db.Time
+  is_available Boolean?  @default(true)
+  is_blocked   Boolean?  @default(false)
+  notes        String?
+  created_at   DateTime? @default(now()) @db.Timestamptz
+  updated_at   DateTime? @default(now()) @db.Timestamptz
+
+  // Relations
+  studio   Studio?   @relation(fields: [studio_id], references: [id], onDelete: Cascade)
+  facility Facility? @relation(fields: [facility_id], references: [id], onDelete: Cascade)
+
+  @@unique([facility_id, slot_date, start_time], name: "unique_facility_time")
+  @@index([slot_date, is_available], map: "idx_time_slots_date_available")
+  @@index([facility_id, slot_date], name: "idx_time_slots_facility_date")
+  @@map("time_slots")
+}
+
+// Package Category Model
+model PackageCategory {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studio_id     String?   @db.Uuid
+  name          String    @db.VarChar(255)
+  description   String?
+  display_order Int?      @default(0)
+  is_active     Boolean?  @default(true)
+  created_at    DateTime? @default(now()) @db.Timestamptz
+
+  // Relations
+  studio   Studio?   @relation(fields: [studio_id], references: [id], onDelete: Cascade)
+  packages Package[]
+
+  @@map("package_categories")
+}
+
+// Package Model
+model Package {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studio_id        String?   @db.Uuid
+  category_id      String?   @db.Uuid
+  name             String    @db.VarChar(255)
+  description      String?
+  duration_minutes Int
+  price            Decimal   @db.Decimal(10, 2)
+  dp_percentage    Decimal?  @default(30.00) @db.Decimal(5, 2)
+  includes         Json?
+  is_popular       Boolean?  @default(false)
+  is_active        Boolean?  @default(true)
+  created_at       DateTime? @default(now()) @db.Timestamptz
+  updated_at       DateTime? @default(now()) @db.Timestamptz
+
+  // Relations
+  studio             Studio?           @relation(fields: [studio_id], references: [id], onDelete: Cascade)
+  category           PackageCategory?  @relation(fields: [category_id], references: [id], onDelete: SetNull)
+  reservations       Reservation[]
+  package_addons     PackageAddon[]
+  package_facilities PackageFacility[]
+
+  @@index([is_popular, is_active], map: "idx_packages_popular")
+  @@index([studio_id, is_active], map: "idx_packages_studio_active")
+  @@map("packages")
+}
+
+// Addon Model
+model Addon {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studio_id         String?   @db.Uuid
+  facility_id       String?   @db.Uuid
+  name              String    @db.VarChar(255)
+  description       String?
+  price             Decimal   @db.Decimal(10, 2)
+  type              String?   @db.VarChar(100)
+  max_quantity      Int?      @default(1)
+  is_conditional    Boolean?  @default(false)
+  conditional_logic Json?
+  is_active         Boolean?  @default(true)
+  created_at        DateTime? @default(now()) @db.Timestamptz
+  updated_at        DateTime? @default(now()) @db.Timestamptz
+
+  // Relations
+  studio             Studio?            @relation(fields: [studio_id], references: [id], onDelete: Cascade)
+  facility           Facility?          @relation(fields: [facility_id], references: [id], onDelete: SetNull)
+  package_addons     PackageAddon[]
+  reservation_addons ReservationAddon[]
+
+  @@index([facility_id], map: "idx_addons_facility")
+  @@index([studio_id, is_active], map: "idx_addons_studio_active")
+  @@map("addons")
+}
+
+// Package Addon Junction Model
+model PackageAddon {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  package_id          String?   @db.Uuid
+  addon_id            String?   @db.Uuid
+  is_included         Boolean?  @default(false)
+  discount_percentage Decimal?  @default(0) @db.Decimal(5, 2)
+  display_order       Int?      @default(0)
+  is_recommended      Boolean?  @default(false)
+  created_at          DateTime? @default(now()) @db.Timestamptz
+  updated_at          DateTime? @default(now()) @db.Timestamptz
+
+  // Relations
+  package Package? @relation(fields: [package_id], references: [id], onDelete: Cascade)
+  addon   Addon?   @relation(fields: [addon_id], references: [id], onDelete: Cascade)
+
+  @@unique([package_id, addon_id], name: "unique_package_addon")
+  @@index([addon_id], name: "idx_package_addons_addon_id")
+  @@index([package_id, display_order], name: "idx_package_addons_display_order")
+  @@index([package_id], name: "idx_package_addons_package_id")
+  @@map("package_addons")
+}
+
+// Package Facility Junction Model
+model PackageFacility {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  package_id      String?   @db.Uuid
+  facility_id     String?   @db.Uuid
+  is_included     Boolean?  @default(true)
+  additional_cost Decimal?  @default(0) @db.Decimal(10, 2)
+  created_at      DateTime? @default(now()) @db.Timestamptz
+
+  // Relations
+  package  Package?  @relation(fields: [package_id], references: [id], onDelete: Cascade)
+  facility Facility? @relation(fields: [facility_id], references: [id], onDelete: Cascade)
+
+  @@unique([package_id, facility_id], name: "unique_package_facility")
+  @@map("package_facilities")
+}
+
+// Portfolio Category Model
+model PortfolioCategory {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studio_id     String?   @db.Uuid
+  name          String    @db.VarChar(255)
+  description   String?
+  display_order Int?      @default(0)
+  is_active     Boolean?  @default(true)
+  created_at    DateTime? @default(now()) @db.Timestamptz
+
+  // Relations
+  studio     Studio?     @relation(fields: [studio_id], references: [id], onDelete: Cascade)
+  portfolios Portfolio[]
+
+  @@map("portfolio_categories")
+}
+
+// Portfolio Model
+model Portfolio {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studio_id     String?   @db.Uuid
+  category_id   String?   @db.Uuid
+  title         String    @db.VarChar(255)
+  description   String?
+  image_url     String
+  alt_text      String?   @db.VarChar(255)
+  display_order Int?      @default(0)
+  is_featured   Boolean?  @default(false)
+  is_active     Boolean?  @default(true)
+  metadata      Json?
+  created_at    DateTime? @default(now()) @db.Timestamptz
+  updated_at    DateTime? @default(now()) @db.Timestamptz
+
+  // Relations
+  studio   Studio?            @relation(fields: [studio_id], references: [id], onDelete: Cascade)
+  category PortfolioCategory? @relation(fields: [category_id], references: [id], onDelete: SetNull)
+
+  @@index([is_featured, is_active], map: "idx_portfolios_featured")
+  @@index([studio_id, category_id], name: "idx_portfolios_studio_category")
+  @@map("portfolios")
+}
+
+// Payment Method Model
+model PaymentMethod {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studio_id       String?   @db.Uuid
+  name            String    @db.VarChar(255)
+  type            String    @db.VarChar(100)
+  provider        String?   @db.VarChar(100)
+  account_details Json?
+  xendit_config   Json?
+  fee_percentage  Decimal?  @default(0) @db.Decimal(5, 2)
+  is_active       Boolean?  @default(true)
+  created_at      DateTime? @default(now()) @db.Timestamptz
+  fee_type        String?   @default("percentage") @db.VarChar(20)
+  fee_amount      Decimal?  @default(0) @db.Decimal(10, 2)
+
+  // Relations
+  studio   Studio?   @relation(fields: [studio_id], references: [id], onDelete: Cascade)
+  payments Payment[]
+
+  @@map("payment_methods")
+}
+
+// Discount Model
+model Discount {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studio_id       String?   @db.Uuid
+  code            String?   @unique @db.VarChar(50)
+  name            String    @db.VarChar(255)
+  description     String?
+  type            String    @db.VarChar(20)
+  value           Decimal   @db.Decimal(10, 2)
+  minimum_amount  Decimal?  @default(0) @db.Decimal(15, 2)
+  maximum_discount Decimal? @db.Decimal(15, 2)
+  is_active       Boolean?  @default(true)
+  valid_from      DateTime?
+  valid_until     DateTime?
+  usage_limit     Int?
+  used_count      Int?      @default(0)
+  applies_to      String?   @default("all") @db.VarChar(20)
+  created_by      String?   @db.Uuid
+  created_at      DateTime? @default(now())
+  updated_at      DateTime? @default(now())
+
+  // Relations
+  studio                Studio?               @relation(fields: [studio_id], references: [id], onDelete: Cascade)
+  creator               User?                 @relation("DiscountCreator", fields: [created_by], references: [id])
+  reservations          Reservation[]
+  reservation_discounts ReservationDiscount[]
+
+  @@index([is_active, valid_from, valid_until], name: "idx_discounts_active")
+  @@index([code], map: "idx_discounts_code")
+  @@index([studio_id], name: "idx_discounts_studio_id")
+  @@map("discounts")
+}
+
+// Reservation Model
+model Reservation {
+  id                    String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  booking_code          String            @unique @db.VarChar(20)
+  invoice_number        String?           @unique @db.VarChar(50)
+  studio_id             String?           @db.Uuid
+  customer_id           String?           @db.Uuid
+  user_id               String?           @db.Uuid
+  package_id            String?           @db.Uuid
+  is_guest_booking      Boolean?          @default(false)
+  guest_email           String?           @db.VarChar(255)
+  guest_phone           String?           @db.VarChar(20)
+  reservation_date      DateTime          @db.Date
+  start_time            DateTime          @db.Time
+  end_time              DateTime          @db.Time
+  total_duration        Int
+  selected_facilities   Json?
+  package_price         Decimal           @db.Decimal(10, 2)
+  facility_addon_total  Decimal?          @default(0) @db.Decimal(10, 2)
+  other_addon_total     Decimal?          @default(0) @db.Decimal(10, 2)
+  subtotal              Decimal           @db.Decimal(10, 2)
+  tax_amount            Decimal?          @default(0) @db.Decimal(10, 2)
+  discount_amount       Decimal?          @default(0) @db.Decimal(10, 2)
+  total_amount          Decimal           @db.Decimal(10, 2)
+  dp_amount             Decimal           @db.Decimal(10, 2)
+  remaining_amount      Decimal           @db.Decimal(10, 2)
+  status                ReservationStatus? @default(pending)
+  payment_status        PaymentStatus?    @default(pending)
+  special_requests      String?
+  notes                 String?
+  internal_notes        String?
+  confirmed_at          DateTime?         @db.Timestamptz
+  completed_at          DateTime?         @db.Timestamptz
+  cancelled_at          DateTime?         @db.Timestamptz
+  created_at            DateTime?         @default(now()) @db.Timestamptz
+  updated_at            DateTime?         @default(now()) @db.Timestamptz
+  discount_id           String?           @db.Uuid
+
+  // Relations
+  studio                Studio?               @relation(fields: [studio_id], references: [id], onDelete: Cascade)
+  customer              Customer?             @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+  user                  User?                 @relation(fields: [user_id], references: [id], onDelete: SetNull)
+  package               Package?              @relation(fields: [package_id], references: [id], onDelete: SetNull)
+  discount              Discount?             @relation(fields: [discount_id], references: [id], onDelete: SetNull)
+  payments              Payment[]
+  reservation_addons    ReservationAddon[]
+  reservation_discounts ReservationDiscount[]
+  reviews               Review[]
+
+  @@index([booking_code], name: "idx_reservations_booking_code")
+  @@index([customer_id], name: "idx_reservations_customer")
+  @@index([guest_email], map: "idx_reservations_guest_email")
+  @@index([status], name: "idx_reservations_status")
+  @@index([studio_id, reservation_date], name: "idx_reservations_studio_date")
+  @@index([user_id], map: "idx_reservations_user")
+  @@map("reservations")
+}
+
+// Payment Model
+model Payment {
+  id                  String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reservation_id      String?       @db.Uuid
+  payment_method_id   String?       @db.Uuid
+  amount              Decimal       @db.Decimal(10, 2)
+  payment_type        String        @db.VarChar(50)
+  status              PaymentStatus? @default(pending)
+  external_payment_id String?       @db.VarChar(255)
+  external_status     String?       @db.VarChar(100)
+  payment_url         String?
+  callback_data       Json?
+  gateway_fee         Decimal?      @default(0) @db.Decimal(10, 2)
+  net_amount          Decimal?      @db.Decimal(10, 2)
+  paid_at             DateTime?     @db.Timestamptz
+  expires_at          DateTime?     @db.Timestamptz
+  created_at          DateTime?     @default(now()) @db.Timestamptz
+  updated_at          DateTime?     @default(now()) @db.Timestamptz
+
+  // Relations
+  reservation    Reservation?   @relation(fields: [reservation_id], references: [id], onDelete: Cascade)
+  payment_method PaymentMethod? @relation(fields: [payment_method_id], references: [id])
+
+  @@index([external_payment_id], name: "idx_payments_external_id")
+  @@index([reservation_id], name: "idx_payments_reservation")
+  @@index([status], name: "idx_payments_status")
+  @@map("payments")
+}
+
+// Reservation Addon Model
+model ReservationAddon {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reservation_id String?   @db.Uuid
+  addon_id       String?   @db.Uuid
+  quantity       Int?      @default(1)
+  unit_price     Decimal   @db.Decimal(10, 2)
+  total_price    Decimal   @db.Decimal(10, 2)
+  created_at     DateTime? @default(now()) @db.Timestamptz
+
+  // Relations
+  reservation Reservation? @relation(fields: [reservation_id], references: [id], onDelete: Cascade)
+  addon       Addon?       @relation(fields: [addon_id], references: [id], onDelete: Cascade)
+
+  @@unique([reservation_id, addon_id], name: "unique_reservation_addon")
+  @@map("reservation_addons")
+}
+
+// Reservation Discount Model
+model ReservationDiscount {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reservation_id  String?   @db.Uuid
+  discount_id     String?   @db.Uuid
+  discount_name   String?   @db.VarChar(255)
+  discount_type   String?   @db.VarChar(20)
+  discount_value  Decimal?  @db.Decimal(10, 2)
+  discount_amount Decimal   @db.Decimal(15, 2)
+  applied_by      String?   @db.Uuid
+  applied_at      DateTime? @default(now())
+
+  // Relations
+  reservation Reservation?  @relation(fields: [reservation_id], references: [id], onDelete: Cascade)
+  discount    Discount?     @relation(fields: [discount_id], references: [id])
+  applier     User?         @relation("DiscountApplier", fields: [applied_by], references: [id])
+
+  @@index([reservation_id], name: "idx_reservation_discounts_reservation_id")
+  @@map("reservation_discounts")
+}
+
+// Review Model
+model Review {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reservation_id String?   @db.Uuid
+  customer_id    String?   @db.Uuid
+  rating         Int?
+  title          String?   @db.VarChar(255)
+  comment        String?
+  photos         Json?
+  is_featured    Boolean?  @default(false)
+  is_approved    Boolean?  @default(false)
+  replied_at     DateTime? @db.Timestamptz
+  reply_text     String?
+  created_at     DateTime? @default(now()) @db.Timestamptz
+  updated_at     DateTime? @default(now()) @db.Timestamptz
+
+  // Relations
+  reservation Reservation? @relation(fields: [reservation_id], references: [id], onDelete: Cascade)
+  customer    Customer?    @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+
+  @@index([reservation_id], map: "idx_reviews_reservation_approved")
+  @@map("reviews")
+}
+
+// Hero Images Model
+model HeroImage {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title         String    @db.VarChar(255)
+  description   String?
+  image_url     String
+  alt_text      String?   @db.VarChar(255)
+  display_order Int       @default(0)
+  is_active     Boolean?  @default(true)
+  created_at    DateTime  @default(now()) @db.Timestamptz
+  updated_at    DateTime  @default(now()) @db.Timestamptz
+
+  @@index([display_order], map: "idx_hero_images_order_active")
+  @@map("hero_images")
+}
+
+// Homepage Models
+model HomepageBanner {
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studio_id            String?   @db.Uuid
+  title                String    @db.VarChar(255)
+  subtitle             String?
+  description          String?
+  banner_type          String?   @default("promotional") @db.VarChar(50)
+  background_image_url String?
+  icon_name            String?   @db.VarChar(100)
+  gradient_from        String?   @default("#b0834d") @db.VarChar(20)
+  gradient_to          String?   @default("#00052e") @db.VarChar(20)
+  text_color           String?   @default("text-white") @db.VarChar(20)
+  cta_text             String?   @db.VarChar(100)
+  cta_link             String?
+  is_active            Boolean?  @default(true)
+  priority             Int?      @default(0)
+  auto_rotate          Boolean?  @default(true)
+  rotation_duration    Int?      @default(5000)
+  start_date           DateTime? @db.Timestamptz
+  end_date             DateTime? @db.Timestamptz
+  click_count          Int?      @default(0)
+  view_count           Int?      @default(0)
+  created_at           DateTime? @default(now()) @db.Timestamptz
+  updated_at           DateTime? @default(now()) @db.Timestamptz
+
+  // Relations
+  studio Studio? @relation(fields: [studio_id], references: [id], onDelete: Cascade)
+
+  @@index([priority], map: "idx_homepage_banners_priority_desc")
+  @@index([studio_id, is_active], name: "idx_homepage_banners_studio_active")
+  @@map("homepage_banners")
+}
+
+model HomepageFacility {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studio_id   String?   @db.Uuid
+  title       String    @db.VarChar(255)
+  description String?
+  image_url   String?
+  icon_name   String?   @db.VarChar(100)
+  order_index Int?      @default(0)
+  is_active   Boolean?  @default(true)
+  featured    Boolean?  @default(false)
+  created_at  DateTime? @default(now()) @db.Timestamptz
+  updated_at  DateTime? @default(now()) @db.Timestamptz
+
+  // Relations
+  studio Studio? @relation(fields: [studio_id], references: [id], onDelete: Cascade)
+
+  @@index([studio_id, order_index], name: "idx_homepage_facilities_studio_order")
+  @@map("homepage_facilities")
+}
+
+model HomepageHero {
+  id                    String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studio_id             String?   @db.Uuid
+  badge_text            String?   @db.VarChar(255)
+  badge_icon            String?   @db.VarChar(100)
+  main_title            String
+  highlight_text        String?
+  subtitle              String?
+  primary_cta_text      String?   @db.VarChar(100)
+  primary_cta_link      String?
+  primary_cta_icon      String?   @db.VarChar(100)
+  secondary_cta_text    String?   @db.VarChar(100)
+  secondary_cta_link    String?
+  secondary_cta_icon    String?   @db.VarChar(100)
+  stats_1_number        String?   @db.VarChar(50)
+  stats_1_text          String?   @db.VarChar(100)
+  stats_1_icon          String?   @db.VarChar(100)
+  stats_2_number        String?   @db.VarChar(50)
+  stats_2_text          String?   @db.VarChar(100)
+  stats_2_icon          String?   @db.VarChar(100)
+  rating_display        Decimal?  @default(4.9) @db.Decimal(2, 1)
+  is_active             Boolean?  @default(true)
+  created_at            DateTime? @default(now()) @db.Timestamptz
+  updated_at            DateTime? @default(now()) @db.Timestamptz
+
+  // Relations
+  studio Studio? @relation(fields: [studio_id], references: [id], onDelete: Cascade)
+
+  @@map("homepage_hero")
+}
+
+model HomepageHeroImage {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studio_id   String?   @db.Uuid
+  image_url   String
+  alt_text    String?   @db.VarChar(255)
+  caption     String?   @db.VarChar(255)
+  order_index Int?      @default(0)
+  is_active   Boolean?  @default(true)
+  created_at  DateTime? @default(now()) @db.Timestamptz
+  updated_at  DateTime? @default(now()) @db.Timestamptz
+
+  // Relations
+  studio Studio? @relation(fields: [studio_id], references: [id], onDelete: Cascade)
+
+  @@index([studio_id, order_index], name: "idx_homepage_hero_images_studio")
+  @@map("homepage_hero_images")
+}
+
+model HomepageLighting {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studio_id   String?   @db.Uuid
+  title       String    @db.VarChar(255)
+  description String?
+  image_url   String?
+  icon_name   String?   @db.VarChar(100)
+  order_index Int?      @default(0)
+  is_active   Boolean?  @default(true)
+  created_at  DateTime? @default(now()) @db.Timestamptz
+  updated_at  DateTime? @default(now()) @db.Timestamptz
+
+  // Relations
+  studio Studio? @relation(fields: [studio_id], references: [id], onDelete: Cascade)
+
+  @@map("homepage_lighting")
+}
+
+model HomepageProperty {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studio_id     String?   @db.Uuid
+  property_name String    @db.VarChar(255)
+  description   String?
+  icon_name     String?   @db.VarChar(100)
+  image_url     String?
+  order_index   Int?      @default(0)
+  is_active     Boolean?  @default(true)
+  created_at    DateTime? @default(now()) @db.Timestamptz
+  updated_at    DateTime? @default(now()) @db.Timestamptz
+
+  // Relations
+  studio Studio? @relation(fields: [studio_id], references: [id], onDelete: Cascade)
+
+  @@map("homepage_properties")
+}
+
+model HomepageService {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studio_id    String?   @db.Uuid
+  service_name String    @db.VarChar(255)
+  description  String?
+  icon_name    String?   @default("Camera") @db.VarChar(100)
+  order_index  Int?      @default(0)
+  is_active    Boolean?  @default(true)
+  featured     Boolean?  @default(false)
+  created_at   DateTime? @default(now()) @db.Timestamptz
+  updated_at   DateTime? @default(now()) @db.Timestamptz
+
+  // Relations
+  studio Studio? @relation(fields: [studio_id], references: [id], onDelete: Cascade)
+
+  @@index([studio_id, order_index], name: "idx_homepage_services_studio_order")
+  @@map("homepage_services")
+}
+
+model HomepageSpecification {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studio_id   String?   @db.Uuid
+  spec_name   String    @db.VarChar(255)
+  dimensions  String?   @db.VarChar(255)
+  category    String    @db.VarChar(50)
+  description String?
+  icon_name   String?   @db.VarChar(100)
+  order_index Int?      @default(0)
+  is_active   Boolean?  @default(true)
+  created_at  DateTime? @default(now()) @db.Timestamptz
+  updated_at  DateTime? @default(now()) @db.Timestamptz
+
+  // Relations
+  studio Studio? @relation(fields: [studio_id], references: [id], onDelete: Cascade)
+
+  @@index([studio_id, category, order_index], name: "idx_homepage_specs_studio_category")
+  @@map("homepage_specifications")
+}
+
+model HomepageTerm {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studio_id   String?   @db.Uuid
+  term_text   String
+  category    String?   @db.VarChar(100)
+  order_index Int?      @default(0)
+  is_active   Boolean?  @default(true)
+  important   Boolean?  @default(false)
+  created_at  DateTime? @default(now()) @db.Timestamptz
+  updated_at  DateTime? @default(now()) @db.Timestamptz
+
+  // Relations
+  studio Studio? @relation(fields: [studio_id], references: [id], onDelete: Cascade)
+
+  @@map("homepage_terms")
+}
+
+model HomepageTestimonial {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studio_id          String?   @db.Uuid
+  customer_name      String    @db.VarChar(255)
+  customer_type      String?   @db.VarChar(100)
+  customer_image_url String?
+  testimonial_text   String
+  rating             Int?      @default(5)
+  order_index        Int?      @default(0)
+  is_active          Boolean?  @default(true)
+  featured           Boolean?  @default(false)
+  created_at         DateTime? @default(now()) @db.Timestamptz
+  updated_at         DateTime? @default(now()) @db.Timestamptz
+
+  // Relations
+  studio Studio? @relation(fields: [studio_id], references: [id], onDelete: Cascade)
+
+  @@map("homepage_testimonials")
+}

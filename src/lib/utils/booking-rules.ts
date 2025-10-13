@@ -35,7 +35,7 @@ export function getDaysUntilReservation(reservationDate: string): number {
 export function canCompletePayment(reservation: Reservation): BusinessRuleResult {
   const daysRemaining = getDaysUntilReservation(reservation.reservation_date)
 
-  if (reservation.payment_status === 'completed') {
+  if (reservation.payment_status === 'paid') {
     return { allowed: false, reason: 'Pembayaran sudah lunas' }
   }
 
@@ -103,7 +103,7 @@ export function getCancellationInfo(reservation: Reservation): {
   }
 
   const daysRemaining = getDaysUntilReservation(reservation.reservation_date)
-  const hasPaid = ['partial', 'completed'].includes(reservation.payment_status)
+  const hasPaid = ['partial', 'paid'].includes(reservation.payment_status)
 
   return {
     canCancel: true,
@@ -202,7 +202,7 @@ export function getBookingPriority(reservation: Reservation): {
   label: string
 } {
   const daysRemaining = getDaysUntilReservation(reservation.reservation_date)
-  const needsPayment = reservation.payment_status !== 'completed' && reservation.remaining_amount > 0
+  const needsPayment = reservation.payment_status !== 'paid' && reservation.remaining_amount > 0
 
   if (daysRemaining <= 0) {
     return { priority: 'urgent', color: 'red', label: 'URGENT' }

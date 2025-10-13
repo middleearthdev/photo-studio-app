@@ -1,6 +1,8 @@
 "use server"
 
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
+import { auth } from '@/lib/auth'
+import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { format } from 'date-fns'
 
@@ -29,8 +31,8 @@ export interface Reservation {
   total_amount: number
   dp_amount: number
   remaining_amount: number
-  status: 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled'
-  payment_status: 'pending' | 'partial' | 'completed' | 'failed'
+  status: 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled' | 'no_show'
+  payment_status: 'pending' | 'paid' | 'partial' | 'failed' | 'cancelled' | 'refunded'
   special_requests: string | null
   notes: string | null
   internal_notes: string | null
@@ -179,24 +181,85 @@ function calculateEndTime(startTime: string, durationMinutes: number): string {
   return format(endDate, 'HH:mm')
 }
 
+function convertTimeToDateTime(timeString: string, baseDate?: Date): Date {
+  const [hours, minutes] = timeString.split(':').map(Number)
+  const date = baseDate || new Date()
+  date.setHours(hours, minutes, 0, 0)
+  return date
+}
+
+function transformReservationForClient(reservation: any) {
+  return {
+    ...reservation,
+    // Convert Decimal fields to numbers
+    package_price: Number(reservation.package_price),
+    facility_addon_total: Number(reservation.facility_addon_total || 0),
+    other_addon_total: Number(reservation.other_addon_total || 0),
+    subtotal: Number(reservation.subtotal),
+    tax_amount: Number(reservation.tax_amount || 0),
+    discount_amount: Number(reservation.discount_amount || 0),
+    total_amount: Number(reservation.total_amount),
+    dp_amount: Number(reservation.dp_amount),
+    remaining_amount: Number(reservation.remaining_amount),
+    // Convert Date fields to ISO strings
+    reservation_date: reservation.reservation_date instanceof Date 
+      ? reservation.reservation_date.toISOString().split('T')[0] 
+      : reservation.reservation_date,
+    start_time: reservation.start_time instanceof Date 
+      ? format(reservation.start_time, 'HH:mm') 
+      : reservation.start_time,
+    end_time: reservation.end_time instanceof Date 
+      ? format(reservation.end_time, 'HH:mm') 
+      : reservation.end_time,
+    created_at: reservation.created_at instanceof Date 
+      ? reservation.created_at.toISOString() 
+      : reservation.created_at,
+    updated_at: reservation.updated_at instanceof Date 
+      ? reservation.updated_at.toISOString() 
+      : reservation.updated_at,
+    confirmed_at: reservation.confirmed_at instanceof Date 
+      ? reservation.confirmed_at.toISOString() 
+      : reservation.confirmed_at,
+    completed_at: reservation.completed_at instanceof Date 
+      ? reservation.completed_at.toISOString() 
+      : reservation.completed_at,
+    cancelled_at: reservation.cancelled_at instanceof Date 
+      ? reservation.cancelled_at.toISOString() 
+      : reservation.cancelled_at,
+    // Transform package data if present
+    package: reservation.package ? {
+      ...reservation.package,
+      price: reservation.package.price ? Number(reservation.package.price) : undefined
+    } : reservation.package,
+    // Transform reservation addons
+    reservation_addons: reservation.reservation_addons?.map((addon: any) => ({
+      ...addon,
+      unit_price: Number(addon.unit_price),
+      total_price: Number(addon.total_price),
+      created_at: addon.created_at instanceof Date 
+        ? addon.created_at.toISOString() 
+        : addon.created_at
+    })) || []
+  }
+}
+
 export async function getPaginatedReservationsAction(
   params: PaginatedReservationsParams
 ): Promise<ActionResult<PaginatedReservationsResult>> {
   try {
-    const supabase = await createClient()
-
     // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const session = await auth.api.getSession({
+      headers: await headers()
+    })
+    if (!session?.user?.id) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role, studio_id')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, studio_id: true }
+    })
 
     if (!currentProfile || !['admin', 'cs'].includes(currentProfile.role)) {
       return { success: false, error: 'Insufficient permissions' }
@@ -205,81 +268,88 @@ export async function getPaginatedReservationsAction(
     // Set pagination defaults
     const page = params.page || 1
     const pageSize = params.pageSize || 10
-    const offset = (page - 1) * pageSize
+    const skip = (page - 1) * pageSize
 
-    // Build base query
-    let query = supabase
-      .from('reservations')
-      .select(`
-        *,
-        studio:studios(id, name),
-        customer:customers(id, full_name, email, phone),
-        package:packages(id, name, duration_minutes),
-        reservation_addons(
-          *,
-          addon:addons(id, name, description)
-        )
-      `, { count: 'exact' })
-
+    // Build where conditions
+    const where: any = {}
+    
     // Studio filter - CS users can only see their studio
     if (currentProfile.role === 'cs') {
-      query = query.eq('studio_id', currentProfile.studio_id)
+      where.studio_id = currentProfile.studio_id
     } else if (params.studioId) {
-      query = query.eq('studio_id', params.studioId)
+      where.studio_id = params.studioId
     }
 
     // Search filter
     if (params.search) {
-      const searchTerm = `%${params.search}%`
-      query = query.or(`booking_code.ilike.${searchTerm},guest_email.ilike.${searchTerm},guest_phone.ilike.${searchTerm},customer.full_name.ilike.${searchTerm},customer.email.ilike.${searchTerm},customer.phone.ilike.${searchTerm}`)
+      where.OR = [
+        { booking_code: { contains: params.search, mode: 'insensitive' } },
+        { guest_email: { contains: params.search, mode: 'insensitive' } },
+        { guest_phone: { contains: params.search, mode: 'insensitive' } },
+        { customer: { full_name: { contains: params.search, mode: 'insensitive' } } },
+        { customer: { email: { contains: params.search, mode: 'insensitive' } } },
+        { customer: { phone: { contains: params.search, mode: 'insensitive' } } }
+      ]
     }
 
     // Status filter
     if (params.status && params.status !== 'all') {
-      query = query.eq('status', params.status)
+      where.status = params.status
     }
 
     // Payment status filter
     if (params.payment_status && params.payment_status !== 'all') {
-      query = query.eq('payment_status', params.payment_status)
+      where.payment_status = params.payment_status
     }
 
     // Booking type filter
     if (params.booking_type && params.booking_type !== 'all') {
       const isGuest = params.booking_type === 'guest'
-      query = query.eq('is_guest_booking', isGuest)
+      where.is_guest_booking = isGuest
     }
 
     // Date range filters
-    if (params.date_from) {
-      query = query.gte('reservation_date', params.date_from)
-    }
-    if (params.date_to) {
-      query = query.lte('reservation_date', params.date_to)
-    }
-
-    // Apply pagination and ordering
-    query = query
-      .order('created_at', { ascending: false })
-      .range(offset, offset + pageSize - 1)
-
-    const { data, error, count } = await query
-
-    if (error) {
-      console.error('Error fetching paginated reservations:', error)
-      return { success: false, error: error.message }
+    if (params.date_from || params.date_to) {
+      where.reservation_date = {}
+      if (params.date_from) {
+        where.reservation_date.gte = new Date(params.date_from)
+      }
+      if (params.date_to) {
+        where.reservation_date.lte = new Date(params.date_to)
+      }
     }
 
-    const totalPages = Math.ceil((count || 0) / pageSize)
+    // Execute query with count
+    const [reservations, total] = await Promise.all([
+      prisma.reservation.findMany({
+        where,
+        include: {
+          studio: { select: { id: true, name: true } },
+          customer: { select: { id: true, full_name: true, email: true, phone: true } },
+          package: { select: { id: true, name: true, duration_minutes: true } },
+          reservation_addons: {
+            include: {
+              addon: { select: { id: true, name: true, description: true } }
+            }
+          }
+        },
+        orderBy: { created_at: 'desc' },
+        skip,
+        take: pageSize
+      }),
+      prisma.reservation.count({ where })
+    ])
+
+    const totalPages = Math.ceil(total / pageSize)
 
     return {
       success: true,
       data: {
-        data: data || [],
+        data: reservations.map(transformReservationForClient),
         pagination: {
           page,
           pageSize,
-          total: count || 0,
+          total,
           totalPages
         }
       }
@@ -293,20 +363,19 @@ export async function getPaginatedReservationsAction(
 // Admin/Staff action to create manual reservation (for manual booking by CS/Admin)
 export async function createManualReservationAction(data: CreateReservationData): Promise<ActionResult<{ reservation: Reservation; customer: Customer; payment?: any }>> {
   try {
-    const supabase = await createClient()
-
     // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const session = await auth.api.getSession({
+      headers: await headers()
+    })
+    if (!session?.user?.id) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role, studio_id')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, studio_id: true }
+    })
 
     if (!currentProfile || !['admin', 'cs'].includes(currentProfile.role)) {
       return { success: false, error: 'Insufficient permissions' }
@@ -322,16 +391,12 @@ export async function createManualReservationAction(data: CreateReservationData)
     const endTime = calculateEndTime(data.start_time, data.duration_minutes)
 
     // Get package facilities
-    const { data: packageFacilities, error: facilityError } = await supabase
-      .from('package_facilities')
-      .select(`
-        facility:facilities(id, name, description)
-      `)
-      .eq('package_id', data.package_id)
-
-    if (facilityError) {
-      console.error('Error fetching package facilities:', facilityError)
-    }
+    const packageFacilities = await prisma.packageFacility.findMany({
+      where: { package_id: data.package_id },
+      include: {
+        facility: { select: { id: true, name: true, description: true } }
+      }
+    })
 
     // Format selected facilities for storage
     const selectedFacilities = packageFacilities?.map(pf => pf.facility) || []
@@ -349,35 +414,27 @@ export async function createManualReservationAction(data: CreateReservationData)
     const remainingAmount = totalAmount - dpAmount
 
     // Create customer first
-    const { data: customerData, error: customerError } = await supabase
-      .from('customers')
-      .insert({
+    const customerData = await prisma.customer.create({
+      data: {
         full_name: data.customer_name,
         email: data.customer_email || '',
         phone: data.customer_phone,
         notes: data.customer_notes || '',
         is_guest: data.is_guest_booking || true
-      })
-      .select()
-      .single()
-
-    if (customerError) {
-      console.error('Error creating customer:', customerError)
-      return { success: false, error: customerError.message }
-    }
+      }
+    })
 
     // Create reservation with manual booking specific fields
-    const { data: reservationData, error: reservationError } = await supabase
-      .from('reservations')
-      .insert({
+    const reservationData = await prisma.reservation.create({
+      data: {
         booking_code: bookingCode,
         studio_id: data.studio_id,
         customer_id: customerData.id,
-        user_id: user.id, // Set user_id to current staff member
+        user_id: session.user.id, // Set user_id to current staff member
         package_id: data.package_id,
-        reservation_date: data.reservation_date,
-        start_time: data.start_time,
-        end_time: endTime,
+        reservation_date: new Date(data.reservation_date),
+        start_time: convertTimeToDateTime(data.start_time),
+        end_time: convertTimeToDateTime(endTime),
         total_duration: data.duration_minutes,
         selected_facilities: selectedFacilities,
         package_price: packagePrice,
@@ -394,16 +451,11 @@ export async function createManualReservationAction(data: CreateReservationData)
         guest_phone: data.customer_phone,
         is_guest_booking: data.is_guest_booking || true,
         status: 'confirmed', // Manual bookings are auto-confirmed
-        payment_status: data.payment_status || 'pending',
+        payment_status: data.payment_status === 'completed' ? 'paid' : 
+                        data.payment_status === 'partial' ? 'partial' : 'pending',
         discount_id: data.discount_id
-      })
-      .select()
-      .single()
-
-    if (reservationError) {
-      console.error('Error creating manual reservation:', reservationError)
-      return { success: false, error: reservationError.message }
-    }
+      }
+    })
 
     // Add reservation add-ons if any
     if (data.selected_addons && data.selected_addons.length > 0) {
@@ -415,55 +467,67 @@ export async function createManualReservationAction(data: CreateReservationData)
         total_price: addon.unit_price * addon.quantity
       }))
 
-      const { error: addonsError } = await supabase
-        .from('reservation_addons')
-        .insert(addonInserts)
-
-      if (addonsError) {
-        console.error('Error adding reservation add-ons:', addonsError)
-        // Don't fail the entire operation for add-ons error
-      }
+      await prisma.reservationAddon.createMany({
+        data: addonInserts,
+        skipDuplicates: true
+      })
     }
 
     console.log(data)
 
     // Create payment record for manual booking if payment method is provided
     if (data.payment_method && data.payment_status && dpAmount > 0) {
-      const { error: paymentError } = await supabase
-        .from('payments')
-        .insert({
-          reservation_id: reservationData.id,
-          payment_method_id: data.payment_method,
-          amount: dpAmount,
-          payment_type: data.payment_status === 'completed' ? 'full' : 'dp',
-          status: 'completed', // Manual payments are marked as completed
-          paid_at: new Date().toISOString(),
+      try {
+        await prisma.payment.create({
+          data: {
+            reservation_id: reservationData.id,
+            payment_method_id: data.payment_method,
+            amount: dpAmount,
+            payment_type: data.payment_status === 'paid' ? 'full' : 'dp',
+            status: 'paid', // Manual payments are marked as paid
+            paid_at: new Date(),
+          }
         })
-
-      if (paymentError) {
+      } catch (paymentError) {
         console.error('Error creating payment record:', paymentError)
         // Don't fail reservation creation for payment record error
       }
     }
 
-    // Fetch the created reservation with all relations
-    const { data: createdReservation, error: fetchError } = await supabase
-      .from('reservations')
-      .select(`
-        *,
-        studio:studios(id, name),
-        customer:customers(id, full_name, email, phone),
-        package:packages(id, name, duration_minutes),
-        reservation_addons(
-          *,
-          addon:addons(id, name, description)
-        )
-      `)
-      .eq('id', reservationData.id)
-      .single()
+    // Update discount usage if discount was applied
+    if (data.discount_id) {
+      try {
+        await prisma.discount.update({
+          where: { id: data.discount_id },
+          data: {
+            used_count: {
+              increment: 1
+            },
+            updated_at: new Date()
+          }
+        })
+      } catch (discountError) {
+        console.error('Error updating discount usage:', discountError)
+        // Don't fail reservation creation for discount update error
+      }
+    }
 
-    if (fetchError) {
-      console.error('Error fetching created reservation:', fetchError)
+    // Fetch the created reservation with all relations
+    const createdReservation = await prisma.reservation.findUnique({
+      where: { id: reservationData.id },
+      include: {
+        studio: { select: { id: true, name: true } },
+        customer: { select: { id: true, full_name: true, email: true, phone: true } },
+        package: { select: { id: true, name: true, duration_minutes: true } },
+        reservation_addons: {
+          include: {
+            addon: { select: { id: true, name: true, description: true } }
+          }
+        }
+      }
+    })
+
+    if (!createdReservation) {
       return { success: false, error: 'Reservation created but failed to fetch details' }
     }
 
@@ -475,8 +539,8 @@ export async function createManualReservationAction(data: CreateReservationData)
     return {
       success: true,
       data: {
-        reservation: createdReservation,
-        customer: customerData
+        reservation: transformReservationForClient(createdReservation),
+        customer: customerData as any
       }
     }
   } catch (error: any) {
@@ -488,23 +552,17 @@ export async function createManualReservationAction(data: CreateReservationData)
 // Public action to create a new reservation (for guest booking)
 export async function createReservationAction(data: CreateReservationData): Promise<ActionResult<{ reservation: Reservation; customer: Customer; payment?: any }>> {
   try {
-    const supabase = await createClient()
-
     // Generate booking code
     const bookingCode = generateBookingCode()
     const endTime = calculateEndTime(data.start_time, data.duration_minutes)
 
     // Get package facilities
-    const { data: packageFacilities, error: facilityError } = await supabase
-      .from('package_facilities')
-      .select(`
-        facility:facilities(id, name, description)
-      `)
-      .eq('package_id', data.package_id)
-
-    if (facilityError) {
-      console.error('Error fetching package facilities:', facilityError)
-    }
+    const packageFacilities = await prisma.packageFacility.findMany({
+      where: { package_id: data.package_id },
+      include: {
+        facility: { select: { id: true, name: true, description: true } }
+      }
+    })
 
     // Format selected facilities for storage
     const selectedFacilities = packageFacilities?.map(pf => pf.facility) || []
@@ -520,34 +578,26 @@ export async function createReservationAction(data: CreateReservationData): Prom
     const remainingAmount = totalAmount - dpAmount
 
     // Create customer first
-    const { data: customerData, error: customerError } = await supabase
-      .from('customers')
-      .insert({
+    const customerData = await prisma.customer.create({
+      data: {
         full_name: data.customer_name,
         email: data.customer_email || '',
         phone: data.customer_phone,
         notes: data.customer_notes || '',
         is_guest: data.is_guest_booking || true
-      })
-      .select()
-      .single()
-
-    if (customerError) {
-      console.error('Error creating customer:', customerError)
-      return { success: false, error: customerError.message }
-    }
+      }
+    })
 
     // Create reservation
-    const { data: reservationData, error: reservationError } = await supabase
-      .from('reservations')
-      .insert({
+    const reservationData = await prisma.reservation.create({
+      data: {
         booking_code: bookingCode,
         studio_id: data.studio_id,
         customer_id: customerData.id,
         package_id: data.package_id,
-        reservation_date: data.reservation_date,
-        start_time: data.start_time,
-        end_time: endTime,
+        reservation_date: new Date(data.reservation_date),
+        start_time: convertTimeToDateTime(data.start_time),
+        end_time: convertTimeToDateTime(endTime),
         total_duration: data.duration_minutes,
         selected_facilities: selectedFacilities,
         package_price: packagePrice,
@@ -563,14 +613,8 @@ export async function createReservationAction(data: CreateReservationData): Prom
         guest_phone: data.customer_phone,
         is_guest_booking: data.is_guest_booking || true,
         discount_id: data.discount_id
-      })
-      .select()
-      .single()
-
-    if (reservationError) {
-      console.error('Error creating reservation:', reservationError)
-      return { success: false, error: reservationError.message }
-    }
+      }
+    })
 
     // Add reservation add-ons if any
     if (data.selected_addons && data.selected_addons.length > 0) {
@@ -582,35 +626,46 @@ export async function createReservationAction(data: CreateReservationData): Prom
         total_price: addon.unit_price * addon.quantity
       }))
 
-      const { error: addonsError } = await supabase
-        .from('reservation_addons')
-        .insert(addonInserts)
+      await prisma.reservationAddon.createMany({
+        data: addonInserts,
+        skipDuplicates: true
+      })
+    }
 
-      if (addonsError) {
-        console.error('Error adding reservation add-ons:', addonsError)
-        // Don't fail the entire operation for add-ons error
+    // Update discount usage if discount was applied
+    if (data.discount_id) {
+      try {
+        await prisma.discount.update({
+          where: { id: data.discount_id },
+          data: {
+            used_count: {
+              increment: 1
+            },
+            updated_at: new Date()
+          }
+        })
+      } catch (discountError) {
+        console.error('Error updating discount usage:', discountError)
+        // Don't fail reservation creation for discount update error
       }
     }
 
-
     // Fetch the created reservation with all relations
-    const { data: createdReservation, error: fetchError } = await supabase
-      .from('reservations')
-      .select(`
-        *,
-        studio:studios(id, name),
-        customer:customers(id, full_name, email, phone),
-        package:packages(id, name, duration_minutes),
-        reservation_addons(
-          *,
-          addon:addons(id, name, description)
-        )
-      `)
-      .eq('id', reservationData.id)
-      .single()
+    const createdReservation = await prisma.reservation.findUnique({
+      where: { id: reservationData.id },
+      include: {
+        studio: { select: { id: true, name: true } },
+        customer: { select: { id: true, full_name: true, email: true, phone: true } },
+        package: { select: { id: true, name: true, duration_minutes: true } },
+        reservation_addons: {
+          include: {
+            addon: { select: { id: true, name: true, description: true } }
+          }
+        }
+      }
+    })
 
-    if (fetchError) {
-      console.error('Error fetching created reservation:', fetchError)
+    if (!createdReservation) {
       return { success: false, error: 'Reservation created but failed to fetch details' }
     }
 
@@ -621,8 +676,8 @@ export async function createReservationAction(data: CreateReservationData): Prom
     return {
       success: true,
       data: {
-        reservation: createdReservation,
-        customer: customerData
+        reservation: transformReservationForClient(createdReservation),
+        customer: customerData as any
       }
     }
   } catch (error: any) {
@@ -634,29 +689,25 @@ export async function createReservationAction(data: CreateReservationData): Prom
 // Public action to get reservation by booking code (for guest access)
 export async function getReservationByBookingCodeAction(bookingCode: string): Promise<ActionResult<Reservation>> {
   try {
-    const supabase = await createClient()
+    const reservation = await prisma.reservation.findUnique({
+      where: { booking_code: bookingCode },
+      include: {
+        studio: { select: { id: true, name: true } },
+        customer: { select: { id: true, full_name: true, email: true, phone: true } },
+        package: { select: { id: true, name: true, duration_minutes: true } },
+        reservation_addons: {
+          include: {
+            addon: { select: { id: true, name: true, description: true } }
+          }
+        }
+      }
+    })
 
-    const { data: reservation, error } = await supabase
-      .from('reservations')
-      .select(`
-        *,
-        studio:studios(id, name),
-        customer:customers(id, full_name, email, phone),
-        package:packages(id, name, duration_minutes),
-        reservation_addons(
-          *,
-          addon:addons(id, name, description)
-        )
-      `)
-      .eq('booking_code', bookingCode)
-      .single()
-
-    if (error) {
-      console.error('Error fetching reservation:', error)
+    if (!reservation) {
       return { success: false, error: 'Reservation not found' }
     }
 
-    return { success: true, data: reservation }
+    return { success: true, data: transformReservationForClient(reservation) }
   } catch (error: any) {
     console.error('Error in getReservationByBookingCodeAction:', error)
     return { success: false, error: error.message || 'An error occurred' }
@@ -670,65 +721,60 @@ export async function getReservationsAction(
   date?: string
 ): Promise<ActionResult<Reservation[]>> {
   try {
-    const supabase = await createClient()
-
     // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const session = await auth.api.getSession({
+      headers: await headers()
+    })
+    if (!session?.user?.id) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role, studio_id')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, studio_id: true }
+    })
 
     if (!currentProfile || !['admin', 'cs'].includes(currentProfile.role)) {
       return { success: false, error: 'Insufficient permissions' }
     }
 
-    // Build query
-    let query = supabase
-      .from('reservations')
-      .select(`
-        *,
-        studio:studios(id, name),
-        customer:customers(id, full_name, email, phone),
-        package:packages(id, name, duration_minutes),
-        reservation_addons(
-          *,
-          addon:addons(id, name, description)
-        )
-      `)
-      .order('created_at', { ascending: false })
+    // Build where conditions
+    const where: any = {}
 
     // Filter by studio - admin can see all, cs only their studio
     if (currentProfile.role === 'cs') {
-      query = query.eq('studio_id', currentProfile.studio_id)
+      where.studio_id = currentProfile.studio_id
     } else if (studioId) {
-      query = query.eq('studio_id', studioId)
+      where.studio_id = studioId
     }
 
     // Filter by status if specified
     if (status) {
-      query = query.eq('status', status)
+      where.status = status
     }
 
     // Filter by date if specified
     if (date) {
-      query = query.eq('reservation_date', date)
+      where.reservation_date = new Date(date)
     }
 
-    const { data: reservations, error } = await query
+    const reservations = await prisma.reservation.findMany({
+      where,
+      include: {
+        studio: { select: { id: true, name: true } },
+        customer: { select: { id: true, full_name: true, email: true, phone: true } },
+        package: { select: { id: true, name: true, duration_minutes: true } },
+        reservation_addons: {
+          include: {
+            addon: { select: { id: true, name: true, description: true } }
+          }
+        }
+      },
+      orderBy: { created_at: 'desc' }
+    })
 
-    if (error) {
-      console.error('Error fetching reservations:', error)
-      return { success: false, error: 'Failed to fetch reservations' }
-    }
-
-    return { success: true, data: reservations || [] }
+    return { success: true, data: reservations.map(transformReservationForClient) }
   } catch (error: any) {
     console.error('Error in getReservationsAction:', error)
     return { success: false, error: error.message || 'An error occurred' }
@@ -738,24 +784,23 @@ export async function getReservationsAction(
 // Admin/Staff action to update reservation status
 export async function updateReservationStatusAction(
   reservationId: string,
-  status: 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled',
+  status: 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled' | 'no_show',
   notes?: string
 ): Promise<ActionResult<Reservation>> {
   try {
-    const supabase = await createClient()
-
     // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const session = await auth.api.getSession({
+      headers: await headers()
+    })
+    if (!session?.user?.id) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role, studio_id')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, studio_id: true }
+    })
 
     if (!currentProfile || !['admin', 'cs'].includes(currentProfile.role)) {
       return { success: false, error: 'Insufficient permissions' }
@@ -764,7 +809,7 @@ export async function updateReservationStatusAction(
     // Prepare update data
     const updateData: any = {
       status,
-      updated_at: new Date().toISOString()
+      updated_at: new Date()
     }
 
     if (notes) {
@@ -773,48 +818,90 @@ export async function updateReservationStatusAction(
 
     // Set timestamp for status changes
     if (status === 'confirmed') {
-      updateData.confirmed_at = new Date().toISOString()
+      updateData.confirmed_at = new Date()
     } else if (status === 'completed') {
-      updateData.completed_at = new Date().toISOString()
+      updateData.completed_at = new Date()
     } else if (status === 'cancelled') {
-      updateData.cancelled_at = new Date().toISOString()
+      updateData.cancelled_at = new Date()
     }
 
-    // Build update query with studio check for CS users
-    let query = supabase
-      .from('reservations')
-      .update(updateData)
-      .eq('id', reservationId)
+    // Get current reservation data to check for discount usage
+    const currentReservation = await prisma.reservation.findUnique({
+      where: { id: reservationId },
+      select: { discount_id: true, status: true }
+    })
 
-    // CS users can only update their studio's reservations
+    if (!currentReservation) {
+      return { success: false, error: 'Reservation not found' }
+    }
+
+    // Build where conditions with studio check for CS users
+    const where: any = { id: reservationId }
     if (currentProfile.role === 'cs') {
-      query = query.eq('studio_id', currentProfile.studio_id)
+      where.studio_id = currentProfile.studio_id
     }
 
-    const { data: updatedReservation, error } = await query
-      .select(`
-        *,
-        studio:studios(id, name),
-        customer:customers(id, full_name, email, phone),
-        package:packages(id, name, duration_minutes),
-        reservation_addons(
-          id,
-          addon_id,
-          quantity,
-          unit_price,
-          total_price,
-          addon:addons(id, name, description)
-        )
-      `)
-      .single()
+    // Update payment status to cancelled if reservation is being cancelled
+    if (status === 'cancelled') {
+      try {
+        await prisma.payment.updateMany({
+          where: { 
+            reservation_id: reservationId,
+            status: {
+              in: ['pending', 'partial', 'paid'] // Only update non-failed payments
+            }
+          },
+          data: {
+            status: 'cancelled',
+            updated_at: new Date()
+          }
+        })
+      } catch (paymentError) {
+        console.error('Error updating payment status on cancellation:', paymentError)
+        // Don't fail reservation cancellation for payment update error
+      }
+    }
 
-    if (error) {
-      console.error('Error updating reservation status:', error)
-      return { success: false, error: error.message }
+    const updatedReservation = await prisma.reservation.update({
+      where,
+      data: updateData,
+      include: {
+        studio: { select: { id: true, name: true } },
+        customer: { select: { id: true, full_name: true, email: true, phone: true } },
+        package: { select: { id: true, name: true, duration_minutes: true } },
+        reservation_addons: {
+          select: {
+            id: true,
+            addon_id: true,
+            quantity: true,
+            unit_price: true,
+            total_price: true,
+            addon: { select: { id: true, name: true, description: true } }
+          }
+        }
+      }
+    })
+
+    // Update discount usage if reservation is being cancelled and had a discount
+    if (status === 'cancelled' && currentReservation.discount_id && currentReservation.status !== 'cancelled') {
+      try {
+        await prisma.discount.update({
+          where: { id: currentReservation.discount_id },
+          data: {
+            used_count: {
+              decrement: 1
+            },
+            updated_at: new Date()
+          }
+        })
+      } catch (discountError) {
+        console.error('Error updating discount usage on cancellation:', discountError)
+        // Don't fail reservation status update for discount update error
+      }
     }
 
     revalidatePath('/admin/reservations')
-    return { success: true, data: updatedReservation }
+    return { success: true, data: transformReservationForClient(updatedReservation) }
   } catch (error: any) {
     console.error('Error in updateReservationStatusAction:', error)
     return { success: false, error: error.message || 'Failed to update reservation status' }
@@ -823,39 +910,35 @@ export async function updateReservationStatusAction(
 // Admin/Staff action to update reservation status based on payment completion
 export async function updateReservationStatusOnPayment(
   reservationId: string,
-  paymentStatus: 'pending' | 'partial' | 'completed' | 'failed'
+  paymentStatus: 'pending' | 'partial' | 'paid' | 'failed'
 ): Promise<ActionResult> {
   try {
     // If payment is completed, we might want to update the reservation status as well
-    if (paymentStatus === 'completed') {
+    if (paymentStatus === 'paid') {
       // Get reservation details to check current status
-      const supabase = await createClient()
-      const { data: reservation, error: fetchError } = await supabase
-        .from('reservations')
-        .select('status')
-        .eq('id', reservationId)
-        .single()
+      const reservation = await prisma.reservation.findUnique({
+        where: { id: reservationId },
+        select: { status: true }
+      })
 
-      if (fetchError) {
-        console.error('Error fetching reservation:', fetchError)
+      if (!reservation) {
         return { success: false, error: 'Failed to fetch reservation' }
       }
 
       // If reservation is still pending, confirm it since payment is completed
-      if (reservation && reservation.status === 'pending') {
-        const { error: updateError } = await supabase
-          .from('reservations')
-          .update({
-            status: 'confirmed',
-            updated_at: new Date().toISOString()
+      if (reservation.status === 'pending') {
+        try {
+          await prisma.reservation.update({
+            where: { id: reservationId },
+            data: {
+              status: 'confirmed',
+              updated_at: new Date()
+            }
           })
-          .eq('id', reservationId)
-
-        if (updateError) {
+          console.log(`Reservation ${reservationId} confirmed automatically due to completed payment`)
+        } catch (updateError) {
           console.error('Error confirming reservation:', updateError)
           // Continue with payment status update even if reservation confirmation fails
-        } else {
-          console.log(`Reservation ${reservationId} confirmed automatically due to completed payment`)
         }
         paymentStatus = 'partial';
       }
@@ -872,30 +955,17 @@ export async function updateReservationStatusOnPayment(
 // Webhook-specific function to update reservation payment status (no auth required)
 export async function updateReservationPaymentStatusFromWebhook(
   reservationId: string,
-  paymentStatus: 'pending' | 'partial' | 'completed' | 'failed'
+  paymentStatus: 'pending' | 'partial' | 'paid' | 'failed'
 ): Promise<ActionResult> {
   try {
-    const supabase = await createClient()
-
-    // Prepare update data
-    const updateData: any = {
-      payment_status: paymentStatus,
-      updated_at: new Date().toISOString()
-    }
-
-
     // Update reservation payment status
-    const { data, error } = await supabase
-      .from('reservations')
-      .update(updateData)
-      .eq('id', reservationId)
-      .select('*')
-      .single()
-
-    if (error) {
-      console.error('Error updating reservation payment status from webhook:', error)
-      return { success: false, error: 'Failed to update reservation payment status' }
-    }
+    const data = await prisma.reservation.update({
+      where: { id: reservationId },
+      data: {
+        payment_status: paymentStatus as any,
+        updated_at: new Date()
+      }
+    })
 
     console.log(`Reservation ${reservationId} payment status updated to ${paymentStatus} via webhook`)
     return { success: true, data }
@@ -908,51 +978,40 @@ export async function updateReservationPaymentStatusFromWebhook(
 // Admin/Staff action to update reservation payment status
 export async function updateReservationPaymentStatus(
   reservationId: string,
-  paymentStatus: 'pending' | 'partial' | 'completed' | 'failed'
+  paymentStatus: 'pending' | 'partial' | 'paid' | 'failed'
 ): Promise<ActionResult> {
   try {
-    const supabase = await createClient()
-
     // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const session = await auth.api.getSession({
+      headers: await headers()
+    })
+    if (!session?.user?.id) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role, studio_id')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, studio_id: true }
+    })
 
     if (!currentProfile || !['admin', 'cs'].includes(currentProfile.role)) {
       return { success: false, error: 'Insufficient permissions' }
     }
 
-    // Prepare update data
-    const updateData: any = {
-      payment_status: paymentStatus,
-      updated_at: new Date().toISOString()
-    }
-
-    // Build update query with studio check for CS users
-    let query = supabase
-      .from('reservations')
-      .update(updateData)
-      .eq('id', reservationId)
-
-    // CS users can only update their studio's reservations
+    // Build where conditions with studio check for CS users
+    const where: any = { id: reservationId }
     if (currentProfile.role === 'cs') {
-      query = query.eq('studio_id', currentProfile.studio_id)
+      where.studio_id = currentProfile.studio_id
     }
 
-    const { error } = await query
-
-    if (error) {
-      console.error('Error updating reservation payment status:', error)
-      return { success: false, error: error.message }
-    }
+    await prisma.reservation.update({
+      where,
+      data: {
+        payment_status: paymentStatus as any,
+        updated_at: new Date()
+      }
+    })
 
     revalidatePath('/admin/reservations')
     revalidatePath('/admin/payments')
@@ -979,50 +1038,46 @@ export async function updateReservationAction(
   }
 ): Promise<ActionResult<Reservation>> {
   try {
-    const supabase = await createClient()
-
     // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const session = await auth.api.getSession({
+      headers: await headers()
+    })
+    if (!session?.user?.id) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role, studio_id')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, studio_id: true }
+    })
 
     if (!currentProfile || !['admin', 'cs'].includes(currentProfile.role)) {
       return { success: false, error: 'Insufficient permissions' }
     }
 
-    // First get the reservation to check if it's a guest booking
-    let reservationQuery = supabase
-      .from('reservations')
-      .select(`
-        *,
-        customer:customers(id, full_name, email, phone, is_guest)
-      `)
-      .eq('id', reservationId)
-
-    // CS users can only access their studio's reservations
+    // Build where conditions with studio check for CS users
+    const where: any = { id: reservationId }
     if (currentProfile.role === 'cs') {
-      reservationQuery = reservationQuery.eq('studio_id', currentProfile.studio_id)
+      where.studio_id = currentProfile.studio_id
     }
 
-    const { data: currentReservation, error: fetchError } = await reservationQuery.single()
+    // First get the reservation to check if it's a guest booking
+    const currentReservation = await prisma.reservation.findUnique({
+      where,
+      include: {
+        customer: { select: { id: true, full_name: true, email: true, phone: true, is_guest: true } }
+      }
+    })
 
-    if (fetchError) {
-      console.error('Error fetching reservation:', fetchError)
-      return { success: false, error: fetchError.message }
+    if (!currentReservation) {
+      return { success: false, error: 'Reservation not found' }
     }
 
     // Handle customer info updates for guest bookings
     if (currentReservation.customer?.is_guest) {
       const customerUpdateData: any = {
-        updated_at: new Date().toISOString()
+        updated_at: new Date()
       }
 
       // Update customer name if provided
@@ -1042,15 +1097,10 @@ export async function updateReservationAction(
 
       // Only update customer table if there are actual changes
       if (Object.keys(customerUpdateData).length > 1) { // More than just updated_at
-        const { error: customerError } = await supabase
-          .from('customers')
-          .update(customerUpdateData)
-          .eq('id', currentReservation.customer_id)
-
-        if (customerError) {
-          console.error('Error updating customer info:', customerError)
-          return { success: false, error: 'Failed to update customer information' }
-        }
+        await prisma.customer.update({
+          where: { id: currentReservation.customer_id! },
+          data: customerUpdateData
+        })
       }
     }
 
@@ -1058,45 +1108,37 @@ export async function updateReservationAction(
     const { customer_name, ...reservationUpdateData } = updateData
     const updatePayload: any = {
       ...reservationUpdateData,
-      updated_at: new Date().toISOString()
+      updated_at: new Date()
     }
 
-    // Build update query with studio check for CS users
-    let query = supabase
-      .from('reservations')
-      .update(updatePayload)
-      .eq('id', reservationId)
-
-    // CS users can only update their studio's reservations
-    if (currentProfile.role === 'cs') {
-      query = query.eq('studio_id', currentProfile.studio_id)
+    // Convert date string to Date object if provided
+    if (updatePayload.reservation_date) {
+      updatePayload.reservation_date = new Date(updatePayload.reservation_date)
     }
 
-    const { data: updatedReservation, error } = await query
-      .select(`
-        *,
-        studio:studios(id, name),
-        customer:customers(id, full_name, email, phone),
-        package:packages(id, name, duration_minutes),
-        reservation_addons(
-          id,
-          addon_id,
-          quantity,
-          unit_price,
-          total_price,
-          addon:addons(id, name, description)
-        )
-      `)
-      .single()
-
-    if (error) {
-      console.error('Error updating reservation:', error)
-      return { success: false, error: error.message }
-    }
+    const updatedReservation = await prisma.reservation.update({
+      where,
+      data: updatePayload,
+      include: {
+        studio: { select: { id: true, name: true } },
+        customer: { select: { id: true, full_name: true, email: true, phone: true } },
+        package: { select: { id: true, name: true, duration_minutes: true } },
+        reservation_addons: {
+          select: {
+            id: true,
+            addon_id: true,
+            quantity: true,
+            unit_price: true,
+            total_price: true,
+            addon: { select: { id: true, name: true, description: true } }
+          }
+        }
+      }
+    })
 
     revalidatePath('/admin/reservations')
     revalidatePath('/cs/reservations')
-    return { success: true, data: updatedReservation }
+    return { success: true, data: transformReservationForClient(updatedReservation) }
   } catch (error: any) {
     console.error('Error in updateReservationAction:', error)
     return { success: false, error: error.message || 'Failed to update reservation' }
@@ -1106,21 +1148,18 @@ export async function updateReservationAction(
 // Webhook action to cancel reservation due to payment expiration
 export async function deleteReservationActionWebhook(reservationId: string): Promise<ActionResult> {
   try {
-    const supabase = await createClient()
-
     // Get reservation details to check status
-    const { data: reservation, error: fetchError } = await supabase
-      .from('reservations')
-      .select('studio_id, status, payment_status')
-      .eq('id', reservationId)
-      .single()
+    const reservation = await prisma.reservation.findUnique({
+      where: { id: reservationId },
+      select: { studio_id: true, status: true, payment_status: true }
+    })
 
-    if (fetchError || !reservation) {
+    if (!reservation) {
       return { success: false, error: 'Reservation not found' }
     }
 
     // Don't update if reservation is already completed or in progress
-    if (['in_progress', 'completed'].includes(reservation.status)) {
+    if (['in_progress', 'completed'].includes(reservation.status as string)) {
       return {
         success: false,
         error: 'Cannot cancel reservation that is in progress or completed'
@@ -1128,34 +1167,24 @@ export async function deleteReservationActionWebhook(reservationId: string): Pro
     }
 
     // Update reservation status to cancelled
-    const { error: reservationError } = await supabase
-      .from('reservations')
-      .update({
+    await prisma.reservation.update({
+      where: { id: reservationId },
+      data: {
         status: 'cancelled',
         payment_status: 'failed',
-        cancelled_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', reservationId)
-
-    if (reservationError) {
-      console.error('Error updating reservation status:', reservationError)
-      return { success: false, error: 'Failed to cancel reservation' }
-    }
+        cancelled_at: new Date(),
+        updated_at: new Date()
+      }
+    })
 
     // Update all related payments to failed status
-    const { error: paymentsError } = await supabase
-      .from('payments')
-      .update({
+    await prisma.payment.updateMany({
+      where: { reservation_id: reservationId },
+      data: {
         status: 'failed',
-        updated_at: new Date().toISOString()
-      })
-      .eq('reservation_id', reservationId)
-
-    if (paymentsError) {
-      console.error('Error updating payment status:', paymentsError)
-      return { success: false, error: 'Failed to update payment status' }
-    }
+        updated_at: new Date()
+      }
+    })
 
     revalidatePath('/admin/reservations')
     revalidatePath('/cs/reservations')
@@ -1171,33 +1200,31 @@ export async function deleteReservationActionWebhook(reservationId: string): Pro
 // Admin/Staff action to delete reservation
 export async function deleteReservationAction(reservationId: string): Promise<ActionResult> {
   try {
-    const supabase = await createClient()
-
     // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const session = await auth.api.getSession({
+      headers: await headers()
+    })
+    if (!session?.user?.id) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role, studio_id')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, studio_id: true }
+    })
 
     if (!currentProfile || !['admin', 'cs'].includes(currentProfile.role)) {
       return { success: false, error: 'Insufficient permissions' }
     }
 
     // Get reservation details to check permissions and status
-    const { data: reservation, error: fetchError } = await supabase
-      .from('reservations')
-      .select('studio_id, status, payment_status')
-      .eq('id', reservationId)
-      .single()
+    const reservation = await prisma.reservation.findUnique({
+      where: { id: reservationId },
+      select: { studio_id: true, status: true, payment_status: true }
+    })
 
-    if (fetchError || !reservation) {
+    if (!reservation) {
       return { success: false, error: 'Reservation not found' }
     }
 
@@ -1207,7 +1234,7 @@ export async function deleteReservationAction(reservationId: string): Promise<Ac
     }
 
     // Prevent deletion of reservations that are in progress or completed
-    if (['in_progress', 'completed'].includes(reservation.status)) {
+    if (['in_progress', 'completed'].includes(reservation.status as string)) {
       return {
         success: false,
         error: 'Cannot delete reservation that is in progress or completed'
@@ -1215,18 +1242,13 @@ export async function deleteReservationAction(reservationId: string): Promise<Ac
     }
 
     // Check if reservation has payments
-    const { data: payments, error: paymentsError } = await supabase
-      .from('payments')
-      .select('id, status')
-      .eq('reservation_id', reservationId)
-
-    if (paymentsError) {
-      console.error('Error checking payments:', paymentsError)
-      return { success: false, error: 'Error checking related payments' }
-    }
+    const payments = await prisma.payment.findMany({
+      where: { reservation_id: reservationId },
+      select: { id: true, status: true }
+    })
 
     // If there are completed payments, don't allow deletion
-    const hasCompletedPayments = payments?.some(p => p.status === 'completed')
+    const hasCompletedPayments = payments?.some((p: any) => p.status === 'paid')
     if (hasCompletedPayments) {
       return {
         success: false,
@@ -1234,39 +1256,33 @@ export async function deleteReservationAction(reservationId: string): Promise<Ac
       }
     }
 
-    // Delete related data in correct order
-    // 1. Delete reservation addons
-    const { error: addonsError } = await supabase
-      .from('reservation_addons')
-      .delete()
-      .eq('reservation_id', reservationId)
+    // Delete related data in correct order using transaction
+    await prisma.$transaction(async (tx) => {
+      // 1. Delete reservation addons
+      await tx.reservationAddon.deleteMany({
+        where: { reservation_id: reservationId }
+      })
 
-    if (addonsError) {
-      console.error('Error deleting reservation addons:', addonsError)
-      return { success: false, error: 'Failed to delete reservation addons' }
-    }
+      // 2. Delete payments
+      await tx.payment.deleteMany({
+        where: { reservation_id: reservationId }
+      })
 
-    // 2. Delete payments
-    const { error: paymentsDeleteError } = await supabase
-      .from('payments')
-      .delete()
-      .eq('reservation_id', reservationId)
+      // 3. Delete reservation discounts
+      await tx.reservationDiscount.deleteMany({
+        where: { reservation_id: reservationId }
+      })
 
-    if (paymentsDeleteError) {
-      console.error('Error deleting payments:', paymentsDeleteError)
-      return { success: false, error: 'Failed to delete related payments' }
-    }
+      // 4. Delete reviews
+      await tx.review.deleteMany({
+        where: { reservation_id: reservationId }
+      })
 
-    // 3. Delete the reservation
-    const { error: deleteError } = await supabase
-      .from('reservations')
-      .delete()
-      .eq('id', reservationId)
-
-    if (deleteError) {
-      console.error('Error deleting reservation:', deleteError)
-      return { success: false, error: deleteError.message }
-    }
+      // 5. Delete the reservation
+      await tx.reservation.delete({
+        where: { id: reservationId }
+      })
+    })
 
     revalidatePath('/admin/reservations')
     return { success: true }
@@ -1288,40 +1304,36 @@ export async function rescheduleBookingAction(
   }
 ): Promise<ActionResult<Reservation>> {
   try {
-    const supabase = await createClient()
-
     // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const session = await auth.api.getSession({
+      headers: await headers()
+    })
+    if (!session?.user?.id) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role, studio_id')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, studio_id: true }
+    })
 
     if (!currentProfile || !['admin', 'cs'].includes(currentProfile.role)) {
       return { success: false, error: 'Insufficient permissions' }
     }
 
-    // Get the current reservation to validate
-    let reservationQuery = supabase
-      .from('reservations')
-      .select('*')
-      .eq('id', reservationId)
-
-    // CS users can only reschedule their studio's reservations
+    // Build where conditions with studio check for CS users
+    const where: any = { id: reservationId }
     if (currentProfile.role === 'cs') {
-      reservationQuery = reservationQuery.eq('studio_id', currentProfile.studio_id)
+      where.studio_id = currentProfile.studio_id
     }
 
-    const { data: reservation, error: fetchError } = await reservationQuery.single()
+    // Get the current reservation to validate
+    const reservation = await prisma.reservation.findUnique({
+      where
+    })
 
-    if (fetchError) {
-      console.error('Error fetching reservation:', fetchError)
+    if (!reservation) {
       return { success: false, error: 'Reservation not found' }
     }
 
@@ -1336,7 +1348,7 @@ export async function rescheduleBookingAction(
       return { success: false, error: 'Reschedule tidak diizinkan, batas waktu H-3 sudah terlewat' }
     }
 
-    if (['completed', 'cancelled'].includes(reservation.status)) {
+    if (['completed', 'cancelled'].includes(reservation.status as string)) {
       return { success: false, error: `Cannot reschedule ${reservation.status} booking` }
     }
 
@@ -1347,8 +1359,9 @@ export async function rescheduleBookingAction(
     }
 
     // Check if new date/time is different from current
-    if (rescheduleData.new_date === reservation.reservation_date &&
-      rescheduleData.new_start_time === reservation.start_time) {
+    const currentDateStr = reservation.reservation_date.toISOString().split('T')[0]
+    if (rescheduleData.new_date === currentDateStr &&
+      rescheduleData.new_start_time === String(reservation.start_time)) {
       return { success: false, error: 'New date and time must be different from current booking' }
     }
 
@@ -1365,11 +1378,11 @@ export async function rescheduleBookingAction(
 
     // Update the reservation
     const updateData: any = {
-      reservation_date: rescheduleData.new_date,
-      start_time: rescheduleData.new_start_time,
-      end_time: rescheduleData.new_end_time,
+      reservation_date: new Date(rescheduleData.new_date),
+      start_time: convertTimeToDateTime(rescheduleData.new_start_time),
+      end_time: convertTimeToDateTime(rescheduleData.new_end_time),
       total_duration: newDuration,
-      updated_at: new Date().toISOString()
+      updated_at: new Date()
     }
 
     // Append reschedule info to internal notes
@@ -1384,22 +1397,15 @@ export async function rescheduleBookingAction(
       updateData.internal_notes += `\n${rescheduleData.internal_notes}`
     }
 
-    const { data: updatedReservation, error: updateError } = await supabase
-      .from('reservations')
-      .update(updateData)
-      .eq('id', reservationId)
-      .select(`
-        *,
-        studio:studios(id, name),
-        customer:customers(id, full_name, email, phone),
-        package:packages(id, name, price, duration_minutes)
-      `)
-      .single()
-
-    if (updateError) {
-      console.error('Error updating reservation:', updateError)
-      return { success: false, error: updateError.message }
-    }
+    const updatedReservation = await prisma.reservation.update({
+      where: { id: reservationId },
+      data: updateData,
+      include: {
+        studio: { select: { id: true, name: true } },
+        customer: { select: { id: true, full_name: true, email: true, phone: true } },
+        package: { select: { id: true, name: true, duration_minutes: true } }
+      }
+    })
 
     // TODO: Send notification to customer about reschedule
     // This could be an email or WhatsApp notification
@@ -1410,7 +1416,7 @@ export async function rescheduleBookingAction(
 
     return {
       success: true,
-      data: updatedReservation,
+      data: transformReservationForClient(updatedReservation),
       message: 'Booking has been rescheduled successfully'
     }
   } catch (error: any) {

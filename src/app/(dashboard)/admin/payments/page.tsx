@@ -45,16 +45,20 @@ import { useStudios } from "@/hooks/use-studios"
 
 const statusLabels: Record<PaymentStatus, string> = {
   pending: 'Pending',
-  completed: 'Completed',
+  paid: 'Paid',
+  partial: 'Partial',
   failed: 'Failed',
-  partial: 'Partial'
+  cancelled: 'Cancelled',
+  refunded: 'Refunded'
 }
 
 const statusColors: Record<PaymentStatus, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   pending: 'outline',
-  completed: 'default',
+  paid: 'default',
+  partial: 'secondary',
   failed: 'destructive',
-  partial: 'secondary'
+  cancelled: 'secondary',
+  refunded: 'secondary'
 }
 
 const paymentTypeLabels = {
@@ -454,7 +458,7 @@ export default function PaymentsPage() {
                           </div>
                           <div className="text-sm text-muted-foreground">
                             {payment.reservation?.reservation_date ?
-                              formatDate(payment.reservation.reservation_date) : 'N/A'
+                              formatDate(payment.reservation.reservation_date.toString()) : 'N/A'
                             }
                           </div>
                         </div>
@@ -504,11 +508,11 @@ export default function PaymentsPage() {
                       <TableCell>
                         <div>
                           <div className="text-sm">
-                            {formatDateTime(payment.created_at)}
+                            {formatDateTime(payment.created_at?.toString() || '')}
                           </div>
                           {payment.paid_at && (
                             <div className="text-xs text-muted-foreground">
-                              Paid: {formatDate(payment.paid_at)}
+                              Paid: {formatDate(payment.paid_at.toString())}
                             </div>
                           )}
                         </div>
@@ -541,7 +545,7 @@ export default function PaymentsPage() {
                             {payment.status === 'pending' && (
                               <>
                                 <DropdownMenuItem
-                                  onClick={() => handleStatusUpdate(payment, 'completed')}
+                                  onClick={() => handleStatusUpdate(payment, 'paid')}
                                 >
                                   <CheckCircle className="mr-2 h-4 w-4" />
                                   Mark as Paid
@@ -706,7 +710,7 @@ export default function PaymentsPage() {
                           <label className="text-sm font-medium text-gray-500">Reservation Date</label>
                           <p className="text-sm">
                             {selectedPayment.reservation.reservation_date ?
-                              formatDate(selectedPayment.reservation.reservation_date) : 'N/A'
+                              formatDate(selectedPayment.reservation.reservation_date.toString()) : 'N/A'
                             }
                           </p>
                         </div>
@@ -734,18 +738,18 @@ export default function PaymentsPage() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label className="text-sm font-medium text-gray-500">Created At</label>
-                      <p className="text-sm">{formatDateTime(selectedPayment.created_at)}</p>
+                      <p className="text-sm">{formatDateTime(selectedPayment.created_at?.toString() || '')}</p>
                     </div>
                     <div>
                       <label className="text-sm font-medium text-gray-500">Paid At</label>
                       <p className="text-sm">
-                        {selectedPayment.paid_at ? formatDateTime(selectedPayment.paid_at) : 'Not paid yet'}
+                        {selectedPayment.paid_at ? formatDateTime(selectedPayment.paid_at.toString()) : 'Not paid yet'}
                       </p>
                     </div>
                     <div>
                       <label className="text-sm font-medium text-gray-500">Expires At</label>
                       <p className="text-sm">
-                        {selectedPayment.expires_at ? formatDateTime(selectedPayment.expires_at) : 'No expiry'}
+                        {selectedPayment.expires_at ? formatDateTime(selectedPayment.expires_at.toString()) : 'No expiry'}
                       </p>
                     </div>
                   </div>
@@ -827,7 +831,7 @@ export default function PaymentsPage() {
                           variant="default"
                           size="sm"
                           onClick={() => {
-                            handleStatusUpdate(selectedPayment, 'completed')
+                            handleStatusUpdate(selectedPayment, 'paid')
                             setIsDetailModalOpen(false)
                           }}
                         >

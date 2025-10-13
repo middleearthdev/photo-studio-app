@@ -72,7 +72,7 @@ interface ReminderTask {
   scheduledFor?: string
 }
 
-type FilterType = 'all' | 'urgent' | 'today' | 'pending' | 'completed'
+type FilterType = 'all' | 'urgent' | 'today' | 'pending' | 'paid'
 type SortType = 'priority' | 'dueDate' | 'created' | 'customer'
 
 const REMINDER_TYPES = {
@@ -142,7 +142,7 @@ export function RemindersMenu() {
         const customerPhone = reservation.customer?.phone || ''
 
         // Payment reminders
-        if (reservation.payment_status !== 'completed' && reservation.remaining_amount > 0 && daysUntil >= 0) {
+        if (reservation.payment_status !== 'paid' && reservation.remaining_amount > 0 && daysUntil >= 0) {
           if (daysUntil <= 3) {
             tasks.push({
               id: `payment-${reservation.id}`,
@@ -249,7 +249,7 @@ export function RemindersMenu() {
         return isToday(parseISO(reminder.dueDate))
       case 'pending':
         return reminder.status === 'pending'
-      case 'completed':
+      case 'paid':
         return reminder.status === 'completed'
       default:
         return true
@@ -479,7 +479,7 @@ export function RemindersMenu() {
             <SelectItem value="urgent">Urgent Only</SelectItem>
             <SelectItem value="today">Due Today</SelectItem>
             <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="completed">Completed</SelectItem>
+            <SelectItem value="paid">Paid</SelectItem>
           </SelectContent>
         </Select>
 

@@ -1,6 +1,6 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
 
 export interface BookingConfirmationData {
@@ -19,22 +19,12 @@ export interface ActionResult<T = any> {
 // Get existing payment for a reservation
 export async function getExistingPaymentAction(reservationId: string): Promise<ActionResult<any>> {
   try {
-    const supabase = await createClient()
-
-    const { data: payment, error } = await supabase
-      .from('payments')
-      .select('*')
-      .eq('reservation_id', reservationId)
-      .eq('status', 'pending')
-      .single()
-
-    if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows found"
-      console.error('Error fetching payment:', error)
-      return {
-        success: false,
-        error: 'Failed to fetch payment information'
+    const payment = await prisma.payment.findFirst({
+      where: {
+        reservation_id: reservationId,
+        status: 'pending'
       }
-    }
+    })
 
     return {
       success: true,
@@ -51,22 +41,10 @@ export async function getExistingPaymentAction(reservationId: string): Promise<A
 
 export async function confirmBookingWithPaymentAction(data: BookingConfirmationData) {
   try {
-    const supabase = await createClient()
-
     // Get the reservation first to validate
-    const { data: reservation, error: reservationError } = await supabase
-      .from('reservations')
-      .select('*')
-      .eq('id', data.reservationId)
-      .single()
-
-    if (reservationError) {
-      console.error('Error fetching reservation:', reservationError)
-      return {
-        success: false,
-        error: 'Reservation not found'
-      }
-    }
+    const reservation = await prisma.reservation.findUnique({
+      where: { id: data.reservationId }
+    })
 
     if (!reservation) {
       return {
@@ -92,100 +70,64 @@ export async function confirmBookingWithPaymentAction(data: BookingConfirmationD
     }
 
     // Determine payment status based on amount
-    let newPaymentStatus = 'partial'
-    if (data.paymentAmount >= reservation.total_amount) {
-      newPaymentStatus = 'completed'
+    let newPaymentStatus: 'pending' | 'paid' | 'failed' | 'cancelled' | 'refunded' = 'paid'
+    if (data.paymentAmount < Number(reservation.total_amount)) {
+      newPaymentStatus = 'pending' // Partial payment
     }
 
-    // Start transaction
-    const { data: updatedReservation, error: updateError } = await supabase
-      .from('reservations')
-      .update({
-        status: 'confirmed',
-        payment_status: newPaymentStatus,
-        confirmed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+    // Use transaction to ensure atomicity
+    const result = await prisma.$transaction(async (tx) => {
+      // Update reservation
+      const updatedReservation = await tx.reservation.update({
+        where: { id: data.reservationId },
+        data: {
+          status: 'confirmed',
+          payment_status: newPaymentStatus,
+          confirmed_at: new Date(),
+          updated_at: new Date()
+        }
       })
-      .eq('id', data.reservationId)
-      .select()
-      .single()
 
-    if (updateError) {
-      console.error('Error updating reservation:', updateError)
-      return {
-        success: false,
-        error: 'Failed to update reservation status'
-      }
-    }
-
-    // Check if payment record already exists
-    const { data: existingPayment, error: existingPaymentError } = await supabase
-      .from('payments')
-      .select('*')
-      .eq('reservation_id', data.reservationId)
-      .eq('status', 'pending')
-      .single()
-
-    let payment
-    let paymentError
-
-    if (existingPayment && !existingPaymentError) {
-      // Update existing payment record
-      const { data: updatedPayment, error: updateError } = await supabase
-        .from('payments')
-        .update({
-          amount: data.paymentAmount,
-          payment_type: data.paymentAmount >= reservation.total_amount ? 'full' : 'dp',
-          status: 'completed',
-          paid_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', existingPayment.id)
-        .select()
-        .single()
-
-      payment = updatedPayment
-      paymentError = updateError
-    } else {
-      // Create new payment record
-      const { data: newPayment, error: createError } = await supabase
-        .from('payments')
-        .insert({
+      // Check if payment record already exists
+      const existingPayment = await tx.payment.findFirst({
+        where: {
           reservation_id: data.reservationId,
-          amount: data.paymentAmount,
-          payment_type: data.paymentAmount >= reservation.total_amount ? 'full' : 'dp',
-          payment_method_id: data.paymentMethod,
-          status: 'completed',
-          paid_at: new Date().toISOString(),
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          status: 'pending'
+        }
+      })
+
+      let payment
+
+      if (existingPayment) {
+        // Update existing payment record
+        payment = await tx.payment.update({
+          where: { id: existingPayment.id },
+          data: {
+            amount: data.paymentAmount,
+            payment_type: data.paymentAmount >= Number(reservation.total_amount) ? 'full' : 'dp',
+            status: 'paid',
+            paid_at: new Date(),
+            updated_at: new Date()
+          }
         })
-        .select()
-        .single()
-
-      payment = newPayment
-      paymentError = createError
-    }
-
-    if (paymentError) {
-      console.error('Error handling payment record:', paymentError)
-
-      // Rollback reservation update
-      await supabase
-        .from('reservations')
-        .update({
-          status: 'pending',
-          payment_status: 'pending',
-          confirmed_at: null,
-          updated_at: new Date().toISOString()
+      } else {
+        // Create new payment record
+        payment = await tx.payment.create({
+          data: {
+            reservation_id: data.reservationId,
+            amount: data.paymentAmount,
+            payment_type: data.paymentAmount >= Number(reservation.total_amount) ? 'full' : 'dp',
+            payment_method_id: data.paymentMethod,
+            status: 'paid',
+            paid_at: new Date(),
+            created_at: new Date(),
+            updated_at: new Date()
+          }
         })
-        .eq('id', data.reservationId)
-
-      return {
-        success: false,
-        error: existingPayment ? 'Failed to update payment record' : 'Failed to create payment record'
       }
-    }
+
+      return { reservation: updatedReservation, payment }
+    })
 
     // Revalidate paths
     revalidatePath('/cs/reservations')
@@ -193,10 +135,7 @@ export async function confirmBookingWithPaymentAction(data: BookingConfirmationD
 
     return {
       success: true,
-      data: {
-        reservation: updatedReservation,
-        payment: payment
-      }
+      data: result
     }
 
   } catch (error) {

@@ -1,5 +1,4 @@
 import { IUploadProvider, UploadProvider, UploadProviderConfig } from './types'
-import { SupabaseUploadProvider } from './providers/supabase'
 import { ServerUploadProvider } from './providers/server'
 import { UploadCareProvider } from './providers/uploadcare'
 
@@ -8,7 +7,6 @@ export class UploadProviderFactory {
 
   static initialize() {
     // Initialize all providers
-    this.providers.set('supabase', new SupabaseUploadProvider())
     this.providers.set('server', new ServerUploadProvider())
     this.providers.set('uploadcare', new UploadCareProvider())
   }
@@ -39,8 +37,8 @@ export class UploadProviderFactory {
       }
     }
 
-    // Fallback order: supabase -> uploadcare -> server
-    const fallbackOrder: UploadProvider[] = ['supabase', 'uploadcare', 'server']
+    // Fallback order: uploadcare -> server
+    const fallbackOrder: UploadProvider[] = ['uploadcare', 'server']
     
     for (const providerName of fallbackOrder) {
       const provider = this.getProvider(providerName)
@@ -65,7 +63,7 @@ export class UploadProviderFactory {
   }
 
   private static getAvailableFallbacks(currentProvider: UploadProvider): UploadProvider[] {
-    const allProviders: UploadProvider[] = ['supabase', 'uploadcare', 'server']
+    const allProviders: UploadProvider[] = ['uploadcare', 'server']
     return allProviders
       .filter(name => name !== currentProvider)
       .filter(name => {
@@ -76,11 +74,6 @@ export class UploadProviderFactory {
 
   private static getProviderOptions(providerName: UploadProvider): Record<string, any> {
     switch (providerName) {
-      case 'supabase':
-        return {
-          bucket: process.env.NEXT_PUBLIC_SUPABASE_BUCKET || 'portfolio-images',
-          maxRetries: 3
-        }
       case 'server':
         return {
           endpoint: process.env.NEXT_PUBLIC_UPLOAD_ENDPOINT || '/api/upload',

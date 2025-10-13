@@ -1,38 +1,41 @@
 "use server"
 
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
+import { auth } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
+import { headers } from 'next/headers'
 
 export interface Package {
   id: string
-  studio_id: string
+  studio_id: string | null
   category_id: string | null
   name: string
   description: string | null
-  duration_minutes: number
+  duration_minutes: number | null
   price: number
-  dp_percentage: number
+  dp_percentage: number | null
   includes: string[] | null
-  is_popular: boolean
-  is_active: boolean
+  is_popular: boolean | null
+  is_active: boolean | null
   created_at: string
   updated_at: string
   // Relations
   category?: {
     id: string
     name: string
-  }
+  } | null
   addons_count?: number
 }
 
 export interface PackageCategory {
   id: string
-  studio_id: string
+  studio_id: string | null
   name: string
   description: string | null
-  display_order: number
-  is_active: boolean
+  display_order: number | null
+  is_active: boolean | null
   created_at: string
+  updated_at: string
 }
 
 export interface CreatePackageData {
@@ -69,48 +72,54 @@ export interface ActionResult<T = any> {
   error?: string
 }
 
+// Helper function to get current user session
+async function getCurrentUser() {
+  const session = await auth.api.getSession({
+    headers: await headers()
+  })
+  return session?.user || null
+}
+
 // Package Categories Actions
 export async function getPackageCategoriesAction(studioId?: string): Promise<ActionResult<PackageCategory[]>> {
   try {
-    const supabase = await createClient()
-
     // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const user = await getCurrentUser()
+    if (!user) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role, studio_id')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true, studio_id: true }
+    })
 
     if (!currentProfile || currentProfile.role !== 'admin') {
       return { success: false, error: 'Insufficient permissions' }
     }
 
-    // Build query
-    let query = supabase
-      .from('package_categories')
-      .select('*')
-      .order('display_order', { ascending: true })
-
+    // Build where clause
+    const where: any = {}
+    
     // Filter by studio if specified, otherwise use user's studio
     const targetStudioId = studioId || currentProfile.studio_id
     if (targetStudioId) {
-      query = query.eq('studio_id', targetStudioId)
+      where.studio_id = targetStudioId
     }
 
-    const { data: categories, error } = await query
+    const categories = await prisma.packageCategory.findMany({
+      where,
+      orderBy: { display_order: 'asc' }
+    })
 
-    if (error) {
-      console.error('Error fetching package categories:', error)
-      return { success: false, error: 'Failed to fetch package categories' }
-    }
+    const formattedCategories = categories.map(category => ({
+      ...category,
+      created_at: category.created_at?.toISOString() || '',
+      updated_at: category.created_at?.toISOString() || '' // Use created_at as updated_at since schema doesn't have updated_at
+    }))
 
-    return { success: true, data: categories || [] }
+    return { success: true, data: formattedCategories }
   } catch (error: any) {
     console.error('Error in getPackageCategoriesAction:', error)
     return { success: false, error: error.message || 'An error occurred' }
@@ -119,20 +128,17 @@ export async function getPackageCategoriesAction(studioId?: string): Promise<Act
 
 export async function createPackageCategoryAction(categoryData: CreatePackageCategoryData): Promise<ActionResult> {
   try {
-    const supabase = await createClient()
-
     // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const user = await getCurrentUser()
+    if (!user) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role, studio_id')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true, studio_id: true }
+    })
 
     if (!currentProfile || currentProfile.role !== 'admin') {
       return { success: false, error: 'Insufficient permissions' }
@@ -141,20 +147,19 @@ export async function createPackageCategoryAction(categoryData: CreatePackageCat
     // Use user's studio_id if not provided
     const targetStudioId = categoryData.studio_id || currentProfile.studio_id
 
+    if (!targetStudioId) {
+      return { success: false, error: 'Studio ID is required' }
+    }
+
     // Create category
-    const { error } = await supabase
-      .from('package_categories')
-      .insert({
+    await prisma.packageCategory.create({
+      data: {
         studio_id: targetStudioId,
         name: categoryData.name,
         description: categoryData.description,
         display_order: categoryData.display_order || 0,
-      })
-
-    if (error) {
-      console.error('Error creating package category:', error)
-      return { success: false, error: error.message }
-    }
+      }
+    })
 
     revalidatePath('/admin/packages')
     return { success: true }
@@ -166,35 +171,27 @@ export async function createPackageCategoryAction(categoryData: CreatePackageCat
 
 export async function updatePackageCategoryAction(categoryId: string, categoryData: UpdatePackageCategoryData): Promise<ActionResult> {
   try {
-    const supabase = await createClient()
-
     // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const user = await getCurrentUser()
+    if (!user) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role, studio_id')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true, studio_id: true }
+    })
 
     if (!currentProfile || currentProfile.role !== 'admin') {
       return { success: false, error: 'Insufficient permissions' }
     }
 
     // Update category
-    const { error } = await supabase
-      .from('package_categories')
-      .update(categoryData)
-      .eq('id', categoryId)
-
-    if (error) {
-      console.error('Error updating package category:', error)
-      return { success: false, error: error.message }
-    }
+    await prisma.packageCategory.update({
+      where: { id: categoryId },
+      data: categoryData
+    })
 
     revalidatePath('/admin/packages')
     return { success: true }
@@ -206,51 +203,35 @@ export async function updatePackageCategoryAction(categoryId: string, categoryDa
 
 export async function deletePackageCategoryAction(categoryId: string): Promise<ActionResult> {
   try {
-    const supabase = await createClient()
-
     // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const user = await getCurrentUser()
+    if (!user) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true }
+    })
 
     if (!currentProfile || currentProfile.role !== 'admin') {
       return { success: false, error: 'Insufficient permissions' }
     }
 
     // Check for packages in this category
-    const { data: packages, error: packagesError } = await supabase
-      .from('packages')
-      .select('id')
-      .eq('category_id', categoryId)
-      .limit(1)
+    const packagesCount = await prisma.package.count({
+      where: { category_id: categoryId }
+    })
 
-    if (packagesError) {
-      console.error('Error checking packages:', packagesError)
-      return { success: false, error: 'Error checking related data' }
-    }
-
-    if (packages && packages.length > 0) {
+    if (packagesCount > 0) {
       return { success: false, error: 'Cannot delete category with existing packages. Please move or delete all packages first.' }
     }
 
     // Delete category
-    const { error } = await supabase
-      .from('package_categories')
-      .delete()
-      .eq('id', categoryId)
-
-    if (error) {
-      console.error('Error deleting package category:', error)
-      return { success: false, error: error.message }
-    }
+    await prisma.packageCategory.delete({
+      where: { id: categoryId }
+    })
 
     revalidatePath('/admin/packages')
     return { success: true }
@@ -263,52 +244,58 @@ export async function deletePackageCategoryAction(categoryId: string): Promise<A
 // Packages Actions
 export async function getPackagesAction(studioId?: string): Promise<ActionResult<Package[]>> {
   try {
-    const supabase = await createClient()
-
     // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const user = await getCurrentUser()
+    if (!user) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role, studio_id')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true, studio_id: true }
+    })
 
     if (!currentProfile || currentProfile.role !== 'admin') {
       return { success: false, error: 'Insufficient permissions' }
     }
 
-    // Build query
-    let query = supabase
-      .from('packages')
-      .select(`
-        *,
-        category:package_categories(id, name),
-        package_addons(count)
-      `)
-      .order('name', { ascending: true })
-
+    // Build where clause
+    const where: any = {}
+    
     // Filter by studio if specified, otherwise use user's studio
     const targetStudioId = studioId || currentProfile.studio_id
     if (targetStudioId) {
-      query = query.eq('studio_id', targetStudioId)
+      where.studio_id = targetStudioId
     }
 
-    const { data: packages, error } = await query
-
-    if (error) {
-      console.error('Error fetching packages:', error)
-      return { success: false, error: 'Failed to fetch packages' }
-    }
+    const packages = await prisma.package.findMany({
+      where,
+      include: {
+        category: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        package_addons: {
+          select: {
+            id: true
+          }
+        }
+      },
+      orderBy: { name: 'asc' }
+    })
 
     // Transform packages to include addons_count as a number
-    const transformedPackages = (packages || []).map((pkg: any) => ({
+    const transformedPackages = packages.map((pkg) => ({
       ...pkg,
-      addons_count: pkg.package_addons?.[0]?.count || 0,
+      price: Number(pkg.price),
+      dp_percentage: pkg.dp_percentage ? Number(pkg.dp_percentage) : null,
+      created_at: pkg.created_at?.toISOString() || '',
+      updated_at: pkg.updated_at?.toISOString() || '',
+      includes: Array.isArray(pkg.includes) ? pkg.includes as string[] : null,
+      addons_count: pkg.package_addons?.length || 0,
       package_addons: undefined // Remove the raw package_addons data
     }))
 
@@ -321,54 +308,61 @@ export async function getPackagesAction(studioId?: string): Promise<ActionResult
 
 export async function getPackageAction(packageId: string): Promise<ActionResult<Package & { facility_ids?: string[] }>> {
   try {
-    const supabase = await createClient()
-
     // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const user = await getCurrentUser()
+    if (!user) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role, studio_id')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true, studio_id: true }
+    })
 
     if (!currentProfile || currentProfile.role !== 'admin') {
       return { success: false, error: 'Insufficient permissions' }
     }
 
     // Get package
-    const { data: packageData, error } = await supabase
-      .from('packages')
-      .select(`
-        *,
-        category:package_categories(id, name)
-      `)
-      .eq('id', packageId)
-      .single()
+    const packageData = await prisma.package.findUnique({
+      where: { id: packageId },
+      include: {
+        category: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
+      }
+    })
 
-    if (error) {
-      console.error('Error fetching package:', error)
+    if (!packageData) {
       return { success: false, error: 'Package not found' }
     }
 
     // Get package facilities (only included ones)
-    const { data: packageFacilities, error: facilityError } = await supabase
-      .from('package_facilities')
-      .select('facility_id')
-      .eq('package_id', packageId)
-      .eq('is_included', true)
+    const packageFacilities = await prisma.packageFacility.findMany({
+      where: {
+        package_id: packageId,
+        is_included: true
+      },
+      select: { facility_id: true }
+    })
 
-    if (facilityError) {
-      console.error('Error fetching package facilities:', facilityError)
+    const facility_ids = packageFacilities.map(pf => pf.facility_id).filter((id): id is string => id !== null)
+
+    const formattedPackage = {
+      ...packageData,
+      price: Number(packageData.price),
+      dp_percentage: packageData.dp_percentage ? Number(packageData.dp_percentage) : null,
+      created_at: packageData.created_at?.toISOString() || '',
+      updated_at: packageData.updated_at?.toISOString() || '',
+      includes: Array.isArray(packageData.includes) ? packageData.includes as string[] : null,
+      facility_ids
     }
 
-    const facility_ids = packageFacilities?.map(pf => pf.facility_id) || []
-
-    return { success: true, data: { ...packageData, facility_ids } }
+    return { success: true, data: formattedPackage }
   } catch (error: any) {
     console.error('Error in getPackageAction:', error)
     return { success: false, error: error.message || 'An error occurred' }
@@ -377,20 +371,17 @@ export async function getPackageAction(packageId: string): Promise<ActionResult<
 
 export async function createPackageAction(packageData: CreatePackageData): Promise<ActionResult> {
   try {
-    const supabase = await createClient()
-
     // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const user = await getCurrentUser()
+    if (!user) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role, studio_id')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true, studio_id: true }
+    })
 
     if (!currentProfile || currentProfile.role !== 'admin') {
       return { success: false, error: 'Insufficient permissions' }
@@ -399,10 +390,13 @@ export async function createPackageAction(packageData: CreatePackageData): Promi
     // Use user's studio_id if not provided
     const targetStudioId = packageData.studio_id || currentProfile.studio_id
 
+    if (!targetStudioId) {
+      return { success: false, error: 'Studio ID is required' }
+    }
+
     // Start transaction
-    const { data: createdPackage, error: packageError } = await supabase
-      .from('packages')
-      .insert({
+    const createdPackage = await prisma.package.create({
+      data: {
         studio_id: targetStudioId,
         category_id: packageData.category_id,
         name: packageData.name,
@@ -412,14 +406,8 @@ export async function createPackageAction(packageData: CreatePackageData): Promi
         dp_percentage: packageData.dp_percentage,
         includes: packageData.includes,
         is_popular: packageData.is_popular || false,
-      })
-      .select()
-      .single()
-
-    if (packageError) {
-      console.error('Error creating package:', packageError)
-      return { success: false, error: packageError.message }
-    }
+      }
+    })
 
     // Create package facility relationships if specified
     if (packageData.facility_ids && packageData.facility_ids.length > 0) {
@@ -430,11 +418,11 @@ export async function createPackageAction(packageData: CreatePackageData): Promi
         additional_cost: 0
       }))
 
-      const { error: facilityError } = await supabase
-        .from('package_facilities')
-        .insert(facilityInserts)
-
-      if (facilityError) {
+      try {
+        await prisma.packageFacility.createMany({
+          data: facilityInserts
+        })
+      } catch (facilityError) {
         console.error('Error creating package facilities:', facilityError)
         // Don't fail the entire operation, just log the error
       }
@@ -450,20 +438,17 @@ export async function createPackageAction(packageData: CreatePackageData): Promi
 
 export async function updatePackageAction(packageId: string, packageData: UpdatePackageData): Promise<ActionResult> {
   try {
-    const supabase = await createClient()
-
     // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const user = await getCurrentUser()
+    if (!user) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role, studio_id')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true, studio_id: true }
+    })
 
     if (!currentProfile || currentProfile.role !== 'admin') {
       return { success: false, error: 'Insufficient permissions' }
@@ -473,26 +458,17 @@ export async function updatePackageAction(packageId: string, packageData: Update
     const { facility_ids, ...updateData } = packageData
 
     // Update package
-    const { error: updateError } = await supabase
-      .from('packages')
-      .update({
-        ...updateData,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', packageId)
-
-    if (updateError) {
-      console.error('Error updating package:', updateError)
-      return { success: false, error: updateError.message }
-    }
+    await prisma.package.update({
+      where: { id: packageId },
+      data: updateData
+    })
 
     // Update package facility relationships if specified
     if (facility_ids !== undefined) {
       // Delete existing relationships
-      await supabase
-        .from('package_facilities')
-        .delete()
-        .eq('package_id', packageId)
+      await prisma.packageFacility.deleteMany({
+        where: { package_id: packageId }
+      })
 
       // Create new relationships
       if (facility_ids.length > 0) {
@@ -503,11 +479,11 @@ export async function updatePackageAction(packageId: string, packageData: Update
           additional_cost: 0
         }))
 
-        const { error: facilityError } = await supabase
-          .from('package_facilities')
-          .insert(facilityInserts)
-
-        if (facilityError) {
+        try {
+          await prisma.packageFacility.createMany({
+            data: facilityInserts
+          })
+        } catch (facilityError) {
           console.error('Error updating package facilities:', facilityError)
           // Don't fail the entire operation, just log the error
         }
@@ -524,51 +500,35 @@ export async function updatePackageAction(packageId: string, packageData: Update
 
 export async function deletePackageAction(packageId: string): Promise<ActionResult> {
   try {
-    const supabase = await createClient()
-
     // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const user = await getCurrentUser()
+    if (!user) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true }
+    })
 
     if (!currentProfile || currentProfile.role !== 'admin') {
       return { success: false, error: 'Insufficient permissions' }
     }
 
     // Check for reservations using this package
-    const { data: reservations, error: reservationsError } = await supabase
-      .from('reservations')
-      .select('id')
-      .eq('package_id', packageId)
-      .limit(1)
+    const reservationsCount = await prisma.reservation.count({
+      where: { package_id: packageId }
+    })
 
-    if (reservationsError) {
-      console.error('Error checking reservations:', reservationsError)
-      return { success: false, error: 'Error checking related data' }
-    }
-
-    if (reservations && reservations.length > 0) {
+    if (reservationsCount > 0) {
       return { success: false, error: 'Cannot delete package with existing reservations.' }
     }
 
     // Delete package (CASCADE will handle package_facilities)
-    const { error } = await supabase
-      .from('packages')
-      .delete()
-      .eq('id', packageId)
-
-    if (error) {
-      console.error('Error deleting package:', error)
-      return { success: false, error: error.message }
-    }
+    await prisma.package.delete({
+      where: { id: packageId }
+    })
 
     revalidatePath('/admin/packages')
     return { success: true }
@@ -580,51 +540,40 @@ export async function deletePackageAction(packageId: string): Promise<ActionResu
 
 export async function togglePackageStatusAction(packageId: string): Promise<ActionResult> {
   try {
-    const supabase = await createClient()
-
     // Get current user to check permissions
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const user = await getCurrentUser()
+    if (!user) {
       return { success: false, error: 'Unauthorized' }
     }
 
     // Get current user profile
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
+    const currentProfile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true }
+    })
 
     if (!currentProfile || currentProfile.role !== 'admin') {
       return { success: false, error: 'Insufficient permissions' }
     }
 
     // Get current package status
-    const { data: packageData, error: fetchError } = await supabase
-      .from('packages')
-      .select('is_active')
-      .eq('id', packageId)
-      .single()
+    const packageData = await prisma.package.findUnique({
+      where: { id: packageId },
+      select: { is_active: true }
+    })
 
-    if (fetchError) {
-      console.error('Error fetching package:', fetchError)
+    if (!packageData) {
       return { success: false, error: 'Package not found' }
     }
 
     // Toggle status
     const newStatus = !packageData.is_active
-    const { error } = await supabase
-      .from('packages')
-      .update({
-        is_active: newStatus,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', packageId)
-
-    if (error) {
-      console.error('Error updating package status:', error)
-      return { success: false, error: error.message }
-    }
+    await prisma.package.update({
+      where: { id: packageId },
+      data: {
+        is_active: newStatus
+      }
+    })
 
     revalidatePath('/admin/packages')
     return { success: true }

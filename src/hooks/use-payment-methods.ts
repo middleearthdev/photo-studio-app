@@ -183,7 +183,7 @@ export function formatPaymentMethod(method: PaymentMethod) {
     type: method.type,
     provider: method.provider,
     description: getPaymentMethodDescription(method),
-    icon: getPaymentMethodIcon(method.type, method.provider, method.name),
+    icon: getPaymentMethodIcon(method.type, method.provider || '', method.name),
     fee_type: method.fee_type,
     fee_percentage: method.fee_percentage,
     fee_amount: method.fee_amount,

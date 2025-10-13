@@ -36,6 +36,8 @@ import type { Payment } from '@/actions/payments'
 import { shouldDisplayFeesToCustomers, formatFeeDisplay } from '@/lib/config/fee-config'
 import { toast } from 'sonner'
 import Link from 'next/link'
+import { useQueryClient } from '@tanstack/react-query'
+import { timeSlotKeys } from '@/hooks/use-time-slots'
 
 interface TransactionData {
   reservation: Reservation
@@ -57,6 +59,7 @@ interface TransactionData {
 function BookingSuccessPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const queryClient = useQueryClient()
 
   const [transactionData, setTransactionData] = useState<TransactionData | null>(null)
   const [isDownloading, setIsDownloading] = useState(false)
@@ -75,7 +78,7 @@ function BookingSuccessPageContent() {
         const bookingCode = searchParams.get('booking')
 
         // Validate required parameters
-        if (!['completed', 'pending_confirmation'].includes(paymentStatusParam!) || !bookingCode) {
+        if (!['paid', 'pending_confirmation'].includes(paymentStatusParam!) || !bookingCode) {
           setVerificationError('Parameter tidak valid. Akses tidak sah.')
           return
         }
@@ -100,8 +103,8 @@ function BookingSuccessPageContent() {
 
         // Find the most recent payment based on status
         let latestPayment: any
-        if (paymentStatusParam === 'completed') {
-          const completedPayments = paymentsResult.data.filter(p => p.status === 'completed')
+        if (paymentStatusParam === 'paid') {
+          const completedPayments = paymentsResult.data.filter(p => p.status === 'paid')
           if (completedPayments.length === 0) {
             setVerificationError('Belum ada pembayaran yang selesai untuk reservasi ini.')
             return
@@ -149,6 +152,9 @@ function BookingSuccessPageContent() {
           paymentMethodDetails
         })
 
+        // Invalidate time slot cache to refresh availability after successful booking
+        queryClient.invalidateQueries({ queryKey: timeSlotKeys.all })
+
         // Clear temporary data
         localStorage.removeItem('finalBookingData')
         localStorage.removeItem('transactionData')
@@ -162,7 +168,7 @@ function BookingSuccessPageContent() {
     }
 
     verifyBookingAndPayment()
-  }, [router, searchParams])
+  }, [router, searchParams, queryClient])
 
   // Show loading state
   if (isVerifying) {
@@ -189,12 +195,17 @@ function BookingSuccessPageContent() {
           <h1 className="text-xl sm:text-2xl font-bold text-[#00052e] mb-2">Akses Ditolak</h1>
           <p className="text-xs sm:text-base text-slate-600 mb-4 sm:mb-6">{verificationError}</p>
           <div className="space-y-2 sm:space-y-3">
-            <Link href="/packages">
-              <Button className="w-full bg-gradient-to-r from-[#00052e] to-[#b0834d] hover:from-[#00052e]/90 hover:to-[#b0834d]/90 text-xs sm:text-sm py-2 sm:py-3">
-                <Camera className="h-3 w-3 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
-                Buat Booking Baru
-              </Button>
-            </Link>
+            <Button 
+              onClick={() => {
+                // Invalidate cache before navigating to packages
+                queryClient.invalidateQueries({ queryKey: timeSlotKeys.all })
+                router.push('/packages')
+              }}
+              className="w-full bg-gradient-to-r from-[#00052e] to-[#b0834d] hover:from-[#00052e]/90 hover:to-[#b0834d]/90 text-xs sm:text-sm py-2 sm:py-3"
+            >
+              <Camera className="h-3 w-3 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
+              Buat Booking Baru
+            </Button>
             <Link href="/">
               <Button variant="outline" className="w-full text-xs sm:text-sm py-2 sm:py-3 border-[#00052e]/30 text-[#00052e] hover:bg-[#00052e]/10">
                 <Home className="h-3 w-3 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
@@ -253,7 +264,10 @@ function BookingSuccessPageContent() {
 
       const pdfBlob = await generateInvoicePDF({
         reservation: transactionData.reservation,
-        payment: transactionData.payment,
+        payment: {
+          status: transactionData.payment.status,
+          paid_at: transactionData.payment.paid_at ? transactionData.payment.paid_at.toString() : null
+        },
         paymentMethodDetails: transactionData.paymentMethodDetails,
         feeBreakdown
       })
@@ -351,12 +365,12 @@ function BookingSuccessPageContent() {
               animate={{ scale: 1 }}
               transition={{ duration: 0.6, delay: 0.2 }}
               className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6 shadow-lg ${
-                paymentStatus === 'completed' 
+                paymentStatus === 'paid' 
                   ? 'bg-gradient-to-r from-[#00052e] to-[#b0834d]'
                   : 'bg-gradient-to-r from-amber-500 to-orange-500'
               }`}
             >
-              {paymentStatus === 'completed' ? (
+              {paymentStatus === 'paid' ? (
                 <CheckCircle className="h-8 w-8 sm:h-12 sm:w-12 text-white" />
               ) : (
                 <AlertCircle className="h-8 w-8 sm:h-12 sm:w-12 text-white" />
@@ -369,10 +383,10 @@ function BookingSuccessPageContent() {
               transition={{ duration: 0.6, delay: 0.4 }}
             >
               <h1 className="text-2xl sm:text-4xl md:text-5xl font-bold text-[#00052e] mb-2 sm:mb-4">
-                {paymentStatus === 'completed' ? 'Booking Berhasil!' : 'Booking Dikonfirmasi!'}
+                {paymentStatus === 'paid' ? 'Booking Berhasil!' : 'Booking Dikonfirmasi!'}
               </h1>
               <p className="text-base sm:text-xl text-slate-600 mb-4 sm:mb-6">
-                {paymentStatus === 'completed' 
+                {paymentStatus === 'paid' 
                   ? 'Terima kasih atas kepercayaan Anda. Kami akan segera mengkonfirmasi detail sesi foto.'
                   : 'Konfirmasi transfer Anda telah diterima. Admin akan memverifikasi pembayaran dalam 1x24 jam.'
                 }
@@ -393,11 +407,11 @@ function BookingSuccessPageContent() {
                 </div>
 
                 <Badge className={`text-xs sm:text-sm py-0.5 px-2 ${
-                  paymentStatus === 'completed' 
+                  paymentStatus === 'paid' 
                     ? 'bg-green-100 text-green-800 hover:bg-green-100'
                     : 'bg-amber-100 text-amber-800 hover:bg-amber-100'
                 }`}>
-                  {paymentStatus === 'completed' ? (
+                  {paymentStatus === 'paid' ? (
                     <>
                       <CheckCircle className="h-3 w-3 mr-1" />
                       Pembayaran Berhasil
@@ -684,12 +698,18 @@ function BookingSuccessPageContent() {
 
             {/* Navigation */}
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
-              <Link href="/packages">
-                <Button variant="outline" className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm py-2 sm:py-3 border-[#00052e]/30 text-[#00052e] hover:bg-[#00052e]/10">
-                  <Camera className="h-3 w-3 sm:h-4 sm:w-4" />
-                  Booking Lagi
-                </Button>
-              </Link>
+              <Button 
+                onClick={() => {
+                  // Invalidate cache before navigating to packages
+                  queryClient.invalidateQueries({ queryKey: timeSlotKeys.all })
+                  router.push('/packages')
+                }}
+                variant="outline" 
+                className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm py-2 sm:py-3 border-[#00052e]/30 text-[#00052e] hover:bg-[#00052e]/10"
+              >
+                <Camera className="h-3 w-3 sm:h-4 sm:w-4" />
+                Booking Lagi
+              </Button>
 
               <Link href="/">
                 <Button className="flex items-center gap-1.5 sm:gap-2 bg-gradient-to-r from-[#00052e] to-[#b0834d] hover:from-[#00052e]/90 hover:to-[#b0834d]/90 text-xs sm:text-sm py-2 sm:py-3">

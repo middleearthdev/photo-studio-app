@@ -89,14 +89,14 @@ export function TimeSlotDialog({
 
   useEffect(() => {
     if (timeSlotData) {
-      setSelectedStudioId(timeSlotData.studio_id)
+      setSelectedStudioId(timeSlotData.studio_id || "")
       form.reset({
-        studio_id: timeSlotData.studio_id,
-        facility_id: timeSlotData.facility_id,
+        studio_id: timeSlotData.studio_id || "",
+        facility_id: timeSlotData.facility_id || "",
         slot_date: timeSlotData.slot_date,
         start_time: timeSlotData.start_time,
         end_time: timeSlotData.end_time,
-        is_blocked: timeSlotData.is_blocked,
+        is_blocked: timeSlotData.is_blocked ?? false,
         notes: timeSlotData.notes || "",
       })
     } else {

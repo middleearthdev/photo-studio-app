@@ -46,7 +46,8 @@ const statusLabels: Record<ReservationStatus, string> = {
   confirmed: 'Terkonfirmasi',
   in_progress: 'Berlangsung',
   completed: 'Selesai',
-  cancelled: 'Dibatalkan'
+  cancelled: 'Dibatalkan',
+  no_show: 'Tidak Hadir'
 }
 
 const statusColors: Record<ReservationStatus, 'default' | 'secondary' | 'destructive' | 'outline'> = {
@@ -54,7 +55,8 @@ const statusColors: Record<ReservationStatus, 'default' | 'secondary' | 'destruc
   confirmed: 'default',
   in_progress: 'secondary',
   completed: 'default',
-  cancelled: 'destructive'
+  cancelled: 'destructive',
+  no_show: 'destructive'
 }
 
 const paymentStatusLabels = {
@@ -490,7 +492,7 @@ export default function ReservationsPage() {
                             <div className="font-medium">
                               {formatCurrency(reservation.total_amount)}
                             </div>
-                            {reservation.payment_status !== 'completed' && (
+                            {reservation.payment_status !== 'paid' && (
                               <div className="text-sm text-muted-foreground">
                                 DP: {formatCurrency(reservation.dp_amount)}
                               </div>

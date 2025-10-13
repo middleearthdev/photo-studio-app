@@ -1,7 +1,9 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
+import { prisma } from "@/lib/prisma"
+import { auth } from "@/lib/auth"
 import { revalidatePath } from "next/cache"
+import { headers } from "next/headers"
 import { z } from "zod"
 
 const updateProfileSchema = z.object({
@@ -14,13 +16,19 @@ const updateProfileSchema = z.object({
 
 export type UpdateProfileData = z.infer<typeof updateProfileSchema>
 
+// Helper function to get current user session
+async function getCurrentUser() {
+  const session = await auth.api.getSession({
+    headers: await headers()
+  })
+  return session?.user || null
+}
+
 export async function updateProfileAction(data: UpdateProfileData) {
   try {
-    const supabase = await createClient()
-    
     // Get current user
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-    if (userError || !user) {
+    const user = await getCurrentUser()
+    if (!user) {
       return { success: false, error: "Unauthorized" }
     }
 
@@ -28,22 +36,16 @@ export async function updateProfileAction(data: UpdateProfileData) {
     const validatedData = updateProfileSchema.parse(data)
 
     // Update user profile
-    const { error } = await supabase
-      .from("user_profiles")
-      .update({
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
         full_name: validatedData.full_name,
         email: validatedData.email,
         phone: validatedData.phone || null,
         address: validatedData.address || null,
-        birth_date: validatedData.birth_date || null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", user.id)
-
-    if (error) {
-      console.error("Profile update error:", error)
-      return { success: false, error: "Gagal memperbarui profil" }
-    }
+        birth_date: validatedData.birth_date ? new Date(validatedData.birth_date) : null,
+      }
+    })
 
     // Revalidate relevant paths
     revalidatePath("/admin/profile")
@@ -64,11 +66,9 @@ export async function updateProfileAction(data: UpdateProfileData) {
 
 export async function uploadAvatarAction(formData: FormData) {
   try {
-    const supabase = await createClient()
-    
     // Get current user
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-    if (userError || !user) {
+    const user = await getCurrentUser()
+    if (!user) {
       return { success: false, error: "Unauthorized" }
     }
 
@@ -91,43 +91,34 @@ export async function uploadAvatarAction(formData: FormData) {
     const fileExt = file.name.split(".").pop()
     const fileName = `${user.id}-${Date.now()}.${fileExt}`
 
-    // Upload to Supabase Storage
-    const { error: uploadError } = await supabase.storage
-      .from("avatars")
-      .upload(fileName, file, {
-        cacheControl: "3600",
-        upsert: false,
-      })
+    // Upload using the storage system
+    const { uploadFile } = await import('@/lib/storage')
+    const uploadResult = await uploadFile({
+      bucket: 'avatars',
+      path: fileName,
+      file: file
+    })
 
-    if (uploadError) {
-      console.error("Avatar upload error:", uploadError)
+    if (uploadResult.error) {
+      console.error("Avatar upload error:", uploadResult.error)
       return { success: false, error: "Gagal mengupload avatar" }
     }
 
-    // Get public URL
-    const { data: publicUrlData } = supabase.storage
-      .from("avatars")
-      .getPublicUrl(fileName)
+    const avatarUrl = uploadResult.publicUrl || ''
 
     // Update user profile with new avatar URL
-    const { error: updateError } = await supabase
-      .from("user_profiles")
-      .update({
-        avatar_url: publicUrlData.publicUrl,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", user.id)
-
-    if (updateError) {
-      console.error("Profile avatar update error:", updateError)
-      return { success: false, error: "Gagal memperbarui avatar" }
-    }
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        avatar_url: avatarUrl,
+      }
+    })
 
     // Revalidate relevant paths
     revalidatePath("/admin/profile")
     revalidatePath("/cs/profile")
     
-    return { success: true, avatarUrl: publicUrlData.publicUrl }
+    return { success: true, avatarUrl }
   } catch (error) {
     console.error("Upload avatar action error:", error)
     return { success: false, error: "Terjadi kesalahan sistem" }
@@ -136,27 +127,49 @@ export async function uploadAvatarAction(formData: FormData) {
 
 export async function getProfileAction() {
   try {
-    const supabase = await createClient()
-    
     // Get current user
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-    if (userError || !user) {
+    const user = await getCurrentUser()
+    if (!user) {
       return { success: false, error: "Unauthorized" }
     }
 
     // Get user profile
-    const { data: profile, error } = await supabase
-      .from("user_profiles")
-      .select("*")
-      .eq("id", user.id)
-      .single()
+    const profile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        image: true,
+        studio_id: true,
+        role: true,
+        full_name: true,
+        phone: true,
+        address: true,
+        birth_date: true,
+        preferences: true,
+        avatar_url: true,
+        is_active: true,
+        last_login: true,
+        createdAt: true,
+        updatedAt: true
+      }
+    })
 
-    if (error) {
-      console.error("Get profile error:", error)
+    if (!profile) {
       return { success: false, error: "Gagal mengambil data profil" }
     }
 
-    return { success: true, profile }
+    // Format the profile data
+    const formattedProfile = {
+      ...profile,
+      birth_date: profile.birth_date?.toISOString() || null,
+      last_login: profile.last_login?.toISOString() || null,
+      createdAt: profile.createdAt.toISOString(),
+      updatedAt: profile.updatedAt.toISOString()
+    }
+
+    return { success: true, profile: formattedProfile }
   } catch (error) {
     console.error("Get profile action error:", error)
     return { success: false, error: "Terjadi kesalahan sistem" }

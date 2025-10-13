@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getXenditClient } from '@/lib/payments/xendit-client'
 import { createPayment } from '@/actions/payments'
 import { getReservationByBookingCodeAction } from '@/actions/reservations'
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
 import { calculatePaymentFee } from '@/lib/utils/fee-calculator'
 import { CreateInvoiceRequest } from 'xendit-node/invoice/models'
 
@@ -26,14 +26,9 @@ export async function POST(req: NextRequest) {
     // Get payment method details if provided
     let paymentMethodDetails = null
     if (paymentMethodId) {
-      const supabase = await createClient()
-      const { data: paymentMethod } = await supabase
-        .from('payment_methods')
-        .select('*')
-        .eq('id', paymentMethodId)
-        .single()
-
-      paymentMethodDetails = paymentMethod
+      paymentMethodDetails = await prisma.paymentMethod.findUnique({
+        where: { id: paymentMethodId }
+      })
     }
 
 
