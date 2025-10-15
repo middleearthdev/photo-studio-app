@@ -1,5 +1,39 @@
 "use client"
 
+/*
+MENU ANALITIK - FITUR YANG TERSEDIA:
+
+1. FILTER WAKTU (Maksimal 6 bulan):
+   - 30 Hari Terakhir
+   - 3 Bulan Terakhir  
+   - 6 Bulan Terakhir
+
+2. METRIK UTAMA:
+   - Total Pendapatan (dengan growth percentage)
+   - Total Booking (dengan growth percentage)
+   - Rata-rata Pendapatan per Booking (dengan growth percentage)
+
+3. GRAFIK & ANALISIS:
+   - Tren Pendapatan (Line Chart) - pendapatan bulanan dari waktu ke waktu
+   - Tren Booking (Bar Chart) - jumlah booking per bulan
+   - Popularitas Paket (Pie Chart) - paket terpopuler berdasarkan booking
+   - Penggunaan Fasilitas (Progress Bar) - tingkat utilisasi berdasarkan fasilitas
+
+4. TABEL DETAIL:
+   - Rincian Pendapatan Paket - kontribusi pendapatan berdasarkan paket
+   - Kolom: Paket, Booking, Pendapatan, Rata-rata/Booking
+
+5. FITUR LAIN:
+   - Pilihan Studio (jika lebih dari 1 studio)
+   - Export Laporan (button)
+   - Auto-refresh setiap update data
+
+FITUR YANG DIHAPUS:
+- Analisis Jam Sibuk (Time Slot Analysis) - dianggap tidak berguna
+- Insight Customer - dipindah ke menu customer terpisah
+- Rating Customer - dipindah ke menu customer terpisah
+*/
+
 import React, { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -36,18 +70,9 @@ import {
 } from "recharts"
 import {
   TrendingUp,
-  TrendingDown,
   Calendar,
   DollarSign,
-  Users,
-  Camera,
-  Star,
-  Package,
-  Clock,
   Target,
-  BarChart3,
-  PieChart as PieChartIcon,
-  Activity,
   Loader2,
 } from "lucide-react"
 import {
@@ -66,7 +91,7 @@ const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7c7c', '#8dd1e1']
 export default function AnalyticsPage() {
   const [timeRange, setTimeRange] = useState<AnalyticsTimeRange>("last-6-months")
   const [selectedStudioId, setSelectedStudioId] = useState<string>('')
-  
+
   // Get list of studios for selection (consistent with other admin pages)
   const { data: studios = [], isLoading: studiosLoading } = useStudios()
 
@@ -76,14 +101,14 @@ export default function AnalyticsPage() {
       setSelectedStudioId(studios[0].id)
     }
   }, [studios, selectedStudioId])
-  
+
   const { data: dashboardData, isLoading: isDashboardLoading } = useDashboardAnalytics(selectedStudioId, timeRange)
   const { data: revenueData, isLoading: isRevenueLoading } = useRevenueAnalytics(selectedStudioId, timeRange)
   const { data: packageData, isLoading: isPackageLoading } = usePackagePerformance(selectedStudioId, timeRange)
   const { data: facilityData, isLoading: isFacilityLoading } = useFacilityUsage(selectedStudioId, timeRange)
   const { data: customerData, isLoading: isCustomerLoading } = useCustomerAnalytics(selectedStudioId, timeRange)
   const { data: timeSlotData, isLoading: isTimeSlotLoading } = useTimeSlotAnalytics(selectedStudioId, timeRange)
-  
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
@@ -93,7 +118,7 @@ export default function AnalyticsPage() {
   }
 
   const isLoading = studiosLoading || isDashboardLoading || isRevenueLoading || isPackageLoading || isFacilityLoading || isCustomerLoading || isTimeSlotLoading
-  
+
   // Show loading if studios not loaded yet or analytics data is loading
   if (isLoading || (studios.length > 0 && !selectedStudioId)) {
     return (
@@ -107,10 +132,10 @@ export default function AnalyticsPage() {
   }
 
   // Show message if no data available
-  const hasData = (revenueData && revenueData.length > 0) || 
-                  (packageData && packageData.length > 0) || 
-                  (facilityData && facilityData.length > 0) ||
-                  (timeSlotData && timeSlotData.length > 0)
+  const hasData = (revenueData && revenueData.length > 0) ||
+    (packageData && packageData.length > 0) ||
+    (facilityData && facilityData.length > 0) ||
+    (timeSlotData && timeSlotData.length > 0)
 
   if (!hasData) {
     return (
@@ -190,7 +215,7 @@ export default function AnalyticsPage() {
               </SelectContent>
             </Select>
           )}
-          
+
           <Select value={timeRange} onValueChange={(value: AnalyticsTimeRange) => setTimeRange(value)}>
             <SelectTrigger className="w-[200px]">
               <SelectValue placeholder="Pilih Periode" />
@@ -199,18 +224,13 @@ export default function AnalyticsPage() {
               <SelectItem value="last-30-days">30 Hari Terakhir</SelectItem>
               <SelectItem value="last-3-months">3 Bulan Terakhir</SelectItem>
               <SelectItem value="last-6-months">6 Bulan Terakhir</SelectItem>
-              <SelectItem value="last-year">1 Tahun Terakhir</SelectItem>
-              <SelectItem value="all-time">Semua Waktu</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline">
-            Export Laporan
-          </Button>
         </div>
       </div>
 
       {/* Key Metrics */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Pendapatan</CardTitle>
@@ -250,18 +270,6 @@ export default function AnalyticsPage() {
             </p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Rating Customer</CardTitle>
-            <Star className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{customerMetrics.averageRating}</div>
-            <p className="text-xs text-muted-foreground">
-              Berdasarkan {customerMetrics.totalReviews} ulasan
-            </p>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Revenue and Bookings Trend */}
@@ -279,10 +287,10 @@ export default function AnalyticsPage() {
                 <YAxis tickFormatter={(value) => `${value / 1000000}M`} />
                 <Tooltip formatter={(value) => [formatCurrency(value as number), "Pendapatan"]} />
                 <Legend />
-                <Line 
-                  type="monotone" 
-                  dataKey="revenue" 
-                  stroke="#8884d8" 
+                <Line
+                  type="monotone"
+                  dataKey="revenue"
+                  stroke="#8884d8"
                   strokeWidth={2}
                   name="Pendapatan"
                 />
@@ -369,26 +377,8 @@ export default function AnalyticsPage() {
         </Card>
       </div>
 
-      {/* Time Slot Analysis and Package Revenue */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Analisis Jam Sibuk</CardTitle>
-            <CardDescription>Distribusi booking berdasarkan slot waktu</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={timeSlotData || []}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="time_slot" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="bookings" fill="#ffc658" name="Booking" />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
+      {/* Package Revenue */}
+      <div className="grid gap-4">
         <Card>
           <CardHeader>
             <CardTitle>Rincian Pendapatan Paket</CardTitle>
@@ -419,37 +409,6 @@ export default function AnalyticsPage() {
         </Card>
       </div>
 
-      {/* Customer Insights */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Insight Customer</CardTitle>
-          <CardDescription>Metrik dan perilaku customer utama</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-4">
-            <div className="text-center p-4 border rounded-lg">
-              <Users className="h-8 w-8 mx-auto mb-2 text-blue-500" />
-              <div className="text-2xl font-bold">{customerMetrics.totalCustomers}</div>
-              <div className="text-sm text-muted-foreground">Total Customer</div>
-            </div>
-            <div className="text-center p-4 border rounded-lg">
-              <TrendingUp className="h-8 w-8 mx-auto mb-2 text-green-500" />
-              <div className="text-2xl font-bold">{customerMetrics.newCustomers}</div>
-              <div className="text-sm text-muted-foreground">Customer Baru</div>
-            </div>
-            <div className="text-center p-4 border rounded-lg">
-              <Activity className="h-8 w-8 mx-auto mb-2 text-orange-500" />
-              <div className="text-2xl font-bold">{customerMetrics.returningCustomers}</div>
-              <div className="text-sm text-muted-foreground">Customer Kembali</div>
-            </div>
-            <div className="text-center p-4 border rounded-lg">
-              <Star className="h-8 w-8 mx-auto mb-2 text-yellow-500" />
-              <div className="text-2xl font-bold">{customerMetrics.averageRating}</div>
-              <div className="text-sm text-muted-foreground">Rata-rata Rating</div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   )
 }

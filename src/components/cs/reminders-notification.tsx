@@ -84,7 +84,7 @@ export function RemindersNotification() {
           const createdAt = new Date(reservation.created_at)
           const now = new Date()
           const minutesSinceCreated = Math.floor((now.getTime() - createdAt.getTime()) / (1000 * 60))
-          
+
           let priority: 'urgent' | 'high' | 'medium' = 'medium'
           let message = 'Menunggu pembayaran DP'
 
@@ -120,7 +120,13 @@ export function RemindersNotification() {
         }
 
         // 2. Pelunasan Follow-up (H-3 rule for confirmed reservations with partial payment)
-        if (reservation.status === 'confirmed' && reservation.payment_status === 'partial' && daysUntil === 3) {
+        if (reservation.status === 'confirmed' && reservation.payment_status === 'partial' && daysUntil <= 3) {
+          let title = `URGENT: Batas terakhir pelunasan H-3 - ${formatCurrency(reservation.remaining_amount)}`
+
+          if (daysUntil < 3) {
+            title = `URGENT: Batas terakhir pelunasan terlewat - ${formatCurrency(reservation.remaining_amount)}`
+          }
+
           urgent.push({
             id: `pelunasan-${reservation.id}`,
             type: 'payment',
@@ -128,7 +134,7 @@ export function RemindersNotification() {
             customerName,
             customerPhone,
             bookingCode: reservation.booking_code,
-            message: `URGENT: Batas terakhir pelunasan H-3 - ${formatCurrency(reservation.remaining_amount)}`,
+            message: title,
             action: 'Send Payment Reminder',
             reservation
           })

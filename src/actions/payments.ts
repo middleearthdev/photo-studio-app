@@ -396,7 +396,7 @@ export async function getPaymentByExternalId(externalId: string): Promise<Paymen
 // Complete payment (Lunas) - Create final payment and update reservation status
 export async function completePaymentAction(
   reservationId: string,
-  paymentMethodId: string | null = null
+  paymentMethodId: string | null | undefined = null
 ): Promise<ActionResult<Payment>> {
   try {
     const session = await auth.api.getSession({
@@ -460,7 +460,7 @@ export async function completePaymentAction(
     const payment = await prisma.payment.create({
       data: {
         reservation_id: reservationId,
-        payment_method_id: paymentMethodId,
+        payment_method_id: paymentMethodId && paymentMethodId.trim() !== '' ? paymentMethodId : null,
         amount: remainingAmount,
         payment_type: 'remaining',
         status: 'paid',

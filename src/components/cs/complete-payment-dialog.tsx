@@ -52,7 +52,7 @@ export function CompletePaymentDialog({ isOpen, onClose, reservation }: Complete
     completePaymentMutation.mutate(
       {
         reservationId: reservation.id,
-        paymentMethodId: selectedPaymentMethod === 'none' ? undefined : selectedPaymentMethod
+        paymentMethodId: selectedPaymentMethod === 'none' || !selectedPaymentMethod ? undefined : selectedPaymentMethod
       },
       {
         onSuccess: (result) => {

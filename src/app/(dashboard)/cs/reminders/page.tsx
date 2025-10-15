@@ -152,7 +152,7 @@ export default function RemindersPage() {
           const createdAt = new Date(reservation.created_at)
           const now = new Date()
           const minutesSinceCreated = Math.floor((now.getTime() - createdAt.getTime()) / (1000 * 60))
-          
+
           let taskPriority: 'urgent' | 'high' | 'medium' | 'low' = 'medium'
           let title = 'Follow Up Pembayaran'
           let canCancel = false
@@ -199,13 +199,30 @@ export default function RemindersPage() {
         }
 
         // 2. Pelunasan Follow-up Tasks (only for confirmed reservations with partial payment, exactly H-3)
-        if (reservation.status === 'confirmed' && reservation.payment_status === 'partial' && daysUntil === 3) {
+        if (reservation.status === 'confirmed' && reservation.payment_status === 'partial' && daysUntil <= 4) {
+
+          let taskPriority: 'urgent' | 'high' | 'medium' | 'low' = 'medium'
+          let title = 'Follow Up Pembayaran'
+          let canCancel = false
+
+          // Additional urgency based on event date
+          if (daysUntil == 3) {
+            taskPriority = 'urgent'
+            title = 'URGENT: Batas Terakhir Pelunasan H-3'
+          } else if (daysUntil < 3) {
+            taskPriority = 'urgent'
+            title = 'URGENT: Batas Terakhir Pelunasan H-3, Sudah terlewat'
+          } else {
+            taskPriority = 'high'
+            title = 'Batas Terakhir Pelunasan Besok'
+          }
+
           tasks.push({
             id: `pelunasan-${reservation.id}`,
             type: 'pelunasan_followup',
-            priority: 'urgent',
+            priority: taskPriority,
             reservation,
-            title: 'URGENT: Batas Terakhir Pelunasan H-3',
+            title: title,
             description: `Sisa pembayaran ${formatCurrency(reservation.remaining_amount)} untuk booking ${reservation.package?.name || 'Custom'}. Batas terakhir pelunasan hari ini`,
             dueDate: reservation.reservation_date,
             customerName,
@@ -309,10 +326,10 @@ export default function RemindersPage() {
 
       if (result.success) {
         toast.success('Booking berhasil dibatalkan')
-        
+
         // Invalidate reservations query to refresh data
         queryClient.invalidateQueries({ queryKey: reservationKeys.all })
-        
+
         // Refresh reminders data
         refreshReservations()
       } else {
@@ -361,21 +378,20 @@ export default function RemindersPage() {
                       {formatCurrency(reminder.amount)}
                     </p>
                   )}
-                  
+
                   {/* 15-minute countdown for payment_followup */}
                   {reminder.type === 'payment_followup' && reminder.minutesSinceCreated !== undefined && (
-                    <div className={`text-xs p-2 rounded-md ${
-                      reminder.minutesSinceCreated <= 15 
-                        ? 'bg-blue-50 text-blue-700' 
-                        : 'bg-red-50 text-red-700'
-                    }`}>
-                      {reminder.minutesSinceCreated <= 15 
+                    <div className={`text-xs p-2 rounded-md ${reminder.minutesSinceCreated <= 15
+                      ? 'bg-blue-50 text-blue-700'
+                      : 'bg-red-50 text-red-700'
+                      }`}>
+                      {reminder.minutesSinceCreated <= 15
                         ? `⏱️ Sisa waktu: ${15 - reminder.minutesSinceCreated} menit`
                         : `⚠️ Terlewat ${reminder.minutesSinceCreated - 15} menit dari batas waktu`
                       }
                     </div>
                   )}
-                  
+
                   <div className="flex items-center gap-4 text-xs text-gray-500">
                     <span>#{reminder.bookingCode}</span>
                     <span>Target: {format(parseISO(reminder.dueDate), 'dd MMM yyyy')}</span>
@@ -400,7 +416,7 @@ export default function RemindersPage() {
                 <Send className="h-3 w-3 mr-1" />
                 Kirim
               </Button>
-              
+
               {/* Cancel button for payment_followup after 15 minutes */}
               {reminder.type === 'payment_followup' && reminder.canCancel && (
                 <Button
@@ -608,7 +624,7 @@ export default function RemindersPage() {
       </div>
 
       {/* Cancel Confirmation Dialog */}
-      <AlertDialog open={confirmCancelDialog.open} onOpenChange={(open) => 
+      <AlertDialog open={confirmCancelDialog.open} onOpenChange={(open) =>
         setConfirmCancelDialog({ open, reminder: open ? confirmCancelDialog.reminder : null })
       }>
         <AlertDialogContent>

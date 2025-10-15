@@ -75,21 +75,19 @@ export async function POST(req: NextRequest) {
     if (!shouldUseXendit) {
       // Calculate gateway fee based on fee type for manual payments
       let gatewayFee = 0;
-      let totalAmount = amount; // Default to original amount
       let netAmount = amount; // Default to original amount
 
       if (paymentMethodDetails) {
         // Use the new fee calculation utility
         const feeCalculation = calculatePaymentFee(
           amount,
-          paymentMethodDetails.fee_type,
-          paymentMethodDetails.fee_percentage || 0,
-          paymentMethodDetails.fee_amount || 0,
+          paymentMethodDetails.fee_type || '',
+          Number(paymentMethodDetails.fee_percentage) || 0,
+          Number(paymentMethodDetails.fee_amount) || 0,
           process.env.NEXT_PUBLIC_CUSTOMER_PAYS_FEES === 'true'
         );
 
         gatewayFee = feeCalculation.feeAmount;
-        totalAmount = feeCalculation.totalAmount;
         netAmount = feeCalculation.netAmount;
       }
 
@@ -127,9 +125,9 @@ export async function POST(req: NextRequest) {
       // Use the new fee calculation utility
       const feeCalculation = calculatePaymentFee(
         amount,
-        paymentMethodDetails.fee_type,
-        paymentMethodDetails.fee_percentage || 0,
-        paymentMethodDetails.fee_amount || 0,
+        paymentMethodDetails.fee_type || '',
+        Number(paymentMethodDetails.fee_percentage) || 0,
+        Number(paymentMethodDetails.fee_amount) || 0,
         process.env.NEXT_PUBLIC_CUSTOMER_PAYS_FEES === 'true'
       );
 
@@ -150,8 +148,8 @@ export async function POST(req: NextRequest) {
 
     // Cek jika xendit_config atau paymentMethod undefined, kirim error agar user ganti metode pembayaran
     if (
-      !paymentMethodDetails.xendit_config ||
-      !paymentMethodDetails.xendit_config.paymentMethod
+      !paymentMethodDetails?.xendit_config ||
+      !(paymentMethodDetails.xendit_config as any)?.paymentMethod
     ) {
       return NextResponse.json(
         { success: false, error: 'Metode pembayaran tidak valid atau tidak didukung. Silakan pilih metode pembayaran lain.' },
@@ -159,8 +157,8 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const invoiceDuration = paymentMethodDetails.xendit_config.duration || 7200; // 2 jam
-    const xenditPaymentMethod = paymentMethodDetails.xendit_config.paymentMethod.toUpperCase();
+    const invoiceDuration = (paymentMethodDetails.xendit_config as any)?.duration || 7200; // 2 jam
+    const xenditPaymentMethod = (paymentMethodDetails.xendit_config as any)?.paymentMethod?.toUpperCase();
 
     // Create Xendit invoice with the correct amount based on fee configuration
     const invoiceParams: CreateInvoiceRequest = {
@@ -174,7 +172,7 @@ export async function POST(req: NextRequest) {
         phoneNumber: customerData.phone,
         mobileNumber: customerData.phone,
       },
-      successRedirectUrl: `${process.env.NEXT_PUBLIC_APP_URL}/booking/success?payment=completed&booking=${reservation.booking_code}`,
+      successRedirectUrl: `${process.env.NEXT_PUBLIC_APP_URL}/booking/success?payment=paid&booking=${reservation.booking_code}`,
       failureRedirectUrl: `${process.env.NEXT_PUBLIC_APP_URL}/booking/payment-failed`,
       paymentMethods: [xenditPaymentMethod],
       currency: 'IDR',

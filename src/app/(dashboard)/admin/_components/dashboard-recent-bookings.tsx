@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useRecentBookings, formatCurrency, getStatusColor, getStatusLabel } from "@/hooks/use-dashboard-analytics"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Calendar, Clock, User, Hash, ExternalLink } from "lucide-react"
+import { Calendar, ExternalLink } from "lucide-react"
 import Link from "next/link"
 
 interface RecentBookingsProps {
@@ -17,23 +17,21 @@ export function RecentBookings({ studioId }: RecentBookingsProps) {
 
   if (isLoading) {
     return (
-      <Card className="col-span-4">
+      <Card>
         <CardHeader>
-          <CardTitle>Recent Bookings</CardTitle>
-          <CardDescription>Latest booking requests and confirmations</CardDescription>
+          <CardTitle>5 Reservasi Terbaru</CardTitle>
+          <CardDescription>Permintaan booking dan konfirmasi terbaru</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="space-y-2">
+          <div className="space-y-2">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="flex items-center justify-between p-3 border rounded-lg">
+                <div className="space-y-1">
                   <Skeleton className="h-4 w-32" />
                   <Skeleton className="h-3 w-24" />
-                  <Skeleton className="h-3 w-48" />
                 </div>
-                <div className="text-right space-y-2">
-                  <Skeleton className="h-4 w-24" />
-                  <Skeleton className="h-6 w-16" />
+                <div className="text-right">
+                  <Skeleton className="h-4 w-20" />
                 </div>
               </div>
             ))}
@@ -47,14 +45,14 @@ export function RecentBookings({ studioId }: RecentBookingsProps) {
     return (
       <Card className="col-span-4 border-red-200">
         <CardHeader>
-          <CardTitle className="text-red-600">Recent Bookings</CardTitle>
-          <CardDescription>Unable to load recent bookings</CardDescription>
+          <CardTitle className="text-red-600">5 Reservasi Terbaru</CardTitle>
+          <CardDescription>Tidak dapat memuat data reservasi terbaru</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="text-center py-8 text-red-600">
-            <p className="text-sm">Error loading recent bookings</p>
+            <p className="text-sm">Gagal memuat data reservasi terbaru</p>
             <Button variant="outline" size="sm" className="mt-2">
-              Try Again
+              Coba Lagi
             </Button>
           </div>
         </CardContent>
@@ -64,23 +62,23 @@ export function RecentBookings({ studioId }: RecentBookingsProps) {
 
   if (!bookings || bookings.length === 0) {
     return (
-      <Card className="col-span-4">
+      <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle>Recent Bookings</CardTitle>
-            <CardDescription>Latest booking requests and confirmations</CardDescription>
+            <CardTitle>5 Reservasi Terbaru</CardTitle>
+            <CardDescription>Permintaan booking dan konfirmasi terbaru</CardDescription>
           </div>
           <Button variant="outline" size="sm" asChild>
-            <Link href="/admin/reservations">Create New</Link>
+            <Link href="/admin/reservations">Buat Baru</Link>
           </Button>
         </CardHeader>
         <CardContent>
           <div className="text-center py-12 text-muted-foreground">
             <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p className="text-lg font-medium mb-1">No Recent Bookings</p>
-            <p className="text-sm mb-4">Start by creating your first booking or wait for customers to book.</p>
+            <p className="text-lg font-medium mb-1">Belum Ada Reservasi</p>
+            <p className="text-sm mb-4">Mulai dengan membuat reservasi pertama atau tunggu customer untuk booking.</p>
             <Button asChild>
-              <Link href="/admin/reservations">Manage Bookings</Link>
+              <Link href="/admin/reservations">Kelola Reservasi</Link>
             </Button>
           </div>
         </CardContent>
@@ -92,77 +90,45 @@ export function RecentBookings({ studioId }: RecentBookingsProps) {
     <Card className="col-span-4">
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
-          <CardTitle>Recent Bookings</CardTitle>
+          <CardTitle>5 Reservasi Terbaru</CardTitle>
           <CardDescription>
-            Latest booking requests and confirmations ({bookings.length} recent)
+            Permintaan booking dan konfirmasi terbaru ({bookings.length} terbaru)
           </CardDescription>
         </div>
         <Button variant="outline" size="sm" asChild>
           <Link href="/admin/reservations" className="flex items-center gap-2">
-            View All <ExternalLink className="h-3 w-3" />
+            Lihat Semua <ExternalLink className="h-3 w-3" />
           </Link>
         </Button>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
+        <div className="space-y-2">
           {bookings.map((booking) => (
             <div 
               key={booking.id} 
-              className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+              className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors"
             >
-              <div className="flex-1 space-y-1">
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2">
-                    <User className="h-4 w-4 text-muted-foreground" />
-                    <p className="font-medium">{booking.customerName}</p>
-                    {booking.isGuest && (
-                      <Badge variant="secondary" className="text-xs">
-                        Guest
-                      </Badge>
-                    )}
-                  </div>
-                  <Badge 
-                    variant="secondary" 
-                    className={getStatusColor(booking.status)}
-                  >
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-sm">{booking.customerName}</span>
+                  <Badge className={getStatusColor(booking.status)}>
                     {getStatusLabel(booking.status)}
                   </Badge>
                 </div>
-                
-                <p className="text-sm text-muted-foreground font-medium">
-                  {booking.packageName}
-                </p>
-                
-                <div className="flex items-center gap-6 text-xs text-muted-foreground">
-                  <div className="flex items-center gap-1">
-                    <Calendar className="h-3 w-3" />
-                    <span>{new Date(booking.date).toLocaleDateString('id-ID')}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    <span>{booking.time}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Hash className="h-3 w-3" />
-                    <span className="font-mono">{booking.bookingCode}</span>
-                  </div>
+                <div className="text-xs text-muted-foreground">
+                  {new Date(booking.date).toLocaleDateString('id-ID', { 
+                    day: '2-digit', 
+                    month: 'short',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })} • {booking.bookingCode}
                 </div>
               </div>
               
-              <div className="text-right space-y-1">
-                <p className="font-semibold text-lg">
+              <div className="text-right">
+                <div className="font-semibold text-sm">
                   {formatCurrency(booking.amount)}
-                </p>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="text-blue-600 hover:text-blue-800 h-6 px-2"
-                  asChild
-                >
-                  <Link href={`/admin/reservations/${booking.id}`}>
-                    View Details
-                  </Link>
-                </Button>
+                </div>
               </div>
             </div>
           ))}

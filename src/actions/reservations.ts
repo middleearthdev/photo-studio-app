@@ -202,29 +202,29 @@ function transformReservationForClient(reservation: any) {
     dp_amount: Number(reservation.dp_amount),
     remaining_amount: Number(reservation.remaining_amount),
     // Convert Date fields to ISO strings
-    reservation_date: reservation.reservation_date instanceof Date 
-      ? reservation.reservation_date.toISOString().split('T')[0] 
+    reservation_date: reservation.reservation_date instanceof Date
+      ? reservation.reservation_date.toISOString().split('T')[0]
       : reservation.reservation_date,
-    start_time: reservation.start_time instanceof Date 
-      ? format(reservation.start_time, 'HH:mm') 
+    start_time: reservation.start_time instanceof Date
+      ? format(reservation.start_time, 'HH:mm')
       : reservation.start_time,
-    end_time: reservation.end_time instanceof Date 
-      ? format(reservation.end_time, 'HH:mm') 
+    end_time: reservation.end_time instanceof Date
+      ? format(reservation.end_time, 'HH:mm')
       : reservation.end_time,
-    created_at: reservation.created_at instanceof Date 
-      ? reservation.created_at.toISOString() 
+    created_at: reservation.created_at instanceof Date
+      ? reservation.created_at.toISOString()
       : reservation.created_at,
-    updated_at: reservation.updated_at instanceof Date 
-      ? reservation.updated_at.toISOString() 
+    updated_at: reservation.updated_at instanceof Date
+      ? reservation.updated_at.toISOString()
       : reservation.updated_at,
-    confirmed_at: reservation.confirmed_at instanceof Date 
-      ? reservation.confirmed_at.toISOString() 
+    confirmed_at: reservation.confirmed_at instanceof Date
+      ? reservation.confirmed_at.toISOString()
       : reservation.confirmed_at,
-    completed_at: reservation.completed_at instanceof Date 
-      ? reservation.completed_at.toISOString() 
+    completed_at: reservation.completed_at instanceof Date
+      ? reservation.completed_at.toISOString()
       : reservation.completed_at,
-    cancelled_at: reservation.cancelled_at instanceof Date 
-      ? reservation.cancelled_at.toISOString() 
+    cancelled_at: reservation.cancelled_at instanceof Date
+      ? reservation.cancelled_at.toISOString()
       : reservation.cancelled_at,
     // Transform package data if present
     package: reservation.package ? {
@@ -236,8 +236,8 @@ function transformReservationForClient(reservation: any) {
       ...addon,
       unit_price: Number(addon.unit_price),
       total_price: Number(addon.total_price),
-      created_at: addon.created_at instanceof Date 
-        ? addon.created_at.toISOString() 
+      created_at: addon.created_at instanceof Date
+        ? addon.created_at.toISOString()
         : addon.created_at
     })) || []
   }
@@ -272,7 +272,7 @@ export async function getPaginatedReservationsAction(
 
     // Build where conditions
     const where: any = {}
-    
+
     // Studio filter - CS users can only see their studio
     if (currentProfile.role === 'cs') {
       where.studio_id = currentProfile.studio_id
@@ -451,8 +451,8 @@ export async function createManualReservationAction(data: CreateReservationData)
         guest_phone: data.customer_phone,
         is_guest_booking: data.is_guest_booking || true,
         status: 'confirmed', // Manual bookings are auto-confirmed
-        payment_status: data.payment_status === 'completed' ? 'paid' : 
-                        data.payment_status === 'partial' ? 'partial' : 'pending',
+        payment_status: data.payment_status === 'completed' ? 'paid' :
+          data.payment_status === 'partial' ? 'partial' : 'pending',
         discount_id: data.discount_id
       }
     })
@@ -842,10 +842,10 @@ export async function updateReservationStatusAction(
     }
 
     // Update payment status to cancelled if reservation is being cancelled
-    if (status === 'cancelled') {
+    if (status === 'cancelled' && currentReservation.status == 'pending') {
       try {
         await prisma.payment.updateMany({
-          where: { 
+          where: {
             reservation_id: reservationId,
             status: {
               in: ['pending', 'partial', 'paid'] // Only update non-failed payments

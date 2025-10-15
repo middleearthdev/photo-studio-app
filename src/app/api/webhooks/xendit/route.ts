@@ -336,13 +336,13 @@ export async function POST(req: NextRequest) {
     }
 
     // Update payment status based on Xendit status
-    let paymentStatus: 'pending' | 'completed' | 'failed' | 'partial' = 'pending'
+    let paymentStatus: 'pending' | 'paid' | 'failed' | 'partial' = 'pending'
     let paidAt: string | null = null
 
     switch (status.toUpperCase()) {
       case 'PAID':
       case 'SETTLED':
-        paymentStatus = 'completed'
+        paymentStatus = 'paid'
         paidAt = callbackData.updated || new Date().toISOString()
         break
       case 'EXPIRED':

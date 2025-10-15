@@ -1330,7 +1330,7 @@ export default function ReservationsPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Hapus Booking</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogDescription asChild>
               <div className="space-y-2">
                 <p className="font-semibold text-red-600">⚠️ PERINGATAN: Aksi ini tidak dapat dibatalkan!</p>
                 <p>
@@ -1371,7 +1371,7 @@ export default function ReservationsPage() {
             <AlertDialogTitle>
               Ubah Status Booking
             </AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogDescription asChild>
               {statusChangeData && (
                 <div className="space-y-2">
                   <p>

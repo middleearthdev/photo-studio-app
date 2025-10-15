@@ -12,22 +12,15 @@ import {
 } from "@/components/ui/select"
 import { 
   Calendar,
-  Users,
-  Camera,
-  TrendingUp,
-  RefreshCw,
-  BarChart3,
-  Settings,
   FileText,
-  Package,
+  RefreshCw,
   AlertTriangle
 } from "lucide-react"
 import Link from "next/link"
 import { useStudios } from "@/hooks/use-studios"
-import { DashboardStatsCards, HighlightStats } from "../_components/dashboard-stats"
 import { RecentBookings } from "../_components/dashboard-recent-bookings"
 import { PendingActions } from "../_components/dashboard-pending-actions"
-import { DashboardAnalytics } from "../_components/dashboard-analytics"
+import { LatestPayments } from "../_components/dashboard-latest-payments"
 
 export default function AdminDashboard() {
   const [selectedStudioId, setSelectedStudioId] = useState<string>('')
@@ -121,173 +114,18 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* Highlight Stats */}
-      <HighlightStats studioId={selectedStudioId} />
-
-      {/* Main Stats Cards */}
-      <DashboardStatsCards studioId={selectedStudioId} />
-
-      {/* Main Content Grid */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
+      {/* Main Content Grid - 3 sections only */}
+      <div className="grid gap-6 lg:grid-cols-3">
         {/* Recent Bookings */}
         <RecentBookings studioId={selectedStudioId} />
 
         {/* Pending Actions */}
         <PendingActions studioId={selectedStudioId} />
+
+        {/* Latest Payments */}
+        <LatestPayments studioId={selectedStudioId} />
       </div>
 
-      {/* Quick Actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Settings className="h-5 w-5" />
-            Aksi Cepat
-          </CardTitle>
-          <CardDescription>
-            Tugas manajemen umum untuk studio Anda
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Link href="/admin/reservations/calendar">
-              <Card className="hover:shadow-md transition-shadow cursor-pointer group">
-                <CardContent className="pt-6">
-                  <div className="text-center">
-                    <Calendar className="h-8 w-8 mx-auto text-blue-600 group-hover:scale-110 transition-transform" />
-                    <CardTitle className="text-lg mt-3">Lihat Kalender</CardTitle>
-                    <CardDescription className="mt-2">
-                      Lihat semua reservasi dalam tampilan kalender
-                    </CardDescription>
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-            
-            <Link href="/admin/customers">
-              <Card className="hover:shadow-md transition-shadow cursor-pointer group">
-                <CardContent className="pt-6">
-                  <div className="text-center">
-                    <Users className="h-8 w-8 mx-auto text-green-600 group-hover:scale-110 transition-transform" />
-                    <CardTitle className="text-lg mt-3">Kelola Customer</CardTitle>
-                    <CardDescription className="mt-2">
-                      Lihat dan kelola profil customer
-                    </CardDescription>
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-
-            <Link href="/admin/packages">
-              <Card className="hover:shadow-md transition-shadow cursor-pointer group">
-                <CardContent className="pt-6">
-                  <div className="text-center">
-                    <Package className="h-8 w-8 mx-auto text-purple-600 group-hover:scale-110 transition-transform" />
-                    <CardTitle className="text-lg mt-3">Paket Foto</CardTitle>
-                    <CardDescription className="mt-2">
-                      Kelola paket dan harga
-                    </CardDescription>
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-
-            <Link href="/admin/analytics">
-              <Card className="hover:shadow-md transition-shadow cursor-pointer group">
-                <CardContent className="pt-6">
-                  <div className="text-center">
-                    <BarChart3 className="h-8 w-8 mx-auto text-orange-600 group-hover:scale-110 transition-transform" />
-                    <CardTitle className="text-lg mt-3">Analitik Lanjutan</CardTitle>
-                    <CardDescription className="mt-2">
-                      Lihat wawasan kinerja detail
-                    </CardDescription>
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Advanced Analytics */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <BarChart3 className="h-5 w-5" />
-            Analitik Lanjutan & Data Real-time
-          </CardTitle>
-          <CardDescription>
-            Metrik kinerja detail dan pembaruan dashboard langsung
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <DashboardAnalytics studioId={selectedStudioId} />
-        </CardContent>
-      </Card>
-
-      {/* Studio Information */}
-      {selectedStudio && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Camera className="h-5 w-5" />
-              Informasi Studio
-            </CardTitle>
-            <CardDescription>
-              Informasi dasar tentang {selectedStudio.name}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-muted-foreground">Nama Studio</p>
-                <p className="text-lg font-semibold">{selectedStudio.name}</p>
-              </div>
-              
-              {selectedStudio.address && (
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-muted-foreground">Alamat</p>
-                  <p className="text-sm">{selectedStudio.address}</p>
-                </div>
-              )}
-              
-              {selectedStudio.phone && (
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-muted-foreground">Telepon</p>
-                  <p className="text-sm font-mono">{selectedStudio.phone}</p>
-                </div>
-              )}
-              
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-muted-foreground">Status</p>
-                <div className="flex items-center gap-2">
-                  <div className={`w-2 h-2 rounded-full ${
-                    selectedStudio.is_active ? 'bg-green-500' : 'bg-red-500'
-                  }`} />
-                  <p className="text-sm">{selectedStudio.is_active ? 'Aktif' : 'Tidak Aktif'}</p>
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-muted-foreground">Dibuat</p>
-                <p className="text-sm">{new Date(selectedStudio.created_at).toLocaleDateString('id-ID')}</p>
-              </div>
-            </div>
-            
-            <div className="flex gap-2 mt-6">
-              <Button variant="outline" size="sm" asChild>
-                <Link href="/admin/studio">
-                  Edit Detail Studio
-                </Link>
-              </Button>
-              <Button variant="outline" size="sm" asChild>
-                <Link href="/admin/facilities">
-                  Kelola Fasilitas
-                </Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   )
 }

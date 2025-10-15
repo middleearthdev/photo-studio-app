@@ -135,8 +135,10 @@ export async function getPaginatedCustomers(
     const reservations = customer.reservations || []
     const completedReservations = reservations.filter((r) => r.status === 'completed')
     
+    const {reservations: _, ...customerWithoutReservations} = customer
+    
     return {
-      ...customer,
+      ...customerWithoutReservations,
       created_at: customer.created_at?.toISOString() || '',
       updated_at: customer.updated_at?.toISOString() || '',
       birth_date: customer.birth_date?.toISOString() || null,
@@ -191,8 +193,10 @@ export async function getCustomerById(id: string): Promise<Customer | null> {
   const reservations = customer.reservations || []
   const completedReservations = reservations.filter((r) => r.status === 'completed')
   
+  const {reservations: _, ...customerWithoutReservations} = customer
+  
   return {
-    ...customer,
+    ...customerWithoutReservations,
     created_at: customer.created_at?.toISOString() || '',
     updated_at: customer.updated_at?.toISOString() || '',
     birth_date: customer.birth_date?.toISOString() || null,
@@ -388,6 +392,7 @@ export async function getCustomerReservations(customerId: string) {
   
   return reservations.map(reservation => ({
     ...reservation,
+    total_amount: Number(reservation.total_amount || 0),
     reservation_date: reservation.reservation_date.toISOString(),
     start_time: reservation.start_time.toISOString(),
     end_time: reservation.end_time.toISOString(),
@@ -398,6 +403,7 @@ export async function getCustomerReservations(customerId: string) {
     updated_at: reservation.updated_at?.toISOString() || '',
     payments: reservation.payments.map(payment => ({
       ...payment,
+      amount: Number(payment.amount || 0),
       paid_at: payment.paid_at?.toISOString() || null
     }))
   }))

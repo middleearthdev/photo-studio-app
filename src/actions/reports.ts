@@ -5,6 +5,10 @@ import { type ReportData, reportTemplates } from '@/types/reports'
 
 export async function generateRevenueReport(studioId: string, dateFrom: string, dateTo: string) {
   try {
+    // Validate inputs
+    if (!studioId || !dateFrom || !dateTo) {
+      throw new Error('Missing required parameters: studioId, dateFrom, dateTo')
+    }
     // Get detailed revenue data with customer and package information
     const reservations = await prisma.reservation.findMany({
       where: {
@@ -70,7 +74,7 @@ export async function generateRevenueReport(studioId: string, dateFrom: string, 
         avgRevenue: 0,
         packages: new Set()
       }
-      existing.revenue += Number(reservation.total_amount)
+      existing.revenue += Number(reservation.total_amount || 0)
       existing.bookings += 1
       existing.avgRevenue = existing.revenue / existing.bookings
       if (reservation.package?.name) {
@@ -90,7 +94,7 @@ export async function generateRevenueReport(studioId: string, dateFrom: string, 
           paymentMethods.set(methodName, { amount: 0, count: 0, type: methodType })
         }
         const existing = paymentMethods.get(methodName)
-        existing.amount += Number(payment.amount)
+        existing.amount += Number(payment.amount || 0)
         existing.count += 1
       })
     })
@@ -105,12 +109,12 @@ export async function generateRevenueReport(studioId: string, dateFrom: string, 
             bookings: 0, 
             revenue: 0, 
             avgPrice: 0,
-            basePrice: Number(reservation.package.price) || 0
+            basePrice: Number(reservation.package.price || 0)
           })
         }
         const existing = packageStats.get(packageName)
         existing.bookings += 1
-        existing.revenue += Number(reservation.total_amount)
+        existing.revenue += Number(reservation.total_amount || 0)
         existing.avgPrice = existing.revenue / existing.bookings
       }
     })
@@ -128,7 +132,7 @@ export async function generateRevenueReport(studioId: string, dateFrom: string, 
       const paymentInfo = reservation.payments?.length > 0
         ? reservation.payments.map((p) => ({
             method: p.payment_method?.name || 'Unknown',
-            amount: Number(p.amount),
+            amount: Number(p.amount || 0),
             status: p.status,
             date: p.created_at?.toISOString() || null
           }))
@@ -146,25 +150,43 @@ export async function generateRevenueReport(studioId: string, dateFrom: string, 
           facilitiesCount = Array.isArray(facilities) ? facilities.length : 0
         }
       } catch (e) {
-        console.error('Error parsing facilities:', e)
+        console.error('Error parsing facilities for reservation:', reservation.id, e)
+        facilitiesCount = 0
       }
 
       addonsCount = reservation.reservation_addons?.length || 0
 
       return {
-        ...reservation,
+        id: reservation.id,
+        booking_code: reservation.booking_code,
+        studio_id: reservation.studio_id,
+        status: reservation.status,
+        payment_status: reservation.payment_status,
+        notes: reservation.notes,
+        total_duration: reservation.total_duration,
         reservation_date: reservation.reservation_date.toISOString(),
         start_time: reservation.start_time.toISOString(),
         end_time: reservation.end_time.toISOString(),
         created_at: reservation.created_at?.toISOString() || '',
-        total_amount: Number(reservation.total_amount),
-        discount_amount: Number(reservation.discount_amount),
+        total_amount: Number(reservation.total_amount || 0),
+        discount_amount: Number(reservation.discount_amount || 0),
+        dp_amount: Number(reservation.dp_amount || 0),
+        remaining_amount: Number(reservation.remaining_amount || 0),
+        subtotal: Number(reservation.subtotal || 0),
+        tax_amount: Number(reservation.tax_amount || 0),
+        facility_addon_total: Number(reservation.facility_addon_total || 0),
+        other_addon_total: Number(reservation.other_addon_total || 0),
+        package_price: Number(reservation.package_price || 0),
         customerName,
         customerContact,
         packageName: reservation.package?.name || 'No Package',
+        packagePrice: Number(reservation.package?.price || 0),
         paymentInfo,
         facilitiesCount,
-        addonsCount
+        addonsCount,
+        is_guest_booking: reservation.is_guest_booking,
+        guest_email: reservation.guest_email,
+        guest_phone: reservation.guest_phone
       }
     })
 
@@ -197,6 +219,10 @@ export async function generateRevenueReport(studioId: string, dateFrom: string, 
 
 export async function generateBookingReport(studioId: string, dateFrom: string, dateTo: string) {
   try {
+    // Validate inputs
+    if (!studioId || !dateFrom || !dateTo) {
+      throw new Error('Missing required parameters: studioId, dateFrom, dateTo')
+    }
     // Get comprehensive booking data with all related information
     const reservations = await prisma.reservation.findMany({
       where: {
@@ -260,7 +286,10 @@ export async function generateBookingReport(studioId: string, dateFrom: string, 
 
     const facilityMap = new Map()
     facilities.forEach(facility => {
-      facilityMap.set(facility.id, facility)
+      facilityMap.set(facility.id, {
+        ...facility,
+        hourly_rate: Number(facility.hourly_rate || 0)
+      })
     })
 
     // Enhanced status breakdown with revenue per status
@@ -272,7 +301,7 @@ export async function generateBookingReport(studioId: string, dateFrom: string, 
       }
       const existing = statusBreakdown.get(status)
       existing.count += 1
-      existing.revenue += Number(reservation.total_amount)
+      existing.revenue += Number(reservation.total_amount || 0)
       existing.avgRevenue = existing.revenue / existing.count
     })
 
@@ -290,7 +319,7 @@ export async function generateBookingReport(studioId: string, dateFrom: string, 
       }
       const timeSlotData = timeSlots.get(timeSlot)
       timeSlotData.count += 1
-      timeSlotData.revenue += Number(reservation.total_amount)
+      timeSlotData.revenue += Number(reservation.total_amount || 0)
       timeSlotData.avgRevenue = timeSlotData.revenue / timeSlotData.count
 
       // Day of week analysis
@@ -299,7 +328,7 @@ export async function generateBookingReport(studioId: string, dateFrom: string, 
       }
       const dayData = dayOfWeekStats.get(dayOfWeek)
       dayData.count += 1
-      dayData.revenue += Number(reservation.total_amount)
+      dayData.revenue += Number(reservation.total_amount || 0)
       dayData.avgRevenue = dayData.revenue / dayData.count
     })
 
@@ -323,17 +352,17 @@ export async function generateBookingReport(studioId: string, dateFrom: string, 
                   revenue: 0, 
                   avgRevenue: 0,
                   facilityId,
-                  hourlyRate: Number(facilityInfo?.hourly_rate) || 0
+                  hourlyRate: facilityInfo?.hourly_rate || 0
                 })
               }
               const existing = facilityUsage.get(facilityName)
               existing.count += 1
-              existing.revenue += Number(reservation.total_amount)
+              existing.revenue += Number(reservation.total_amount || 0)
               existing.avgRevenue = existing.revenue / existing.count
             })
           }
         } catch (e) {
-          console.error('Error parsing facilities:', e)
+          console.error('Error parsing facilities for reservation:', reservation.id, e)
         }
       }
     })
@@ -347,7 +376,7 @@ export async function generateBookingReport(studioId: string, dateFrom: string, 
       }
       const existing = customerTypes.get(type)
       existing.count += 1
-      existing.revenue += Number(reservation.total_amount)
+      existing.revenue += Number(reservation.total_amount || 0)
       existing.avgRevenue = existing.revenue / existing.count
     })
 
@@ -360,7 +389,7 @@ export async function generateBookingReport(studioId: string, dateFrom: string, 
       }
       const existing = paymentStatusStats.get(paymentStatus)
       existing.count += 1
-      existing.revenue += Number(reservation.total_amount)
+      existing.revenue += Number(reservation.total_amount || 0)
       existing.avgRevenue = existing.revenue / existing.count
     })
 
@@ -394,27 +423,41 @@ export async function generateBookingReport(studioId: string, dateFrom: string, 
       const paymentInfo = reservation.payments?.length > 0
         ? reservation.payments.map((p) => ({
             method: p.payment_method?.name || 'Unknown',
-            amount: Number(p.amount),
+            amount: Number(p.amount || 0),
             status: p.status,
             date: p.created_at?.toISOString() || null
           }))
         : [{ method: 'Belum Bayar', amount: 0, status: 'pending', date: null }]
 
-      const totalPaid = reservation.payments?.reduce((sum, p) => sum + Number(p.amount), 0) || 0
-      const remainingAmount = Number(reservation.total_amount) - totalPaid
+      const totalPaid = reservation.payments?.reduce((sum, p) => sum + Number(p.amount || 0), 0) || 0
+      const remainingAmount = Number(reservation.total_amount || 0) - totalPaid
 
       return {
-        ...reservation,
+        id: reservation.id,
+        booking_code: reservation.booking_code,
+        studio_id: reservation.studio_id,
+        status: reservation.status,
+        payment_status: reservation.payment_status,
+        notes: reservation.notes,
+        total_duration: reservation.total_duration,
         reservation_date: reservation.reservation_date.toISOString(),
         start_time: reservation.start_time.toISOString(),
         end_time: reservation.end_time.toISOString(),
         created_at: reservation.created_at?.toISOString() || '',
-        total_amount: Number(reservation.total_amount),
-        discount_amount: Number(reservation.discount_amount),
+        total_amount: Number(reservation.total_amount || 0),
+        discount_amount: Number(reservation.discount_amount || 0),
+        dp_amount: Number(reservation.dp_amount || 0),
+        remaining_amount: Number(reservation.remaining_amount || 0),
+        subtotal: Number(reservation.subtotal || 0),
+        tax_amount: Number(reservation.tax_amount || 0),
+        facility_addon_total: Number(reservation.facility_addon_total || 0),
+        other_addon_total: Number(reservation.other_addon_total || 0),
+        package_price: Number(reservation.package_price || 0),
         customerName,
         customerContact,
         customerType,
         packageName: reservation.package?.name || 'No Package',
+        packagePrice: Number(reservation.package?.price || 0),
         facilityNames,
         facilitiesCount: selectedFacilities.length,
         addonsCount: reservation.reservation_addons?.length || 0,
@@ -423,7 +466,10 @@ export async function generateBookingReport(studioId: string, dateFrom: string, 
         remainingAmount,
         isFullyPaid: remainingAmount <= 0,
         dayOfWeek: new Date(reservation.reservation_date).toLocaleDateString('id-ID', { weekday: 'long' }),
-        timeSlot: `${reservation.start_time.toISOString().split('T')[1].substring(0, 5)}-${reservation.end_time.toISOString().split('T')[1].substring(0, 5)}`
+        timeSlot: `${reservation.start_time.toISOString().split('T')[1].substring(0, 5)}-${reservation.end_time.toISOString().split('T')[1].substring(0, 5)}`,
+        is_guest_booking: reservation.is_guest_booking,
+        guest_email: reservation.guest_email,
+        guest_phone: reservation.guest_phone
       }
     })
 
@@ -470,6 +516,22 @@ export async function generateReport(
   dateTo: string,
   reportName: string
 ): Promise<ReportData> {
+  // Validate inputs
+  if (!templateId || !studioId || !dateFrom || !dateTo || !reportName) {
+    throw new Error('Missing required parameters for report generation')
+  }
+
+  // Validate date format
+  const fromDate = new Date(dateFrom)
+  const toDate = new Date(dateTo)
+  if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
+    throw new Error('Invalid date format. Please use YYYY-MM-DD format.')
+  }
+
+  if (fromDate > toDate) {
+    throw new Error('Start date cannot be after end date')
+  }
+
   let data: any = {}
 
   switch (templateId) {
