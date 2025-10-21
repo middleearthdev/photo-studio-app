@@ -33,7 +33,7 @@ export function MobileNav({ currentPath = '/' }: MobileNavProps) {
           variant="outline"
           size="sm"
           onClick={toggleMenu}
-          className="relative z-50 border-[#00052e]/20 hover:bg-[#00052e]/10 rounded-full"
+          className="relative z-50 border-[#346754]/20 hover:bg-[#346754]/10 rounded-full"
         >
           <AnimatePresence mode="wait" initial={false}>
             {isOpen ? (
@@ -44,7 +44,7 @@ export function MobileNav({ currentPath = '/' }: MobileNavProps) {
                 exit={{ rotate: 90, opacity: 0 }}
                 transition={{ duration: 0.2 }}
               >
-                <X className="h-4 w-4 text-[#00052e]" />
+                <X className="h-4 w-4 text-[#346754]" />
               </motion.div>
             ) : (
               <motion.div
@@ -54,7 +54,7 @@ export function MobileNav({ currentPath = '/' }: MobileNavProps) {
                 exit={{ rotate: -90, opacity: 0 }}
                 transition={{ duration: 0.2 }}
               >
-                <Menu className="h-4 w-4 text-[#00052e]" />
+                <Menu className="h-4 w-4 text-[#346754]" />
               </motion.div>
             )}
           </AnimatePresence>
@@ -93,10 +93,10 @@ export function MobileNav({ currentPath = '/' }: MobileNavProps) {
                     height={32}
                     className="rounded-full"
                   />
-                  <span className="text-lg font-bold text-[#00052e]">Kalarasa Studio</span>
+                  <span className="text-lg font-bold text-[#346754]">Kalarasa Studio</span>
                 </div>
                 <Button variant="ghost" size="sm" onClick={closeMenu} className="hover:bg-slate-100 rounded-full">
-                  <X className="h-5 w-5 text-[#00052e]" />
+                  <X className="h-5 w-5 text-[#346754]" />
                 </Button>
               </div>
 
@@ -117,8 +117,8 @@ export function MobileNav({ currentPath = '/' }: MobileNavProps) {
                         href={item.href}
                         onClick={closeMenu}
                         className={`flex items-center space-x-3 p-3 rounded-lg transition-all duration-300 ${isActive
-                            ? 'bg-[#00052e] text-white shadow-md'
-                            : 'text-slate-700 hover:bg-[#00052e]/10'
+                            ? 'bg-[#346754] text-white shadow-md'
+                            : 'text-slate-700 hover:bg-[#346754]/10'
                           }`}
                       >
                         <Icon className="h-5 w-5" />
@@ -130,7 +130,7 @@ export function MobileNav({ currentPath = '/' }: MobileNavProps) {
               </div>
 
               {/* CTA Section */}
-              <div className="absolute bottom-0 left-0 right-0 p-6 border-t border-slate-200 bg-gradient-to-r from-[#00052e] to-[#b0834d]">
+              <div className="absolute bottom-0 left-0 right-0 p-6 border-t border-slate-200 bg-gradient-to-r from-[#346754] to-[#b0834d]">
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -141,7 +141,7 @@ export function MobileNav({ currentPath = '/' }: MobileNavProps) {
                     Hubungi kami untuk konsultasi gratis
                   </p>
                   <Button
-                    className="w-full bg-white text-[#00052e] hover:bg-white/90 rounded-full shadow-lg"
+                    className="w-full bg-white text-[#346754] hover:bg-white/90 rounded-full shadow-lg"
                     onClick={closeMenu}
                   >
                     <Camera className="h-4 w-4 mr-2" />

@@ -23,15 +23,15 @@ export function Navbar({ currentPath = '/' }: NavbarProps) {
               height={40}
               className="rounded-full"
             />
-            <span className="text-xl font-bold text-[#00052e]">Kalarasa Studio</span>
+            <span className="text-xl font-bold text-[#346754]">Kalarasa Studio</span>
           </Link>
 
           <div className="hidden md:flex items-center space-x-8">
             <Link
               href="/"
               className={`transition-colors font-medium ${isActive('/')
-                ? 'text-[#00052e] hover:text-[#b0834d]'
-                : 'text-slate-600 hover:text-[#00052e]'
+                ? 'text-[#346754] hover:text-[#b0834d]'
+                : 'text-slate-600 hover:text-[#346754]'
                 }`}
             >
               Beranda
@@ -39,8 +39,8 @@ export function Navbar({ currentPath = '/' }: NavbarProps) {
             <Link
               href="/packages"
               className={`transition-colors ${isActive('/packages')
-                ? 'text-[#00052e] hover:text-[#b0834d] font-medium'
-                : 'text-slate-600 hover:text-[#00052e]'
+                ? 'text-[#346754] hover:text-[#b0834d] font-medium'
+                : 'text-slate-600 hover:text-[#346754]'
                 }`}
             >
               Paket Foto
@@ -48,20 +48,20 @@ export function Navbar({ currentPath = '/' }: NavbarProps) {
             <Link
               href="/portfolio"
               className={`transition-colors ${isActive('/portfolio')
-                ? 'text-[#00052e] hover:text-[#b0834d] font-medium'
-                : 'text-slate-600 hover:text-[#00052e]'
+                ? 'text-[#346754] hover:text-[#b0834d] font-medium'
+                : 'text-slate-600 hover:text-[#346754]'
                 }`}
             >
               Portfolio
             </Link>
             <Link
               href="/#services"
-              className="text-slate-600 hover:text-[#00052e] transition-colors"
+              className="text-slate-600 hover:text-[#346754] transition-colors"
             >
               Layanan
             </Link>
             <Link href="/packages">
-              <Button className="bg-[#00052e] hover:bg-[#00052e]/90 text-white transition-all duration-300 shadow-md hover:shadow-lg">
+              <Button className="bg-[#346754] hover:bg-[#346754]/90 text-white transition-all duration-300 shadow-md hover:shadow-lg">
                 Booking Sekarang
               </Button>
             </Link>

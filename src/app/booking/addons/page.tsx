@@ -105,7 +105,7 @@ function AddonsPageContent() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00052e] mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#346754] mx-auto mb-4"></div>
           <p className="text-slate-600">Memuat add-ons...</p>
         </div>
       </div>
@@ -175,7 +175,7 @@ function AddonsPageContent() {
   const selectedTimeSlotData = bookingData.timeSlot
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50/30 to-slate-100">
       {/* Header */}
       <div className="bg-white/80 backdrop-blur-sm border-b border-slate-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -191,8 +191,8 @@ function AddonsPageContent() {
                 Kembali
               </Button>
               <div className="text-sm text-slate-600">
-                <Link href="/packages" className="hover:text-[#00052e]">Paket</Link> /
-                <Link href={`/packages/${packageId}`} className="hover:text-[#00052e] mx-1">{packageData.name}</Link> /
+                <Link href="/packages" className="hover:text-[#346754]">Paket</Link> /
+                <Link href={`/packages/${packageId}`} className="hover:text-[#346754] mx-1">{packageData.name}</Link> /
                 Add-ons
               </div>
             </div>
@@ -205,7 +205,7 @@ function AddonsPageContent() {
               </div>
               <div className="w-8 h-px bg-slate-300"></div>
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-[#00052e] rounded-full flex items-center justify-center">
+                <div className="w-4 h-4 bg-[#346754] rounded-full flex items-center justify-center">
                   <div className="w-2 h-2 bg-white rounded-full"></div>
                 </div>
                 <span className="font-medium">Add-ons</span>
@@ -230,7 +230,7 @@ function AddonsPageContent() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
             >
-              <h1 className="text-lg sm:text-3xl font-bold text-[#00052e] mb-1 sm:mb-2">Pilih Add-ons</h1>
+              <h1 className="text-lg sm:text-3xl font-bold text-[#346754] mb-1 sm:mb-2">Pilih Add-ons</h1>
               <p className="text-xs sm:text-base text-slate-600">
                 Tingkatkan pengalaman foto Anda dengan add-ons premium kami (opsional)
               </p>
@@ -253,7 +253,7 @@ function AddonsPageContent() {
                       key={category.id}
                       onClick={() => setActiveCategory(category.id)}
                       className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg font-medium transition-all duration-200 text-xs sm:text-sm ${isActive
-                        ? 'bg-[#00052e] text-white shadow-lg'
+                        ? 'bg-[#346754] text-white shadow-lg'
                         : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
                         }`}
                     >
@@ -298,13 +298,13 @@ function AddonsPageContent() {
                 const isSelected = quantity > 0
 
                 return (
-                  <Card key={addon.id} className={`h-full flex flex-col transition-all duration-200 ${isSelected ? 'ring-2 ring-[#00052e] bg-[#00052e]/5' : 'hover:shadow-lg bg-white'
+                  <Card key={addon.id} className={`h-full flex flex-col transition-all duration-200 ${isSelected ? 'ring-2 ring-[#346754] bg-[#346754]/5' : 'hover:shadow-lg bg-white'
                     }`}>
                     <CardHeader className="pb-2 sm:pb-3 flex-grow">
                       <div className="flex flex-col space-y-2">
                         {/* Header with icon and status */}
                         <div className="flex items-start justify-between">
-                          <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${isSelected ? 'bg-[#00052e] text-white' : 'bg-slate-100 text-slate-600'
+                          <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${isSelected ? 'bg-[#346754] text-white' : 'bg-slate-100 text-slate-600'
                             }`}>
                             <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
                           </div>
@@ -315,7 +315,7 @@ function AddonsPageContent() {
                         
                         {/* Title and badges */}
                         <div className="space-y-1">
-                          <CardTitle className="text-xs sm:text-sm text-[#00052e] leading-tight line-clamp-2">
+                          <CardTitle className="text-xs sm:text-sm text-[#346754] leading-tight line-clamp-2">
                             {addon.name}
                           </CardTitle>
                           <div className="flex flex-wrap gap-1">
@@ -370,7 +370,7 @@ function AddonsPageContent() {
                             <Minus className="h-3 w-3 sm:h-4 sm:w-4" />
                           </Button>
 
-                          <span className="w-6 sm:w-8 text-center font-bold text-xs sm:text-sm text-[#00052e]">{quantity}</span>
+                          <span className="w-6 sm:w-8 text-center font-bold text-xs sm:text-sm text-[#346754]">{quantity}</span>
 
                           <Button
                             variant="outline"
@@ -413,7 +413,7 @@ function AddonsPageContent() {
             >
               <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-xl">
                 <CardHeader>
-                  <CardTitle className="text-sm sm:text-xl text-[#00052e]">Ringkasan Booking</CardTitle>
+                  <CardTitle className="text-sm sm:text-xl text-[#346754]">Ringkasan Booking</CardTitle>
                 </CardHeader>
 
                 <CardContent className="space-y-4">
@@ -454,7 +454,7 @@ function AddonsPageContent() {
                   {/* Selected Add-ons */}
                   {getSelectedAddonsCount() > 0 && (
                     <div className="border-t pt-4 space-y-2">
-                      <h4 className="font-semibold text-[#00052e] mb-2 sm:mb-3 text-xs sm:text-base">Add-ons Terpilih</h4>
+                      <h4 className="font-semibold text-[#346754] mb-2 sm:mb-3 text-xs sm:text-base">Add-ons Terpilih</h4>
                       {Object.entries(selectedAddons).map(([addonId, quantity]) => {
                         const addon = Object.values(addonsGrouped).flat().find(a => a.id === addonId)
                         if (!addon || quantity === 0) return null
@@ -505,7 +505,7 @@ function AddonsPageContent() {
                   </Button>
                   <Button
                     onClick={handleContinueBooking}
-                    className="flex-1 bg-gradient-to-r from-[#00052e] to-[#b0834d] hover:from-[#00052e]/90 hover:to-[#b0834d]/90 text-xs sm:text-base py-2 sm:py-3"
+                    className="flex-1 bg-gradient-to-r from-[#346754] to-[#b0834d] hover:from-[#346754]/90 hover:to-[#b0834d]/90 text-xs sm:text-base py-2 sm:py-3"
                   >
                     Lanjutkan
                     <ArrowRight className="h-3 w-3 sm:h-4 sm:w-4 ml-1 sm:ml-2" />
@@ -528,7 +528,7 @@ export default function AddonsPage() {
     <Suspense fallback={
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00052e] mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#346754] mx-auto mb-4"></div>
           <p className="text-slate-600">Memuat halaman add-ons...</p>
         </div>
       </div>

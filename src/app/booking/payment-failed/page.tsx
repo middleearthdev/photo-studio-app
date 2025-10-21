@@ -30,7 +30,7 @@ export default function PaymentFailedPage() {
             <div className="w-12 h-12 sm:w-16 sm:h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
               <XCircle className="h-6 w-6 sm:h-8 sm:w-8 text-red-600" />
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-[#00052e] mb-1 sm:mb-2">Pembayaran Gagal</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-[#346754] mb-1 sm:mb-2">Pembayaran Gagal</h1>
             <p className="text-xs sm:text-base text-slate-600">
               Pembayaran Anda tidak berhasil diproses
             </p>
@@ -55,7 +55,7 @@ export default function PaymentFailedPage() {
                 <div className="space-y-2 sm:space-y-3">
                   <Button
                     onClick={() => router.push('/packages')}
-                    className="w-full bg-gradient-to-r from-[#00052e] to-[#b0834d] hover:from-[#00052e]/90 hover:to-[#b0834d]/90 text-xs sm:text-sm py-2 sm:py-3"
+                    className="w-full bg-gradient-to-r from-[#346754] to-[#b0834d] hover:from-[#346754]/90 hover:to-[#b0834d]/90 text-xs sm:text-sm py-2 sm:py-3"
                   >
                     <Home className="h-4 w-4 sm:h-5 sm:w-5 mr-1.5 sm:mr-2" />
                     Kembali ke Beranda
@@ -64,7 +64,7 @@ export default function PaymentFailedPage() {
                   <Button
                     variant="outline"
                     onClick={() => router.back()}
-                    className="w-full text-xs sm:text-sm py-2 sm:py-3 border-[#00052e]/30 text-[#00052e] hover:bg-[#00052e]/10"
+                    className="w-full text-xs sm:text-sm py-2 sm:py-3 border-[#346754]/30 text-[#346754] hover:bg-[#346754]/10"
                   >
                     <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5 mr-1.5 sm:mr-2" />
                     Coba Pembayaran Lagi

@@ -334,7 +334,7 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50/30 to-slate-100">
       {/* Navigation */}
       <nav className="fixed top-0 w-full z-50 bg-white/90 backdrop-blur-md border-b border-slate-200/20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -347,27 +347,27 @@ export default function Home() {
                 height={40}
                 className="rounded-full"
               />
-              <span className="text-xl font-bold text-[#00052e]">Kalarasa Studio</span>
+              <span className="text-xl font-bold text-[#346754]">Kalarasa Studio</span>
             </div>
 
             <div className="hidden md:flex items-center space-x-8">
-              <Link href="/" className="text-[#00052e] hover:text-[#b0834d] transition-colors font-medium">
+              <Link href="/" className="text-[#346754] hover:text-[#b0834d] transition-colors font-medium">
                 Beranda
               </Link>
-              <Link href="/packages" className="text-slate-600 hover:text-[#00052e] transition-colors">
+              <Link href="/packages" className="text-slate-600 hover:text-[#346754] transition-colors">
                 Paket Foto
               </Link>
-              <Link href="/portfolio" className="text-slate-600 hover:text-[#00052e] transition-colors">
+              <Link href="/portfolio" className="text-slate-600 hover:text-[#346754] transition-colors">
                 Portfolio
               </Link>
-              <Link href="#services" className="text-slate-600 hover:text-[#00052e] transition-colors">
+              <Link href="#services" className="text-slate-600 hover:text-[#346754] transition-colors">
                 Layanan
               </Link>
-              <Link href="#contact" className="text-slate-600 hover:text-[#00052e] transition-colors">
+              <Link href="#contact" className="text-slate-600 hover:text-[#346754] transition-colors">
                 Kontak
               </Link>
               <Link href="/packages">
-                <Button className="bg-[#00052e] hover:bg-[#00052e]/90 text-white transition-all duration-300 shadow-md hover:shadow-lg">
+                <Button className="bg-[#346754] hover:bg-[#346754]/90 text-white transition-all duration-300 shadow-md hover:shadow-lg">
                   Booking Sekarang
                 </Button>
               </Link>
@@ -388,7 +388,7 @@ export default function Home() {
 
       {/* Hero Section */}
       <section className="relative pt-6 pb-16 md:pb-24 overflow-hidden"> {/* Adjusted top padding for larger banner */}
-        <div className="absolute inset-0 bg-gradient-to-r from-[#00052e]/5 to-[#b0834d]/5"></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-[#346754]/5 to-[#b0834d]/5"></div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid lg:grid-cols-2 gap-12 items-center">
           <motion.div
@@ -402,7 +402,7 @@ export default function Home() {
               Studio Foto Terpercaya di Karawang
             </Badge>
 
-            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-[#00052e] mb-4 sm:mb-6 leading-tight">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-[#346754] mb-4 sm:mb-6 leading-tight">
               Abadikan Setiap
               <span className="text-[#b0834d] block">Momen Berharga</span>
             </h1>
@@ -413,7 +413,7 @@ export default function Home() {
 
             <div className="flex flex-col sm:flex-row gap-4 mb-8 justify-center lg:justify-start">
               <Link href="/packages">
-                <Button size="lg" className="bg-[#00052e] hover:bg-[#00052e]/90 text-white px-8 py-6 text-base rounded-full transition-all duration-300 shadow-lg hover:shadow-xl">
+                <Button size="lg" className="bg-[#346754] hover:bg-[#346754]/90 text-white px-8 py-6 text-base rounded-full transition-all duration-300 shadow-lg hover:shadow-xl">
                   <Camera className="h-5 w-5 mr-2" />
                   Lihat Paket Foto
                 </Button>
@@ -438,7 +438,7 @@ export default function Home() {
             transition={{ duration: 0.8, delay: 0.2 }}
             className="relative"
           >
-            <div className="relative h-[400px] md:h-[500px] rounded-3xl overflow-hidden bg-gradient-to-br from-[#00052e] to-[#b0834d] p-1 shadow-2xl">
+            <div className="relative h-[400px] md:h-[500px] rounded-3xl overflow-hidden bg-gradient-to-br from-[#346754] to-[#b0834d] p-1 shadow-2xl">
               <div className="w-full h-full bg-white rounded-3xl overflow-hidden relative">
                 <Image
                   src={heroImages[currentSlide]}
@@ -494,7 +494,7 @@ export default function Home() {
               <PackageIcon className="h-4 w-4 mr-1 inline" />
               Fasilitas Studio
             </Badge>
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#00052e] mb-6">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#346754] mb-6">
               Berbagai Pilihan Area dan Fasilitas
             </h2>
             <p className="text-lg md:text-xl text-slate-600 max-w-2xl mx-auto">
@@ -512,19 +512,19 @@ export default function Home() {
                 viewport={{ once: true }}
                 className="relative"
               >
-                <div className="relative rounded-2xl overflow-hidden shadow-2xl bg-gradient-to-br from-[#00052e] to-[#b0834d] p-1">
+                <div className="relative rounded-2xl overflow-hidden shadow-2xl bg-gradient-to-br from-[#346754] to-[#b0834d] p-1">
                   <div className="bg-white rounded-2xl p-8">
                     <div className="grid grid-cols-2 gap-6">
                       {facilities.map((facility, index) => {
                         const Icon = facility.icon;
                         // Define gradient based on the facility index for visual variety
                         const gradients = [
-                          'bg-gradient-to-br from-[#00052e] to-[#b0834d]',
-                          'bg-gradient-to-br from-[#b0834d] to-[#00052e]',
-                          'bg-gradient-to-br from-amber-500 to-orange-500',
-                          'bg-gradient-to-br from-emerald-500 to-teal-500',
-                          'bg-gradient-to-br from-rose-500 to-pink-500',
-                          'bg-gradient-to-br from-indigo-500 to-purple-500'
+                          'bg-gradient-to-br from-[#346754] to-[#b0834d]',
+                          'bg-gradient-to-br from-[#b0834d] to-[#346754]',
+                          'bg-gradient-to-br from-[#b8860b] to-[#daa520]',
+                          'bg-gradient-to-br from-[#346754] to-[#5a9a7a]',
+                          'bg-gradient-to-br from-[#8b7355] to-[#a0845c]',
+                          'bg-gradient-to-br from-[#2d5a4a] to-[#1e3a32]'
                         ];
                         const gradient = gradients[index % gradients.length];
                         
@@ -546,7 +546,7 @@ export default function Home() {
 
                 {/* Decorative elements */}
                 <div className="absolute -top-6 -left-6 w-24 h-24 border-4 border-[#b0834d] rounded-2xl opacity-30 rotate-12"></div>
-                <div className="absolute -bottom-6 -right-6 w-16 h-16 border-4 border-[#00052e] rounded-2xl opacity-30 -rotate-12"></div>
+                <div className="absolute -bottom-6 -right-6 w-16 h-16 border-4 border-[#346754] rounded-2xl opacity-30 -rotate-12"></div>
               </motion.div>
             </div>
 
@@ -566,11 +566,11 @@ export default function Home() {
                     >
                       <Card className="p-5 border-0 shadow-lg hover:shadow-2xl transition-all duration-300 rounded-2xl bg-gradient-to-r from-white to-slate-50 hover:from-[#b0834d]/5 group">
                         <div className="flex items-start">
-                          <div className="w-12 h-12 flex-shrink-0 bg-gradient-to-br from-[#00052e] to-[#b0834d] rounded-xl flex items-center justify-center mr-4 group-hover:scale-110 transition-transform duration-300">
+                          <div className="w-12 h-12 flex-shrink-0 bg-gradient-to-br from-[#346754] to-[#b0834d] rounded-xl flex items-center justify-center mr-4 group-hover:scale-110 transition-transform duration-300">
                             <Icon className="h-6 w-6 text-white" />
                           </div>
                           <div className="flex-grow">
-                            <h3 className="font-bold text-[#00052e] mb-1">{facility.title}</h3>
+                            <h3 className="font-bold text-[#346754] mb-1">{facility.title}</h3>
                             <p className="text-slate-600 text-sm">{facility.description}</p>
                           </div>
                           <div className="w-3 h-3 rounded-full bg-[#b0834d] self-center animate-pulse"></div>
@@ -585,7 +585,7 @@ export default function Home() {
 
           {/* Visual separator */}
           <div className="mt-16 flex items-center justify-center">
-            <div className="h-px bg-gradient-to-r from-transparent via-[#00052e] to-transparent w-full max-w-md"></div>
+            <div className="h-px bg-gradient-to-r from-transparent via-[#346754] to-transparent w-full max-w-md"></div>
           </div>
         </div>
       </section>
@@ -600,12 +600,12 @@ export default function Home() {
             className="text-center mb-16"
             viewport={{ once: true }}
           >
-            <Badge className="mb-4 bg-gradient-to-r from-amber-100 to-orange-100 text-amber-800 px-6 py-2 rounded-full text-sm font-medium">
+            <Badge className="mb-4 bg-gradient-to-r from-[#b8860b]/10 to-[#daa520]/10 text-amber-800 px-6 py-2 rounded-full text-sm font-medium">
               <Lightbulb className="h-4 w-4 mr-2 inline" />
               Pencahayaan Premium
             </Badge>
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#00052e] mb-6">
-              Solusi Pencahayaan <span className="bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent">Professional</span>
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#346754] mb-6">
+              Solusi Pencahayaan <span className="bg-gradient-to-r from-[#b8860b] to-[#daa520] bg-clip-text text-transparent">Professional</span>
             </h2>
             <p className="text-lg md:text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed">
               Kombinasi sempurna antara cahaya alami dan pencahayaan studio profesional untuk menghasilkan foto berkualitas tinggi dengan mood yang tepat
@@ -623,18 +623,18 @@ export default function Home() {
           >
             <div className="grid md:grid-cols-2 gap-4 max-w-4xl mx-auto">
               <div className="space-y-3">
-                <div className="w-12 h-12 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center mx-auto">
+                <div className="w-12 h-12 bg-gradient-to-br from-[#4a7c59] to-[#346754] rounded-full flex items-center justify-center mx-auto">
                   <Star className="h-6 w-6 text-white" />
                 </div>
-                <h4 className="font-semibold text-[#00052e]">Natural Light</h4>
+                <h4 className="font-semibold text-[#346754]">Natural Light</h4>
                 <p className="text-sm text-slate-600">Didukung cahaya alami dari jendela besar & skylight atap</p>
               </div>
 
               <div className="space-y-3">
-                <div className="w-12 h-12 bg-gradient-to-br from-rose-400 to-pink-500 rounded-full flex items-center justify-center mx-auto">
+                <div className="w-12 h-12 bg-gradient-to-br from-[#8b7355] to-[#a0845c] rounded-full flex items-center justify-center mx-auto">
                   <Award className="h-6 w-6 text-white" />
                 </div>
-                <h4 className="font-semibold text-[#00052e]">Studio Lighting</h4>
+                <h4 className="font-semibold text-[#346754]">Studio Lighting</h4>
                 <p className="text-sm text-slate-600">Tersedia 1 set standar lighting dengan beberapa pilihan modifier, siap menunjang kebutuhan foto profesional</p>
               </div>
             </div>
@@ -643,9 +643,9 @@ export default function Home() {
           {/* Elegant Visual Separator */}
           <div className="mt-16 flex items-center justify-center">
             <div className="flex items-center space-x-4">
-              <div className="h-px bg-gradient-to-r from-transparent to-amber-300 w-16"></div>
+              <div className="h-px bg-gradient-to-r from-transparent to-[#daa520] w-16"></div>
               <Sparkles className="h-6 w-6 text-amber-400" />
-              <div className="h-px bg-gradient-to-r from-amber-300 via-orange-300 to-amber-300 w-32"></div>
+              <div className="h-px bg-gradient-to-r from-[#b8860b] via-[#daa520] to-[#daa520] w-32"></div>
               <Sparkles className="h-6 w-6 text-orange-400" />
               <div className="h-px bg-gradient-to-l from-transparent to-orange-300 w-16"></div>
             </div>
@@ -667,7 +667,7 @@ export default function Home() {
               <Camera className="h-4 w-4 mr-1 inline" />
               Layanan & Kebutuhan Fotografi
             </Badge>
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#00052e] mb-6">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#346754] mb-6">
               Cocok untuk Berbagai Jenis Pemotretan
             </h2>
             <p className="text-lg md:text-xl text-slate-600 max-w-2xl mx-auto">
@@ -693,12 +693,12 @@ export default function Home() {
                     height={600}
                     className="w-full h-auto object-cover"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#00052e]/20 to-transparent"></div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#346754]/20 to-transparent"></div>
                 </div>
 
                 {/* Decorative elements */}
                 <div className="absolute -top-6 -left-6 w-24 h-24 border-4 border-[#b0834d] rounded-2xl opacity-30 rotate-12"></div>
-                <div className="absolute -bottom-6 -right-6 w-16 h-16 border-4 border-[#00052e] rounded-2xl opacity-30 -rotate-12"></div>
+                <div className="absolute -bottom-6 -right-6 w-16 h-16 border-4 border-[#346754] rounded-2xl opacity-30 -rotate-12"></div>
               </motion.div>
             </div>
 
@@ -716,10 +716,10 @@ export default function Home() {
                   >
                     <Card className="p-5 border-0 shadow-lg hover:shadow-2xl transition-all duration-300 rounded-2xl bg-gradient-to-r from-white to-slate-50 hover:from-[#b0834d]/5 group">
                       <div className="flex items-start">
-                        <div className="w-10 h-10 flex-shrink-0 bg-gradient-to-br from-[#00052e] to-[#b0834d] rounded-full flex items-center justify-center mr-4 group-hover:scale-110 transition-transform duration-300">
+                        <div className="w-10 h-10 flex-shrink-0 bg-gradient-to-br from-[#346754] to-[#b0834d] rounded-full flex items-center justify-center mr-4 group-hover:scale-110 transition-transform duration-300">
                           <Camera className="h-5 w-5 text-white" />
                         </div>
-                        <h3 className="font-medium text-[#00052e] pt-1.5 flex-grow">{service}</h3>
+                        <h3 className="font-medium text-[#346754] pt-1.5 flex-grow">{service}</h3>
                         <div className="w-2 h-2 rounded-full bg-[#b0834d] self-center animate-pulse"></div>
                       </div>
                     </Card>
@@ -731,13 +731,13 @@ export default function Home() {
 
           {/* Visual separator */}
           <div className="mt-16 flex items-center justify-center">
-            <div className="h-px bg-gradient-to-r from-transparent via-[#00052e] to-transparent w-full max-w-md"></div>
+            <div className="h-px bg-gradient-to-r from-transparent via-[#346754] to-transparent w-full max-w-md"></div>
           </div>
         </div>
       </section>
 
       {/* Specifications Section - Text-focused & Modern */}
-      <section id="specifications" className="py-16 bg-gradient-to-br from-slate-50 to-blue-50/30">
+      <section id="specifications" className="py-16 bg-gradient-to-br from-slate-50 to-green-50/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -746,12 +746,12 @@ export default function Home() {
             className="text-center mb-12"
             viewport={{ once: true }}
           >
-            <Badge className="mb-3 bg-gradient-to-r from-amber-100 to-orange-100 text-amber-800 px-4 py-1.5 rounded-full text-sm font-medium">
+            <Badge className="mb-3 bg-gradient-to-r from-[#b8860b]/10 to-[#daa520]/10 text-amber-800 px-4 py-1.5 rounded-full text-sm font-medium">
               <Ruler className="h-3 w-3 mr-1.5 inline" />
               Spesifikasi
             </Badge>
-            <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-[#00052e] mb-4">
-              Spesifikasi <span className="bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent">Studio</span>
+            <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-[#346754] mb-4">
+              Spesifikasi <span className="bg-gradient-to-r from-[#b8860b] to-[#daa520] bg-clip-text text-transparent">Studio</span>
             </h2>
             <p className="text-base md:text-lg text-slate-600 max-w-2xl mx-auto">
               Detail background dan lantai studio
@@ -762,10 +762,10 @@ export default function Home() {
             {/* Background Specifications */}
             <div className="bg-white p-6 rounded-2xl border border-slate-200/50 shadow-sm">
               <div className="flex items-center mb-6">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#00052e] to-[#b0834d] flex items-center justify-center mr-3">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#346754] to-[#b0834d] flex items-center justify-center mr-3">
                   <Palette className="h-6 w-6 text-white" />
                 </div>
-                <h3 className="text-xl font-bold text-[#00052e]">Background</h3>
+                <h3 className="text-xl font-bold text-[#346754]">Background</h3>
               </div>
 
               <div className="space-y-3">
@@ -779,7 +779,7 @@ export default function Home() {
                     className="cursor-pointer"
                   >
                     <Card className="p-3 border-0 hover:shadow-md transition-all duration-300 rounded-xl bg-gradient-to-r from-white to-slate-50 group">
-                      <p className="text-slate-700 text-sm leading-relaxed pl-2 border-l-2 border-[#b0834d] group-hover:border-[#00052e] transition-colors duration-300">{spec}</p>
+                      <p className="text-slate-700 text-sm leading-relaxed pl-2 border-l-2 border-[#b0834d] group-hover:border-[#346754] transition-colors duration-300">{spec}</p>
                     </Card>
                   </motion.div>
                 ))}
@@ -789,10 +789,10 @@ export default function Home() {
             {/* Floor Specifications */}
             <div className="bg-white p-6 rounded-2xl border border-slate-200/50 shadow-sm">
               <div className="flex items-center mb-6">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#b0834d] to-[#00052e] flex items-center justify-center mr-3">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#b0834d] to-[#346754] flex items-center justify-center mr-3">
                   <Square className="h-6 w-6 text-white" />
                 </div>
-                <h3 className="text-xl font-bold text-[#00052e]">Lantai</h3>
+                <h3 className="text-xl font-bold text-[#346754]">Lantai</h3>
               </div>
 
               <div className="space-y-3">
@@ -806,7 +806,7 @@ export default function Home() {
                     className="cursor-pointer"
                   >
                     <Card className="p-3 border-0 hover:shadow-md transition-all duration-300 rounded-xl bg-gradient-to-r from-white to-slate-50 group">
-                      <p className="text-slate-700 text-sm leading-relaxed pl-2 border-l-2 border-[#00052e] group-hover:border-[#b0834d] transition-colors duration-300">{spec}</p>
+                      <p className="text-slate-700 text-sm leading-relaxed pl-2 border-l-2 border-[#346754] group-hover:border-[#b0834d] transition-colors duration-300">{spec}</p>
                     </Card>
                   </motion.div>
                 ))}
@@ -816,13 +816,13 @@ export default function Home() {
 
           {/* Compact Visual separator */}
           <div className="mt-12 flex items-center justify-center">
-            <div className="h-px bg-gradient-to-r from-transparent via-[#00052e] to-transparent w-full max-w-sm"></div>
+            <div className="h-px bg-gradient-to-r from-transparent via-[#346754] to-transparent w-full max-w-sm"></div>
           </div>
         </div>
       </section>
 
       {/* Studio Properties Section */}
-      <section id="properties" className="py-20 bg-gradient-to-br from-slate-50 to-blue-50/30">
+      <section id="properties" className="py-20 bg-gradient-to-br from-slate-50 to-green-50/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -835,7 +835,7 @@ export default function Home() {
               <Sofa className="h-4 w-4 mr-1 inline" />
               Properti Studio
             </Badge>
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#00052e] mb-6">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#346754] mb-6">
               Properti Lengkap untuk Sesi Foto Anda
             </h2>
             <p className="text-lg md:text-xl text-slate-600 max-w-2xl mx-auto">
@@ -854,7 +854,7 @@ export default function Home() {
                 className="cursor-pointer"
               >
                 <Card className="h-full border-0 shadow-lg hover:shadow-2xl transition-all duration-500 rounded-2xl bg-white border border-slate-200/50 hover:border-[#b0834d]/30 group h-full flex flex-col items-center text-center p-6 transform-gpu hover:-translate-y-1">
-                  <h3 className="font-bold text-[#00052e] text-lg mt-4">{property}</h3>
+                  <h3 className="font-bold text-[#346754] text-lg mt-4">{property}</h3>
                 </Card>
               </motion.div>
             ))}
@@ -868,13 +868,13 @@ export default function Home() {
 
           {/* Visual separator */}
           <div className="mt-8 flex items-center justify-center">
-            <div className="h-px bg-gradient-to-r from-transparent via-[#00052e] to-transparent w-full max-w-md"></div>
+            <div className="h-px bg-gradient-to-r from-transparent via-[#346754] to-transparent w-full max-w-md"></div>
           </div>
         </div>
       </section>
 
       {/* Terms and Conditions Section - Enhanced with Visual Elements */}
-      <section id="terms" className="py-20 bg-gradient-to-br from-slate-50 to-blue-50/30">
+      <section id="terms" className="py-20 bg-gradient-to-br from-slate-50 to-green-50/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -883,12 +883,12 @@ export default function Home() {
             className="text-center mb-16"
             viewport={{ once: true }}
           >
-            <Badge className="mb-4 bg-gradient-to-r from-amber-100 to-orange-100 text-amber-800 px-6 py-2 rounded-full text-sm font-medium">
+            <Badge className="mb-4 bg-gradient-to-r from-[#b8860b]/10 to-[#daa520]/10 text-amber-800 px-6 py-2 rounded-full text-sm font-medium">
               <FileText className="h-4 w-4 mr-2 inline" />
               Ketentuan & Kebijakan
             </Badge>
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#00052e] mb-6">
-              Panduan <span className="bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent">Pemesanan</span> & Penggunaan Studio
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#346754] mb-6">
+              Panduan <span className="bg-gradient-to-r from-[#b8860b] to-[#daa520] bg-clip-text text-transparent">Pemesanan</span> & Penggunaan Studio
             </h2>
             <p className="text-lg md:text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed">
               Pahami ketentuan dan kebijakan kami untuk pengalaman pemesanan studio yang menyenangkan dan tanpa keraguan
@@ -905,13 +905,13 @@ export default function Home() {
                 viewport={{ once: true }}
                 className="relative"
               >
-                <div className="relative rounded-3xl overflow-hidden shadow-2xl bg-gradient-to-br from-[#00052e] to-[#b0834d] p-1">
+                <div className="relative rounded-3xl overflow-hidden shadow-2xl bg-gradient-to-br from-[#346754] to-[#b0834d] p-1">
                   <div className="bg-white rounded-3xl p-8">
                     <div className="text-center mb-6">
-                      <div className="w-20 h-20 bg-gradient-to-br from-[#00052e] to-[#b0834d] rounded-full flex items-center justify-center mx-auto mb-4">
+                      <div className="w-20 h-20 bg-gradient-to-br from-[#346754] to-[#b0834d] rounded-full flex items-center justify-center mx-auto mb-4">
                         <FileText className="h-10 w-10 text-white" />
                       </div>
-                      <h3 className="text-xl font-bold text-[#00052e]">Ketentuan Penting</h3>
+                      <h3 className="text-xl font-bold text-[#346754]">Ketentuan Penting</h3>
                     </div>
                     
                     <div className="space-y-4">
@@ -945,7 +945,7 @@ export default function Home() {
 
                 {/* Decorative elements */}
                 <div className="absolute -top-6 -left-6 w-24 h-24 border-4 border-[#b0834d] rounded-2xl opacity-30 rotate-12"></div>
-                <div className="absolute -bottom-6 -right-6 w-16 h-16 border-4 border-[#00052e] rounded-2xl opacity-30 -rotate-12"></div>
+                <div className="absolute -bottom-6 -right-6 w-16 h-16 border-4 border-[#346754] rounded-2xl opacity-30 -rotate-12"></div>
               </motion.div>
             </div>
 
@@ -999,16 +999,16 @@ export default function Home() {
           {/* Elegant Visual separator */}
           <div className="mt-16 flex items-center justify-center">
             <div className="flex items-center space-x-4">
-              <div className="h-px bg-gradient-to-r from-transparent to-[#00052e] w-16"></div>
+              <div className="h-px bg-gradient-to-r from-transparent to-[#346754] w-16"></div>
               <div className="w-3 h-3 bg-[#b0834d] rotate-45 transform"></div>
-              <div className="h-px bg-gradient-to-l from-transparent to-[#00052e] w-16"></div>
+              <div className="h-px bg-gradient-to-l from-transparent to-[#346754] w-16"></div>
             </div>
           </div>
         </div>
       </section>
 
       {/* Portfolio Categories */}
-      <section id="portfolio" className="py-20 bg-gradient-to-br from-slate-50 to-blue-50/30">
+      <section id="portfolio" className="py-20 bg-gradient-to-br from-slate-50 to-green-50/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -1017,10 +1017,10 @@ export default function Home() {
             className="text-center mb-16"
             viewport={{ once: true }}
           >
-            <Badge className="mb-4 bg-[#00052e]/10 text-[#00052e] px-4 py-2 rounded-full">
+            <Badge className="mb-4 bg-[#346754]/10 text-[#346754] px-4 py-2 rounded-full">
               Portfolio
             </Badge>
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#00052e] mb-6">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#346754] mb-6">
               Galeri Karya Terbaik
             </h2>
             <p className="text-lg md:text-xl text-slate-600 max-w-2xl mx-auto">
@@ -1069,7 +1069,7 @@ export default function Home() {
 
           <div className="text-center mt-12">
             <Link href="/portfolio">
-              <Button size="lg" variant="outline" className="border-[#00052e] text-[#00052e] hover:bg-[#00052e] hover:text-white px-8 py-6 text-base rounded-full transition-all duration-300">
+              <Button size="lg" variant="outline" className="border-[#346754] text-[#346754] hover:bg-[#346754] hover:text-white px-8 py-6 text-base rounded-full transition-all duration-300">
                 Lihat Semua Portfolio
                 <ArrowRight className="h-5 w-5 ml-2" />
               </Button>
@@ -1083,7 +1083,7 @@ export default function Home() {
 
 
       {/* Testimonials */}
-      <section className="py-20 bg-gradient-to-br from-slate-50 to-blue-50/30">
+      <section className="py-20 bg-gradient-to-br from-slate-50 to-green-50/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -1092,10 +1092,10 @@ export default function Home() {
             className="text-center mb-16"
             viewport={{ once: true }}
           >
-            <Badge className="mb-4 bg-[#00052e]/10 text-[#00052e] px-4 py-2 rounded-full">
+            <Badge className="mb-4 bg-[#346754]/10 text-[#346754] px-4 py-2 rounded-full">
               Testimoni
             </Badge>
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#00052e] mb-6">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#346754] mb-6">
               Kata Mereka Tentang Kami
             </h2>
           </motion.div>
@@ -1119,7 +1119,7 @@ export default function Home() {
                       className="rounded-full mr-4"
                     />
                     <div>
-                      <h4 className="font-bold text-[#00052e]">{testimonial.name}</h4>
+                      <h4 className="font-bold text-[#346754]">{testimonial.name}</h4>
                       <p className="text-sm text-slate-600">{testimonial.type}</p>
                     </div>
                   </div>
@@ -1137,7 +1137,7 @@ export default function Home() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 bg-gradient-to-r from-[#00052e] to-[#b0834d]">
+      <section className="py-20 bg-gradient-to-r from-[#346754] to-[#b0834d]">
         <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -1154,7 +1154,7 @@ export default function Home() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="tel:+6281234567890">
-                <Button size="lg" className="bg-white text-[#00052e] hover:bg-white/90 px-8 py-6 text-base rounded-full transition-all duration-300 shadow-lg hover:shadow-xl">
+                <Button size="lg" className="bg-white text-[#346754] hover:bg-white/90 px-8 py-6 text-base rounded-full transition-all duration-300 shadow-lg hover:shadow-xl">
                   <Phone className="h-5 w-5 mr-2" />
                   Hubungi Sekarang
                 </Button>
@@ -1183,7 +1183,7 @@ export default function Home() {
             <Badge className="mb-3 sm:mb-4 bg-[#b0834d]/10 text-[#b0834d] px-3 sm:px-4 py-1 sm:py-2 rounded-full text-xs sm:text-sm">
               Kontak
             </Badge>
-            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-[#00052e] mb-4 sm:mb-6">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-[#346754] mb-4 sm:mb-6">
               Hubungi Kami
             </h2>
             <p className="text-sm sm:text-base md:text-lg lg:text-xl text-slate-600 max-w-2xl mx-auto">
@@ -1200,11 +1200,11 @@ export default function Home() {
             >
               <div className="space-y-6 sm:space-y-8">
                 <div className="flex items-start">
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-[#00052e] rounded-full flex items-center justify-center flex-shrink-0">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-[#346754] rounded-full flex items-center justify-center flex-shrink-0">
                     <MapPin className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                   </div>
                   <div className="ml-3 sm:ml-4">
-                    <h3 className="text-lg sm:text-xl font-bold text-[#00052e] mb-1">Alamat</h3>
+                    <h3 className="text-lg sm:text-xl font-bold text-[#346754] mb-1">Alamat</h3>
                     <p className="text-slate-600 text-sm sm:text-base">
                       {firstStudio?.address || 'Jl. Fotografi No. 123, Karawang, Jawa Barat 41311'}
                     </p>
@@ -1216,7 +1216,7 @@ export default function Home() {
                     <Phone className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                   </div>
                   <div className="ml-3 sm:ml-4">
-                    <h3 className="text-lg sm:text-xl font-bold text-[#00052e] mb-1">Telepon</h3>
+                    <h3 className="text-lg sm:text-xl font-bold text-[#346754] mb-1">Telepon</h3>
                     <p className="text-slate-600 text-sm sm:text-base">
                       {firstStudio?.phone || '+62 812-3456-7890'}
                     </p>
@@ -1224,11 +1224,11 @@ export default function Home() {
                 </div>
 
                 <div className="flex items-start">
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-[#00052e] rounded-full flex items-center justify-center flex-shrink-0">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-[#346754] rounded-full flex items-center justify-center flex-shrink-0">
                     <Mail className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                   </div>
                   <div className="ml-3 sm:ml-4">
-                    <h3 className="text-lg sm:text-xl font-bold text-[#00052e] mb-1">Email</h3>
+                    <h3 className="text-lg sm:text-xl font-bold text-[#346754] mb-1">Email</h3>
                     <p className="text-slate-600 text-sm sm:text-base">
                       {firstStudio?.email || 'info@kalarasastudio.com'}
                     </p>
@@ -1244,7 +1244,7 @@ export default function Home() {
               viewport={{ once: true }}
             >
               <Card className="p-4 sm:p-6 lg:p-8 border-0 shadow-lg rounded-xl sm:rounded-2xl">
-                <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-[#00052e] mb-4 sm:mb-6 text-center">
+                <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-[#346754] mb-4 sm:mb-6 text-center">
                   Kirim Pesan
                 </h3>
                 <form className="space-y-4 sm:space-y-6">
@@ -1256,7 +1256,7 @@ export default function Home() {
                       <input
                         type="text"
                         id="name"
-                        className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#00052e] focus:border-transparent text-sm sm:text-base"
+                        className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#346754] focus:border-transparent text-sm sm:text-base"
                         placeholder="Nama Anda"
                       />
                     </div>
@@ -1267,7 +1267,7 @@ export default function Home() {
                       <input
                         type="email"
                         id="email"
-                        className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#00052e] focus:border-transparent text-sm sm:text-base"
+                        className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#346754] focus:border-transparent text-sm sm:text-base"
                         placeholder="email@contoh.com"
                       />
                     </div>
@@ -1279,7 +1279,7 @@ export default function Home() {
                     <input
                       type="text"
                       id="subject"
-                      className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#00052e] focus:border-transparent text-sm sm:text-base"
+                      className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#346754] focus:border-transparent text-sm sm:text-base"
                       placeholder="Subjek pesan"
                     />
                   </div>
@@ -1290,13 +1290,13 @@ export default function Home() {
                     <textarea
                       id="message"
                       rows={4}
-                      className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#00052e] focus:border-transparent text-sm sm:text-base"
+                      className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#346754] focus:border-transparent text-sm sm:text-base"
                       placeholder="Tulis pesan Anda di sini..."
                     ></textarea>
                   </div>
                   <Button
                     type="submit"
-                    className="w-full bg-[#00052e] hover:bg-[#00052e]/90 text-white py-3 sm:py-4 lg:py-6 text-sm sm:text-base rounded-lg transition-all duration-300 shadow-md hover:shadow-lg"
+                    className="w-full bg-[#346754] hover:bg-[#346754]/90 text-white py-3 sm:py-4 lg:py-6 text-sm sm:text-base rounded-lg transition-all duration-300 shadow-md hover:shadow-lg"
                     onClick={(e) => {
                       e.preventDefault();
                       // Simple form submission handling

@@ -170,7 +170,7 @@ export default function BankTransferPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50/30 to-slate-100">
       {/* Header */}
       <div className="bg-white/80 backdrop-blur-sm border-b border-slate-200 sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -204,7 +204,7 @@ export default function BankTransferPage() {
         >
           {/* Header */}
           <div className="text-center">
-            <div className="w-16 h-16 bg-gradient-to-r from-blue-600 to-blue-700 rounded-full flex items-center justify-center mx-auto mb-4">
+            <div className="w-16 h-16 bg-gradient-to-r from-[#346754] to-[#2d5a4a] rounded-full flex items-center justify-center mx-auto mb-4">
               <CreditCard className="h-8 w-8 text-white" />
             </div>
             <h1 className="text-3xl font-bold text-slate-900 mb-2">Transfer Bank</h1>
@@ -404,7 +404,7 @@ export default function BankTransferPage() {
                 <Button
                   onClick={handleSubmitProof}
                   disabled={!uploadedFile || isSubmitting}
-                  className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
+                  className="flex-1 bg-gradient-to-r from-[#346754] to-[#2d5a4a] hover:from-[#2d5a4a] hover:to-[#1e3a32]"
                   size="lg"
                 >
                   {isSubmitting ? (

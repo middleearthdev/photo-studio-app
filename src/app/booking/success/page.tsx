@@ -175,7 +175,7 @@ function BookingSuccessPageContent() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00052e] mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#346754] mx-auto mb-4"></div>
           <p className="text-slate-600">Memverifikasi pembayaran...</p>
         </div>
       </div>
@@ -192,7 +192,7 @@ function BookingSuccessPageContent() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
-          <h1 className="text-xl sm:text-2xl font-bold text-[#00052e] mb-2">Akses Ditolak</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-[#346754] mb-2">Akses Ditolak</h1>
           <p className="text-xs sm:text-base text-slate-600 mb-4 sm:mb-6">{verificationError}</p>
           <div className="space-y-2 sm:space-y-3">
             <Button
@@ -201,13 +201,13 @@ function BookingSuccessPageContent() {
                 queryClient.invalidateQueries({ queryKey: timeSlotKeys.all })
                 router.push('/packages')
               }}
-              className="w-full bg-gradient-to-r from-[#00052e] to-[#b0834d] hover:from-[#00052e]/90 hover:to-[#b0834d]/90 text-xs sm:text-sm py-2 sm:py-3"
+              className="w-full bg-gradient-to-r from-[#346754] to-[#b0834d] hover:from-[#346754]/90 hover:to-[#b0834d]/90 text-xs sm:text-sm py-2 sm:py-3"
             >
               <Camera className="h-3 w-3 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
               Buat Booking Baru
             </Button>
             <Link href="/">
-              <Button variant="outline" className="w-full text-xs sm:text-sm py-2 sm:py-3 border-[#00052e]/30 text-[#00052e] hover:bg-[#00052e]/10">
+              <Button variant="outline" className="w-full text-xs sm:text-sm py-2 sm:py-3 border-[#346754]/30 text-[#346754] hover:bg-[#346754]/10">
                 <Home className="h-3 w-3 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
                 Kembali ke Beranda
               </Button>
@@ -350,7 +350,7 @@ function BookingSuccessPageContent() {
   const feeBreakdown = calculateFeeBreakdown()
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50/30 to-slate-100">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-green-50/30 to-slate-100">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -365,8 +365,8 @@ function BookingSuccessPageContent() {
               animate={{ scale: 1 }}
               transition={{ duration: 0.6, delay: 0.2 }}
               className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6 shadow-lg ${paymentStatus === 'paid'
-                  ? 'bg-gradient-to-r from-[#00052e] to-[#b0834d]'
-                  : 'bg-gradient-to-r from-amber-500 to-orange-500'
+                  ? 'bg-gradient-to-r from-[#346754] to-[#b0834d]'
+                  : 'bg-gradient-to-r from-[#b8860b] to-[#daa520]'
                 }`}
             >
               {paymentStatus === 'paid' ? (
@@ -381,7 +381,7 @@ function BookingSuccessPageContent() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.4 }}
             >
-              <h1 className="text-2xl sm:text-4xl md:text-5xl font-bold text-[#00052e] mb-2 sm:mb-4">
+              <h1 className="text-2xl sm:text-4xl md:text-5xl font-bold text-[#346754] mb-2 sm:mb-4">
                 {paymentStatus === 'paid' ? 'Booking Berhasil!' : 'Booking Dikonfirmasi!'}
               </h1>
               <p className="text-base sm:text-xl text-slate-600 mb-4 sm:mb-6">
@@ -433,8 +433,8 @@ function BookingSuccessPageContent() {
           >
             <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-xl">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg sm:text-xl text-[#00052e]">
-                  <Camera className="h-4 w-4 sm:h-5 sm:w-5 text-[#00052e]" />
+                <CardTitle className="flex items-center gap-2 text-lg sm:text-xl text-[#346754]">
+                  <Camera className="h-4 w-4 sm:h-5 sm:w-5 text-[#346754]" />
                   Detail Booking
                 </CardTitle>
               </CardHeader>
@@ -442,11 +442,11 @@ function BookingSuccessPageContent() {
               <CardContent className="space-y-4 sm:space-y-6">
                 {/* Package Info */}
                 <div className="flex items-start gap-3 sm:gap-4">
-                  <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-[#00052e] to-[#b0834d] rounded-xl flex items-center justify-center flex-shrink-0">
+                  <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-[#346754] to-[#b0834d] rounded-xl flex items-center justify-center flex-shrink-0">
                     <Camera className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-base sm:text-xl font-semibold text-[#00052e]">{transactionData.reservation.package?.name}</h3>
+                    <h3 className="text-base sm:text-xl font-semibold text-[#346754]">{transactionData.reservation.package?.name}</h3>
                     <p className="text-xs sm:text-base text-slate-600">{transactionData.reservation.studio?.name}</p>
                     <div className="flex items-center gap-2 sm:gap-4 mt-1.5 sm:mt-2 text-xs sm:text-sm text-slate-600">
                       <div className="flex items-center gap-1">
@@ -472,14 +472,14 @@ function BookingSuccessPageContent() {
                 {/* Schedule Info */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                   <div className="space-y-3 sm:space-y-4">
-                    <h4 className="font-semibold text-[#00052e] flex items-center gap-1.5 sm:gap-2 text-base sm:text-lg">
-                      <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-[#00052e]" />
+                    <h4 className="font-semibold text-[#346754] flex items-center gap-1.5 sm:gap-2 text-base sm:text-lg">
+                      <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-[#346754]" />
                       Jadwal Sesi Foto
                     </h4>
 
                     {selectedDate && (
-                      <div className="bg-[#00052e]/5 p-3 sm:p-4 rounded-lg">
-                        <p className="font-medium text-[#00052e] text-sm sm:text-base">
+                      <div className="bg-[#346754]/5 p-3 sm:p-4 rounded-lg">
+                        <p className="font-medium text-[#346754] text-sm sm:text-base">
                           {format(selectedDate, 'EEEE, dd MMMM yyyy', { locale: idLocale })}
                         </p>
                         <p className="text-[#b0834d] font-semibold text-sm sm:text-base">
@@ -490,8 +490,8 @@ function BookingSuccessPageContent() {
                   </div>
 
                   <div className="space-y-3 sm:space-y-4">
-                    <h4 className="font-semibold text-[#00052e] flex items-center gap-1.5 sm:gap-2 text-base sm:text-lg">
-                      <User className="h-4 w-4 sm:h-5 sm:w-5 text-[#00052e]" />
+                    <h4 className="font-semibold text-[#346754] flex items-center gap-1.5 sm:gap-2 text-base sm:text-lg">
+                      <User className="h-4 w-4 sm:h-5 sm:w-5 text-[#346754]" />
                       Informasi Pelanggan
                     </h4>
 
@@ -519,8 +519,8 @@ function BookingSuccessPageContent() {
                   <>
                     <Separator />
                     <div>
-                      <h4 className="font-semibold text-[#00052e] mb-2 sm:mb-3 flex items-center gap-1.5 sm:gap-2 text-base sm:text-lg">
-                        <Gift className="h-4 w-4 sm:h-5 sm:w-5 text-[#00052e]" />
+                      <h4 className="font-semibold text-[#346754] mb-2 sm:mb-3 flex items-center gap-1.5 sm:gap-2 text-base sm:text-lg">
+                        <Gift className="h-4 w-4 sm:h-5 sm:w-5 text-[#346754]" />
                         Add-ons Terpilih
                       </h4>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
@@ -529,7 +529,7 @@ function BookingSuccessPageContent() {
                             <span className="text-xs sm:text-sm">
                               {addon.name} {addon.quantity > 1 && `(${addon.quantity}x)`}
                             </span>
-                            <span className="font-medium text-[#00052e] text-xs sm:text-sm">
+                            <span className="font-medium text-[#346754] text-xs sm:text-sm">
                               {formatPrice(addon.price * addon.quantity)}
                             </span>
                           </div>
@@ -542,8 +542,8 @@ function BookingSuccessPageContent() {
                 {/* Payment Summary */}
                 <Separator />
                 <div>
-                  <h4 className="font-semibold text-[#00052e] mb-2 sm:mb-3 flex items-center gap-1.5 sm:gap-2 text-base sm:text-lg">
-                    <CreditCard className="h-4 w-4 sm:h-5 sm:w-5 text-[#00052e]" />
+                  <h4 className="font-semibold text-[#346754] mb-2 sm:mb-3 flex items-center gap-1.5 sm:gap-2 text-base sm:text-lg">
+                    <CreditCard className="h-4 w-4 sm:h-5 sm:w-5 text-[#346754]" />
                     Ringkasan Pembayaran
                   </h4>
 
@@ -555,7 +555,7 @@ function BookingSuccessPageContent() {
                           <CreditCard className="h-4 w-4 text-slate-600" />
                           <span className="text-sm font-medium text-slate-700">Metode Pembayaran</span>
                         </div>
-                        <p className="text-sm text-[#00052e] font-medium">{feeBreakdown.paymentMethodName}</p>
+                        <p className="text-sm text-[#346754] font-medium">{feeBreakdown.paymentMethodName}</p>
                       </div>
                     )}
 
@@ -634,7 +634,7 @@ function BookingSuccessPageContent() {
                   <>
                     <Separator />
                     <div>
-                      <h4 className="font-semibold text-[#00052e] mb-1.5 sm:mb-2 text-base sm:text-lg">Catatan Tambahan</h4>
+                      <h4 className="font-semibold text-[#346754] mb-1.5 sm:mb-2 text-base sm:text-lg">Catatan Tambahan</h4>
                       <p className="text-xs sm:text-sm text-slate-600 bg-slate-50 p-2 sm:p-3 rounded-lg">
                         {transactionData.reservation.special_requests}
                       </p>
@@ -658,7 +658,7 @@ function BookingSuccessPageContent() {
                   <Button
                     onClick={handleDownloadInvoice}
                     disabled={isDownloading}
-                    className="flex items-center gap-1.5 sm:gap-2 bg-gradient-to-r from-[#00052e] to-[#b0834d] hover:from-[#00052e]/90 hover:to-[#b0834d]/90 text-xs sm:text-sm py-2 sm:py-3"
+                    className="flex items-center gap-1.5 sm:gap-2 bg-gradient-to-r from-[#346754] to-[#b0834d] hover:from-[#346754]/90 hover:to-[#b0834d]/90 text-xs sm:text-sm py-2 sm:py-3"
                   >
                     {isDownloading ? (
                       <>
@@ -685,7 +685,7 @@ function BookingSuccessPageContent() {
                   <Button
                     onClick={() => window.print()}
                     variant="outline"
-                    className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm py-2 sm:py-3 border-[#00052e]/30 text-[#00052e] hover:bg-[#00052e]/10"
+                    className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm py-2 sm:py-3 border-[#346754]/30 text-[#346754] hover:bg-[#346754]/10"
                   >
                     <Printer className="h-3 w-3 sm:h-4 sm:w-4" />
                     Print
@@ -703,14 +703,14 @@ function BookingSuccessPageContent() {
                   router.push('/packages')
                 }}
                 variant="outline"
-                className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm py-2 sm:py-3 border-[#00052e]/30 text-[#00052e] hover:bg-[#00052e]/10"
+                className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm py-2 sm:py-3 border-[#346754]/30 text-[#346754] hover:bg-[#346754]/10"
               >
                 <Camera className="h-3 w-3 sm:h-4 sm:w-4" />
                 Booking Lagi
               </Button>
 
               <Link href="/">
-                <Button className="flex items-center gap-1.5 sm:gap-2 bg-gradient-to-r from-[#00052e] to-[#b0834d] hover:from-[#00052e]/90 hover:to-[#b0834d]/90 text-xs sm:text-sm py-2 sm:py-3">
+                <Button className="flex items-center gap-1.5 sm:gap-2 bg-gradient-to-r from-[#346754] to-[#b0834d] hover:from-[#346754]/90 hover:to-[#b0834d]/90 text-xs sm:text-sm py-2 sm:py-3">
                   <Home className="h-3 w-3 sm:h-4 sm:w-4" />
                   Kembali ke Beranda
                 </Button>
@@ -724,24 +724,24 @@ function BookingSuccessPageContent() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 1 }}
           >
-            <Card className="bg-gradient-to-r from-[#00052e]/5 to-[#b0834d]/5 border-[#00052e]/20">
+            <Card className="bg-gradient-to-r from-[#346754]/5 to-[#b0834d]/5 border-[#346754]/20">
               <CardContent className="pt-4 sm:pt-6">
-                <h3 className="font-semibold text-[#00052e] mb-3 sm:mb-4 text-base sm:text-lg">Langkah Selanjutnya:</h3>
+                <h3 className="font-semibold text-[#346754] mb-3 sm:mb-4 text-base sm:text-lg">Langkah Selanjutnya:</h3>
                 <div className="space-y-2 sm:space-y-3 text-xs sm:text-sm text-slate-700">
                   <div className="flex items-start gap-2 sm:gap-3">
-                    <div className="w-5 h-5 sm:w-6 sm:h-6 bg-[#00052e] text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">1</div>
+                    <div className="w-5 h-5 sm:w-6 sm:h-6 bg-[#346754] text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">1</div>
                     <p>Kami akan menghubungi Anda via WhatsApp untuk konfirmasi detail sesi foto</p>
                   </div>
                   <div className="flex items-start gap-2 sm:gap-3">
-                    <div className="w-5 h-5 sm:w-6 sm:h-6 bg-[#00052e] text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">2</div>
+                    <div className="w-5 h-5 sm:w-6 sm:h-6 bg-[#346754] text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">2</div>
                     <p>Datang 15 menit sebelum jadwal dengan membawa invoice ini</p>
                   </div>
                   <div className="flex items-start gap-2 sm:gap-3">
-                    <div className="w-5 h-5 sm:w-6 sm:h-6 bg-[#00052e] text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">3</div>
+                    <div className="w-5 h-5 sm:w-6 sm:h-6 bg-[#346754] text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">3</div>
                     <p>Selesaikan sisa pembayaran sebelum sesi foto dimulai</p>
                   </div>
                   <div className="flex items-start gap-2 sm:gap-3">
-                    <div className="w-5 h-5 sm:w-6 sm:h-6 bg-[#00052e] text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">4</div>
+                    <div className="w-5 h-5 sm:w-6 sm:h-6 bg-[#346754] text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">4</div>
                     <p>Nikmati sesi foto profesional dan dapatkan hasil terbaik!</p>
                   </div>
                 </div>
@@ -759,7 +759,7 @@ export default function BookingSuccessPage() {
     <Suspense fallback={
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00052e] mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#346754] mx-auto mb-4"></div>
           <p className="text-slate-600">Memuat halaman sukses...</p>
         </div>
       </div>

@@ -58,12 +58,12 @@ export function PackageCard({
     return (
       <CardComponent>
         <Card className={`relative h-full flex flex-col overflow-visible border-0 shadow-lg transition-all duration-300 rounded-xl sm:rounded-2xl group ${pkg.is_popular
-          ? 'ring-1 sm:ring-2 ring-[#b0834d] bg-gradient-to-br from-[#00052e]/5 to-[#b0834d]/5 hover:scale-105'
+          ? 'ring-1 sm:ring-2 ring-[#346754] bg-[#346754]/5 hover:scale-105'
           : 'hover:shadow-xl'
           }`}>
           {pkg.is_popular && (
             <div className="absolute -top-2 sm:-top-3 left-1/2 transform -translate-x-1/2 z-20">
-              <Badge className="bg-gradient-to-r from-[#b0834d] to-[#00052e] text-white px-2 py-1 sm:px-4 sm:py-2 rounded-full shadow-lg border border-white text-xs sm:text-sm">
+              <Badge className="bg-[#346754] text-white px-2 py-1 sm:px-4 sm:py-2 rounded-full shadow-lg border border-white text-xs sm:text-sm">
                 <Star className="h-3 w-3 sm:h-4 sm:w-4 mr-1 fill-current" />
                 TOP
               </Badge>
@@ -71,7 +71,7 @@ export function PackageCard({
           )}
 
           <CardHeader className={`text-center pb-1 sm:pb-4 ${pkg.is_popular ? 'pt-5 sm:pt-10' : 'pt-3 sm:pt-8'}`}>
-            <CardTitle className="text-sm sm:text-xl lg:text-2xl font-bold text-[#00052e] mb-1 leading-tight line-clamp-2">
+            <CardTitle className="text-sm sm:text-xl lg:text-2xl font-bold text-[#346754] mb-1 leading-tight line-clamp-2">
               {pkg.name}
             </CardTitle>
             <div className="text-center">
@@ -97,11 +97,11 @@ export function PackageCard({
             <div className="grid grid-cols-2 gap-1 mb-3 sm:hidden">
               <div className="text-center">
                 <div className="text-xs text-slate-500">Paket</div>
-                <div className="text-xs font-medium text-[#00052e]">Lengkap</div>
+                <div className="text-xs font-medium text-[#346754]">Lengkap</div>
               </div>
               <div className="text-center">
                 <div className="text-xs text-slate-500">Bonus</div>
-                <div className="text-xs font-medium text-[#00052e]">Included</div>
+                <div className="text-xs font-medium text-[#346754]">Included</div>
               </div>
             </div>
 
@@ -123,7 +123,7 @@ export function PackageCard({
             <div className="mt-auto">
               <Link href={`/packages/${pkg.id}`}>
                 <Button
-                  className='w-full transition-all duration-300 rounded-full py-2 sm:py-4 lg:py-6 text-xs sm:text-sm lg:text-base group-hover:scale-[1.02] bg-gradient-to-r from-[#00052e] to-[#b0834d] hover:from-[#00052e]/90 hover:to-[#b0834d]/90 text-white shadow-lg hover:shadow-xl'
+                  className='w-full transition-all duration-300 rounded-full py-2 sm:py-4 lg:py-6 text-xs sm:text-sm lg:text-base group-hover:scale-[1.02] bg-[#346754] hover:bg-[#346754]/90 text-white shadow-lg hover:shadow-xl'
                   size="lg"
                 >
                   <Camera className="h-3 w-3 sm:h-5 sm:w-5 mr-1 sm:mr-2" />
@@ -140,12 +140,12 @@ export function PackageCard({
   // Default version for packages page - mobile optimized with uniform height
   return (
     <CardComponent>
-      <Card className={`group relative h-full flex flex-col transition-all duration-300 hover:shadow-2xl border-0 bg-white/80 backdrop-blur-sm rounded-xl sm:rounded-2xl overflow-visible ${pkg.is_popular ? 'ring-1 sm:ring-2 ring-[#b0834d] shadow-lg hover:scale-[1.02]' : 'hover:shadow-xl'
+      <Card className={`group relative h-full flex flex-col transition-all duration-300 hover:shadow-2xl border-0 bg-white/80 backdrop-blur-sm rounded-xl sm:rounded-2xl overflow-visible ${pkg.is_popular ? 'ring-1 sm:ring-2 ring-[#346754] shadow-lg hover:scale-[1.02]' : 'hover:shadow-xl'
         }`}>
         {/* Popular badge */}
         {pkg.is_popular && (
           <div className="absolute -top-2 sm:-top-3 left-1/2 transform -translate-x-1/2 z-20">
-            <Badge className="bg-gradient-to-r from-[#b0834d] to-[#00052e] text-white px-2 py-1 sm:px-4 sm:py-2 rounded-full shadow-lg border border-white whitespace-nowrap text-xs sm:text-sm">
+            <Badge className="bg-[#346754] text-white px-2 py-1 sm:px-4 sm:py-2 rounded-full shadow-lg border border-white whitespace-nowrap text-xs sm:text-sm">
               <Star className="h-3 w-3 sm:h-4 sm:w-4 mr-1 fill-current" />
               TOP
             </Badge>
@@ -155,7 +155,7 @@ export function PackageCard({
         {/* Category badge - hidden on mobile */}
         <div className="absolute top-2 sm:top-4 right-2 sm:right-4 z-10 hidden sm:block">
           {pkg.category && (
-            <Badge className="bg-white/80 backdrop-blur-sm text-[#00052e] border border-[#00052e]/20 shadow-sm text-xs">
+            <Badge className="bg-white/80 backdrop-blur-sm text-[#346754] border border-[#346754]/20 shadow-sm text-xs">
               {pkg.category.name}
             </Badge>
           )}
@@ -164,10 +164,10 @@ export function PackageCard({
         <CardHeader className={`text-center pb-1 sm:pb-4 relative ${pkg.is_popular ? 'pt-4 sm:pt-8' : 'pt-3 sm:pt-6'}`}>
           <div className="mb-1 sm:mb-4">
             {/* Hide icon on mobile, show on desktop */}
-            <div className="hidden sm:flex w-16 h-16 sm:w-20 sm:h-20 mx-auto bg-gradient-to-r from-[#00052e] to-[#b0834d] rounded-full items-center justify-center mb-2 sm:mb-4 shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-110">
+            <div className="hidden sm:flex w-16 h-16 sm:w-20 sm:h-20 mx-auto bg-[#346754] rounded-full items-center justify-center mb-2 sm:mb-4 shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-110">
               <Camera className="h-8 w-8 sm:h-10 sm:w-10 text-white" />
             </div>
-            <CardTitle className="text-sm sm:text-xl lg:text-2xl font-bold text-[#00052e] mb-1 sm:mb-2 group-hover:text-[#b0834d] transition-colors duration-300 leading-tight line-clamp-2">
+            <CardTitle className="text-sm sm:text-xl lg:text-2xl font-bold text-[#346754] mb-1 sm:mb-2 group-hover:text-[#b0834d] transition-colors duration-300 leading-tight line-clamp-2">
               {pkg.name}
             </CardTitle>
           </div>
@@ -205,12 +205,12 @@ export function PackageCard({
               {pkg.includes && pkg.includes.length > 0 && (
                 <div className="space-y-1">
                   {pkg.category && (
-                    <Badge className="text-xs px-2 py-0.5 bg-[#00052e]/10 text-[#00052e] border-none">
+                    <Badge className="text-xs px-2 py-0.5 bg-[#346754]/10 text-[#346754] border-none">
                       {pkg.category.name}
                     </Badge>
                   )}
                   <div className="flex items-center justify-between">
-                    <h4 className="font-semibold text-[#00052e] text-xs flex items-center gap-1">
+                    <h4 className="font-semibold text-[#346754] text-xs flex items-center gap-1">
                       <Sparkles className="h-3 w-3 text-[#b0834d]" />
                       Fasilitas:
                     </h4>
@@ -264,7 +264,7 @@ export function PackageCard({
             <div className="flex-grow">
               {pkg.includes && pkg.includes.length > 0 && (
                 <div className="space-y-3">
-                  <h4 className="font-semibold text-[#00052e] flex items-center gap-2 text-base">
+                  <h4 className="font-semibold text-[#346754] flex items-center gap-2 text-base">
                     <Sparkles className="h-4 w-4 text-[#b0834d]" />
                     Termasuk:
                   </h4>
@@ -290,7 +290,7 @@ export function PackageCard({
           <div className="mt-auto pt-3">
             <Link href={`/packages/${pkg.id}`} className="w-full">
               <Button
-                className='w-full transition-all duration-300 rounded-full py-2 sm:py-4 lg:py-6 text-xs sm:text-sm lg:text-base group-hover:scale-[1.02] bg-gradient-to-r from-[#00052e] to-[#b0834d] hover:from-[#00052e]/90 hover:to-[#b0834d]/90 text-white shadow-lg hover:shadow-xl'
+                className='w-full transition-all duration-300 rounded-full py-2 sm:py-4 lg:py-6 text-xs sm:text-sm lg:text-base group-hover:scale-[1.02] bg-[#346754] hover:bg-[#346754]/90 text-white shadow-lg hover:shadow-xl'
                 size="lg"
               >
                 <Camera className="h-3 w-3 sm:h-5 sm:w-5 mr-1 sm:mr-2" />

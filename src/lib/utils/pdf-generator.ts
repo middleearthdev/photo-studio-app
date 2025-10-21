@@ -77,7 +77,7 @@ export const generateInvoicePDF = async (data: InvoiceData): Promise<Blob> => {
 
   // Header
   pdf.setFontSize(20)
-  pdf.setTextColor(0, 5, 46) // #00052e
+  pdf.setTextColor(0, 5, 46) // #346754
   pdf.text('INVOICE BOOKING', 20, 25)
 
   pdf.setFontSize(12)

@@ -6,8 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { LoginForm } from "../../_components/login-form"
 import { useSearchParams } from "next/navigation"
+import { Suspense } from "react"
 
-export default function StaffLoginPage() {
+function StaffLoginContent() {
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get('redirect') || '/admin/dashboard'
   return (
@@ -59,5 +60,13 @@ export default function StaffLoginPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+export default function StaffLoginPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+      <StaffLoginContent />
+    </Suspense>
   )
 }

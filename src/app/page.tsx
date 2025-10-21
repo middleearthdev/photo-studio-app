@@ -69,15 +69,15 @@ export default function Home() {
 
   // Dynamic hero images from database
   const { data: heroImagesData = [], isLoading: heroImagesLoading } = useActiveHeroImages()
-  
+
   // Memoize hero images to prevent infinite re-renders
   const heroImages = useMemo(() => {
-    const images = heroImagesData.length > 0 
+    const images = heroImagesData.length > 0
       ? heroImagesData.map(img => img.image_url)
       : [
-          '/images/placeholder-hero-1.jpg',
-          '/images/placeholder-hero-2.jpg'
-        ]
+        '/images/placeholder-hero-1.jpg',
+        '/images/placeholder-hero-2.jpg'
+      ]
     heroImagesLengthRef.current = images.length
     return images
   }, [heroImagesData])
@@ -85,10 +85,10 @@ export default function Home() {
   // Optimized preload function with caching
   const preloadImages = useCallback(async (imagesToPreload: string[]) => {
     if (imagesToPreload.length === 0) return
-    
+
     // Prevent multiple simultaneous calls
     if (isPreloadingRef.current) return
-    
+
     // Check if these are the same images we already loaded
     const imagesString = imagesToPreload.join(',')
     if (lastLoadedImages.current.join(',') === imagesString && allImagesLoadedRef.current) {
@@ -186,7 +186,7 @@ export default function Home() {
     // Deep comparison to prevent unnecessary calls
     const imagesChanged = heroImages.length !== prevHeroImagesRef.current.length ||
       heroImages.some((img, index) => img !== prevHeroImagesRef.current[index])
-    
+
     if (heroImages.length > 0 && imagesChanged) {
       prevHeroImagesRef.current = [...heroImages]
       preloadImages(heroImages)
@@ -312,12 +312,12 @@ export default function Home() {
   }, [startCarousel])
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50/30 to-slate-100">
       <Navbar currentPath="/" />
 
       {/* Hero Section */}
       <section className="relative pt-26 pb-16 md:pb-24 overflow-hidden"> {/* Adjusted top padding for larger banner */}
-        <div className="absolute inset-0 bg-gradient-to-r from-[#00052e]/5 to-[#b0834d]/5"></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-[#346754]/5 to-[#b0834d]/5"></div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid lg:grid-cols-2 gap-12 items-center">
           <motion.div
@@ -331,7 +331,7 @@ export default function Home() {
               Studio Foto Terpercaya di Karawang
             </Badge>
 
-            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-[#00052e] mb-4 sm:mb-6 leading-tight">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-[#346754] mb-4 sm:mb-6 leading-tight">
               Abadikan Setiap
               <span className="text-[#b0834d] block">Momen Berharga</span>
             </h1>
@@ -342,7 +342,7 @@ export default function Home() {
 
             <div className="flex flex-col sm:flex-row gap-4 mb-8 justify-center lg:justify-start">
               <Link href="/packages" className="z-30 relative">
-                <Button size="lg" className="bg-[#00052e] hover:bg-[#00052e]/90 text-white px-8 py-6 text-base rounded-full transition-all duration-300 shadow-lg hover:shadow-xl">
+                <Button size="lg" className="bg-[#346754] hover:bg-[#346754]/90 text-white px-8 py-6 text-base rounded-full transition-all duration-300 shadow-lg hover:shadow-xl">
                   <Camera className="h-5 w-5 mr-2" />
                   Lihat Paket Foto
                 </Button>
@@ -367,7 +367,7 @@ export default function Home() {
             transition={{ duration: 0.8, delay: 0.2 }}
             className="relative"
           >
-            <div className="relative h-[400px] md:h-[500px] rounded-3xl overflow-hidden bg-gradient-to-br from-[#00052e] to-[#b0834d] p-1 shadow-2xl">
+            <div className="relative h-[400px] md:h-[500px] rounded-3xl overflow-hidden bg-gradient-to-br from-[#346754] to-[#b0834d] p-1 shadow-2xl">
               <div className="w-full h-full bg-white rounded-3xl overflow-hidden relative">
                 {isPreloading || heroImagesLoading ? (
                   // Enhanced skeleton loading with smooth shimmer
@@ -375,7 +375,7 @@ export default function Home() {
                     {/* Multiple shimmer layers for depth */}
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent animate-shimmer" />
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer" style={{ animationDelay: '0.5s' }} />
-                    
+
                     {/* Content overlay */}
                     <div className="absolute inset-0 flex items-center justify-center bg-white/10 backdrop-blur-sm">
                       <div className="text-center">
@@ -385,19 +385,19 @@ export default function Home() {
                           <div className="absolute inset-0 border-4 border-[#b0834d] border-t-transparent rounded-full animate-spin"></div>
                           <div className="absolute inset-2 border-2 border-gray-100 border-t-transparent rounded-full animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }}></div>
                         </div>
-                        
+
                         {/* Loading text with glow effect */}
                         <div className="text-gray-600 text-sm font-medium mb-3 animate-pulse-glow">
                           Loading Beautiful Images...
                         </div>
-                        
+
                         {/* Enhanced progress bar */}
                         {imagesLoaded.length > 0 && (
                           <div className="w-40 h-2 bg-gray-200 rounded-full mx-auto overflow-hidden shadow-inner">
-                            <div 
+                            <div
                               className="h-full bg-gradient-to-r from-[#b0834d] to-[#d4a574] rounded-full transition-all duration-500 ease-out relative overflow-hidden"
-                              style={{ 
-                                width: `${(imagesLoaded.filter(Boolean).length / heroImages.length) * 100}%` 
+                              style={{
+                                width: `${(imagesLoaded.filter(Boolean).length / heroImages.length) * 100}%`
                               }}
                             >
                               {/* Progress bar shimmer */}
@@ -407,7 +407,7 @@ export default function Home() {
                         )}
                       </div>
                     </div>
-                    
+
                     {/* Additional floating elements for visual interest */}
                     <div className="absolute top-1/4 left-1/4 w-2 h-2 bg-white/20 rounded-full animate-pulse-glow" style={{ animationDelay: '0.5s' }}></div>
                     <div className="absolute top-3/4 right-1/3 w-3 h-3 bg-white/15 rounded-full animate-pulse-glow" style={{ animationDelay: '1s' }}></div>
@@ -416,7 +416,7 @@ export default function Home() {
                 ) : (
                   <>
                     {/* Current image with smooth fade transition */}
-                    <motion.div 
+                    <motion.div
                       className="relative w-full h-full"
                       initial={{ opacity: 0, scale: 1.05 }}
                       animate={{ opacity: 1, scale: 1 }}
@@ -426,9 +426,8 @@ export default function Home() {
                         src={heroImages[currentSlide]}
                         alt={heroImagesData[currentSlide]?.alt_text || "Studio Photography"}
                         fill
-                        className={`object-cover hero-image-fade transition-all duration-700 ease-out ${
-                          allImagesLoaded ? 'loaded opacity-100' : 'loading opacity-0'
-                        }`}
+                        className={`object-cover hero-image-fade transition-all duration-700 ease-out ${allImagesLoaded ? 'loaded opacity-100' : 'loading opacity-0'
+                          }`}
                         priority
                         sizes="(max-width: 768px) 100vw, 50vw"
                         quality={90}
@@ -440,7 +439,7 @@ export default function Home() {
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
                     </motion.div>
-                    
+
                   </>
                 )}
               </div>
@@ -451,11 +450,10 @@ export default function Home() {
                   {heroImages.map((_, index) => (
                     <button
                       key={index}
-                      className={`w-3 h-3 rounded-full transition-all duration-300 ${
-                        index === currentSlide 
-                          ? 'bg-white scale-110 shadow-lg' 
-                          : 'bg-white/50 hover:bg-white/70 hover:scale-105'
-                      }`}
+                      className={`w-3 h-3 rounded-full transition-all duration-300 ${index === currentSlide
+                        ? 'bg-white scale-110 shadow-lg'
+                        : 'bg-white/50 hover:bg-white/70 hover:scale-105'
+                        }`}
                       onClick={() => setCurrentSlide(index)}
                       aria-label={`Lihat slide ${index + 1}`}
                     />
@@ -483,7 +481,7 @@ export default function Home() {
               <PackageIcon className="h-4 w-4 mr-1 inline" />
               Fasilitas Studio
             </Badge>
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#00052e] mb-6">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#346754] mb-6">
               Berbagai Pilihan Area dan Fasilitas
             </h2>
             <p className="text-lg md:text-xl text-slate-600 max-w-2xl mx-auto">
@@ -501,19 +499,19 @@ export default function Home() {
                 viewport={{ once: true }}
                 className="relative"
               >
-                <div className="relative rounded-2xl overflow-hidden shadow-2xl bg-gradient-to-br from-[#00052e] to-[#b0834d] p-1">
+                <div className="relative rounded-2xl overflow-hidden shadow-2xl bg-gradient-to-br from-[#346754] to-[#b0834d] p-1">
                   <div className="bg-white rounded-2xl p-8">
                     <div className="grid grid-cols-2 gap-6">
                       {facilities.map((facility, index) => {
                         const Icon = facility.icon;
                         // Define gradient based on the facility index for visual variety
                         const gradients = [
-                          'bg-gradient-to-br from-[#00052e] to-[#b0834d]',
-                          'bg-gradient-to-br from-[#b0834d] to-[#00052e]',
-                          'bg-gradient-to-br from-amber-500 to-orange-500',
-                          'bg-gradient-to-br from-emerald-500 to-teal-500',
-                          'bg-gradient-to-br from-rose-500 to-pink-500',
-                          'bg-gradient-to-br from-indigo-500 to-purple-500'
+                          'bg-gradient-to-br from-[#346754] to-[#b0834d]',
+                          'bg-gradient-to-br from-[#b0834d] to-[#346754]',
+                          'bg-gradient-to-br from-[#b8860b] to-[#daa520]',
+                          'bg-gradient-to-br from-[#346754] to-[#5a9a7a]',
+                          'bg-gradient-to-br from-[#8b7355] to-[#a0845c]',
+                          'bg-gradient-to-br from-[#2d5a4a] to-[#1e3a32]'
                         ];
                         const gradient = gradients[index % gradients.length];
 
@@ -535,7 +533,7 @@ export default function Home() {
 
                 {/* Decorative elements */}
                 <div className="absolute -top-6 -left-6 w-24 h-24 border-4 border-[#b0834d] rounded-2xl opacity-30 rotate-12"></div>
-                <div className="absolute -bottom-6 -right-6 w-16 h-16 border-4 border-[#00052e] rounded-2xl opacity-30 -rotate-12"></div>
+                <div className="absolute -bottom-6 -right-6 w-16 h-16 border-4 border-[#346754] rounded-2xl opacity-30 -rotate-12"></div>
               </motion.div>
             </div>
 
@@ -555,11 +553,11 @@ export default function Home() {
                     >
                       <Card className="p-5 border-0 shadow-lg hover:shadow-2xl transition-all duration-300 rounded-2xl bg-gradient-to-r from-white to-slate-50 hover:from-[#b0834d]/5 group">
                         <div className="flex items-start">
-                          <div className="w-12 h-12 flex-shrink-0 bg-gradient-to-br from-[#00052e] to-[#b0834d] rounded-xl flex items-center justify-center mr-4 group-hover:scale-110 transition-transform duration-300">
+                          <div className="w-12 h-12 flex-shrink-0 bg-gradient-to-br from-[#346754] to-[#b0834d] rounded-xl flex items-center justify-center mr-4 group-hover:scale-110 transition-transform duration-300">
                             <Icon className="h-6 w-6 text-white" />
                           </div>
                           <div className="flex-grow">
-                            <h3 className="font-bold text-[#00052e] mb-1">{facility.title}</h3>
+                            <h3 className="font-bold text-[#346754] mb-1">{facility.title}</h3>
                             <p className="text-slate-600 text-sm">{facility.description}</p>
                           </div>
                           <div className="w-3 h-3 rounded-full bg-[#b0834d] self-center animate-pulse"></div>
@@ -574,7 +572,7 @@ export default function Home() {
 
           {/* Visual separator */}
           <div className="mt-16 flex items-center justify-center">
-            <div className="h-px bg-gradient-to-r from-transparent via-[#00052e] to-transparent w-full max-w-md"></div>
+            <div className="h-px bg-gradient-to-r from-transparent via-[#346754] to-transparent w-full max-w-md"></div>
           </div>
         </div>
       </section>
@@ -589,12 +587,12 @@ export default function Home() {
             className="text-center mb-16"
             viewport={{ once: true }}
           >
-            <Badge className="mb-4 bg-gradient-to-r from-amber-100 to-orange-100 text-amber-800 px-6 py-2 rounded-full text-sm font-medium">
+            <Badge className="mb-4 bg-gradient-to-r from-[#b8860b]/10 to-[#daa520]/10 text-amber-800 px-6 py-2 rounded-full text-sm font-medium">
               <Lightbulb className="h-4 w-4 mr-2 inline" />
               Pencahayaan Premium
             </Badge>
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#00052e] mb-6">
-              Solusi Pencahayaan <span className="bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent">Professional</span>
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#346754] mb-6">
+              Solusi Pencahayaan <span className="bg-gradient-to-r from-[#b8860b] to-[#daa520] bg-clip-text text-transparent">Professional</span>
             </h2>
             <p className="text-lg md:text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed">
               Kombinasi sempurna antara cahaya alami dan pencahayaan studio profesional untuk menghasilkan foto berkualitas tinggi dengan mood yang tepat
@@ -612,18 +610,18 @@ export default function Home() {
           >
             <div className="grid md:grid-cols-2 gap-4 max-w-4xl mx-auto">
               <div className="space-y-3">
-                <div className="w-12 h-12 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center mx-auto">
+                <div className="w-12 h-12 bg-gradient-to-br from-[#4a7c59] to-[#346754] rounded-full flex items-center justify-center mx-auto">
                   <Star className="h-6 w-6 text-white" />
                 </div>
-                <h4 className="font-semibold text-[#00052e]">Natural Light</h4>
+                <h4 className="font-semibold text-[#346754]">Natural Light</h4>
                 <p className="text-sm text-slate-600">Didukung cahaya alami dari jendela besar & skylight atap</p>
               </div>
 
               <div className="space-y-3">
-                <div className="w-12 h-12 bg-gradient-to-br from-rose-400 to-pink-500 rounded-full flex items-center justify-center mx-auto">
+                <div className="w-12 h-12 bg-gradient-to-br from-[#8b7355] to-[#a0845c] rounded-full flex items-center justify-center mx-auto">
                   <Award className="h-6 w-6 text-white" />
                 </div>
-                <h4 className="font-semibold text-[#00052e]">Studio Lighting</h4>
+                <h4 className="font-semibold text-[#346754]">Studio Lighting</h4>
                 <p className="text-sm text-slate-600">Tersedia 1 set standar lighting dengan beberapa pilihan modifier, siap menunjang kebutuhan foto profesional</p>
               </div>
             </div>
@@ -632,11 +630,11 @@ export default function Home() {
           {/* Elegant Visual Separator */}
           <div className="mt-16 flex items-center justify-center">
             <div className="flex items-center space-x-4">
-              <div className="h-px bg-gradient-to-r from-transparent to-amber-300 w-16"></div>
+              <div className="h-px bg-gradient-to-r from-transparent to-[#daa520] w-16"></div>
               <Sparkles className="h-6 w-6 text-amber-400" />
-              <div className="h-px bg-gradient-to-r from-amber-300 via-orange-300 to-amber-300 w-32"></div>
+              <div className="h-px bg-gradient-to-r from-[#b8860b] via-[#daa520] to-[#daa520] w-32"></div>
               <Sparkles className="h-6 w-6 text-orange-400" />
-              <div className="h-px bg-gradient-to-l from-transparent to-orange-300 w-16"></div>
+              <div className="h-px bg-gradient-to-l from-transparent to-[#daa520] w-16"></div>
             </div>
           </div>
         </div>
@@ -656,7 +654,7 @@ export default function Home() {
               <Camera className="h-4 w-4 mr-1 inline" />
               Layanan & Kebutuhan Fotografi
             </Badge>
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#00052e] mb-6">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#346754] mb-6">
               Cocok untuk Berbagai Jenis Pemotretan
             </h2>
             <p className="text-lg md:text-xl text-slate-600 max-w-2xl mx-auto">
@@ -682,12 +680,12 @@ export default function Home() {
                     height={600}
                     className="w-full h-auto object-cover"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#00052e]/20 to-transparent"></div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#346754]/20 to-transparent"></div>
                 </div>
 
                 {/* Decorative elements */}
                 <div className="absolute -top-6 -left-6 w-24 h-24 border-4 border-[#b0834d] rounded-2xl opacity-30 rotate-12"></div>
-                <div className="absolute -bottom-6 -right-6 w-16 h-16 border-4 border-[#00052e] rounded-2xl opacity-30 -rotate-12"></div>
+                <div className="absolute -bottom-6 -right-6 w-16 h-16 border-4 border-[#346754] rounded-2xl opacity-30 -rotate-12"></div>
               </motion.div>
             </div>
 
@@ -705,10 +703,10 @@ export default function Home() {
                   >
                     <Card className="p-5 border-0 shadow-lg hover:shadow-2xl transition-all duration-300 rounded-2xl bg-gradient-to-r from-white to-slate-50 hover:from-[#b0834d]/5 group">
                       <div className="flex items-start">
-                        <div className="w-10 h-10 flex-shrink-0 bg-gradient-to-br from-[#00052e] to-[#b0834d] rounded-full flex items-center justify-center mr-4 group-hover:scale-110 transition-transform duration-300">
+                        <div className="w-10 h-10 flex-shrink-0 bg-gradient-to-br from-[#346754] to-[#b0834d] rounded-full flex items-center justify-center mr-4 group-hover:scale-110 transition-transform duration-300">
                           <Camera className="h-5 w-5 text-white" />
                         </div>
-                        <h3 className="font-medium text-[#00052e] pt-1.5 flex-grow">{service}</h3>
+                        <h3 className="font-medium text-[#346754] pt-1.5 flex-grow">{service}</h3>
                         <div className="w-2 h-2 rounded-full bg-[#b0834d] self-center animate-pulse"></div>
                       </div>
                     </Card>
@@ -720,13 +718,13 @@ export default function Home() {
 
           {/* Visual separator */}
           <div className="mt-16 flex items-center justify-center">
-            <div className="h-px bg-gradient-to-r from-transparent via-[#00052e] to-transparent w-full max-w-md"></div>
+            <div className="h-px bg-gradient-to-r from-transparent via-[#346754] to-transparent w-full max-w-md"></div>
           </div>
         </div>
       </section>
 
       {/* Specifications Section - Text-focused & Modern */}
-      <section id="specifications" className="py-16 bg-gradient-to-br from-slate-50 to-blue-50/30">
+      <section id="specifications" className="py-16 bg-gradient-to-br from-slate-50 to-green-50/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -735,12 +733,12 @@ export default function Home() {
             className="text-center mb-12"
             viewport={{ once: true }}
           >
-            <Badge className="mb-3 bg-gradient-to-r from-amber-100 to-orange-100 text-amber-800 px-4 py-1.5 rounded-full text-sm font-medium">
+            <Badge className="mb-3 bg-gradient-to-r from-[#b8860b]/10 to-[#daa520]/10 text-amber-800 px-4 py-1.5 rounded-full text-sm font-medium">
               <Ruler className="h-3 w-3 mr-1.5 inline" />
               Spesifikasi
             </Badge>
-            <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-[#00052e] mb-4">
-              Spesifikasi <span className="bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent">Studio</span>
+            <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-[#346754] mb-4">
+              Spesifikasi <span className="bg-gradient-to-r from-[#b8860b] to-[#daa520] bg-clip-text text-transparent">Studio</span>
             </h2>
             <p className="text-base md:text-lg text-slate-600 max-w-2xl mx-auto">
               Detail background dan lantai studio
@@ -751,10 +749,10 @@ export default function Home() {
             {/* Background Specifications */}
             <div className="bg-white p-6 rounded-2xl border border-slate-200/50 shadow-sm">
               <div className="flex items-center mb-6">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#00052e] to-[#b0834d] flex items-center justify-center mr-3">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#346754] to-[#b0834d] flex items-center justify-center mr-3">
                   <Palette className="h-6 w-6 text-white" />
                 </div>
-                <h3 className="text-xl font-bold text-[#00052e]">Background</h3>
+                <h3 className="text-xl font-bold text-[#346754]">Background</h3>
               </div>
 
               <div className="space-y-3">
@@ -768,7 +766,7 @@ export default function Home() {
                     className="cursor-pointer"
                   >
                     <Card className="p-3 border-0 hover:shadow-md transition-all duration-300 rounded-xl bg-gradient-to-r from-white to-slate-50 group">
-                      <p className="text-slate-700 text-sm leading-relaxed pl-2 border-l-2 border-[#b0834d] group-hover:border-[#00052e] transition-colors duration-300">{spec}</p>
+                      <p className="text-slate-700 text-sm leading-relaxed pl-2 border-l-2 border-[#b0834d] group-hover:border-[#346754] transition-colors duration-300">{spec}</p>
                     </Card>
                   </motion.div>
                 ))}
@@ -778,10 +776,10 @@ export default function Home() {
             {/* Floor Specifications */}
             <div className="bg-white p-6 rounded-2xl border border-slate-200/50 shadow-sm">
               <div className="flex items-center mb-6">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#b0834d] to-[#00052e] flex items-center justify-center mr-3">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#b0834d] to-[#346754] flex items-center justify-center mr-3">
                   <Square className="h-6 w-6 text-white" />
                 </div>
-                <h3 className="text-xl font-bold text-[#00052e]">Lantai</h3>
+                <h3 className="text-xl font-bold text-[#346754]">Lantai</h3>
               </div>
 
               <div className="space-y-3">
@@ -795,7 +793,7 @@ export default function Home() {
                     className="cursor-pointer"
                   >
                     <Card className="p-3 border-0 hover:shadow-md transition-all duration-300 rounded-xl bg-gradient-to-r from-white to-slate-50 group">
-                      <p className="text-slate-700 text-sm leading-relaxed pl-2 border-l-2 border-[#00052e] group-hover:border-[#b0834d] transition-colors duration-300">{spec}</p>
+                      <p className="text-slate-700 text-sm leading-relaxed pl-2 border-l-2 border-[#346754] group-hover:border-[#b0834d] transition-colors duration-300">{spec}</p>
                     </Card>
                   </motion.div>
                 ))}
@@ -805,13 +803,13 @@ export default function Home() {
 
           {/* Compact Visual separator */}
           <div className="mt-12 flex items-center justify-center">
-            <div className="h-px bg-gradient-to-r from-transparent via-[#00052e] to-transparent w-full max-w-sm"></div>
+            <div className="h-px bg-gradient-to-r from-transparent via-[#346754] to-transparent w-full max-w-sm"></div>
           </div>
         </div>
       </section>
 
       {/* Studio Properties Section */}
-      <section id="properties" className="py-12 bg-gradient-to-br from-slate-50 to-blue-50/30">
+      <section id="properties" className="py-12 bg-gradient-to-br from-slate-50 to-green-50/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -824,7 +822,7 @@ export default function Home() {
               <Sofa className="h-4 w-4 mr-1 inline" />
               Properti Studio
             </Badge>
-            <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-[#00052e] mb-3">
+            <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-[#346754] mb-3">
               Properti Lengkap untuk Sesi Foto Anda
             </h2>
             <p className="text-base md:text-lg text-slate-600 max-w-xl mx-auto">
@@ -857,10 +855,10 @@ export default function Home() {
                   viewport={{ once: true }}
                   className="flex flex-col items-center text-center p-3 cursor-pointer group"
                 >
-                  <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-[#00052e] to-[#b0834d] flex items-center justify-center mb-2 group-hover:scale-110 transition-transform duration-300">
+                  <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-[#346754] to-[#b0834d] flex items-center justify-center mb-2 group-hover:scale-110 transition-transform duration-300">
                     <Icon className="h-6 w-6 text-white" />
                   </div>
-                  <span className="text-xs md:text-sm font-medium text-[#00052e] text-center group-hover:text-[#b0834d] transition-colors duration-300">
+                  <span className="text-xs md:text-sm font-medium text-[#346754] text-center group-hover:text-[#b0834d] transition-colors duration-300">
                     {property}
                   </span>
                 </motion.div>
@@ -876,13 +874,13 @@ export default function Home() {
 
           {/* Visual separator */}
           <div className="mt-6 flex items-center justify-center">
-            <div className="h-px bg-gradient-to-r from-transparent via-[#00052e] to-transparent w-full max-w-md"></div>
+            <div className="h-px bg-gradient-to-r from-transparent via-[#346754] to-transparent w-full max-w-md"></div>
           </div>
         </div>
       </section>
 
       {/* Terms and Conditions Section - Enhanced with Visual Elements */}
-      <section id="terms" className="py-20 bg-gradient-to-br from-slate-50 to-blue-50/30">
+      <section id="terms" className="py-20 bg-gradient-to-br from-slate-50 to-green-50/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -891,12 +889,12 @@ export default function Home() {
             className="text-center mb-16"
             viewport={{ once: true }}
           >
-            <Badge className="mb-4 bg-gradient-to-r from-amber-100 to-orange-100 text-amber-800 px-6 py-2 rounded-full text-sm font-medium">
+            <Badge className="mb-4 bg-gradient-to-r from-[#b8860b]/10 to-[#daa520]/10 text-amber-800 px-6 py-2 rounded-full text-sm font-medium">
               <FileText className="h-4 w-4 mr-2 inline" />
               Ketentuan & Kebijakan
             </Badge>
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#00052e] mb-6">
-              Panduan <span className="bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent">Pemesanan</span> & Penggunaan Studio
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#346754] mb-6">
+              Panduan <span className="bg-gradient-to-r from-[#b8860b] to-[#daa520] bg-clip-text text-transparent">Pemesanan</span> & Penggunaan Studio
             </h2>
             <p className="text-lg md:text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed">
               Pahami ketentuan dan kebijakan kami untuk pengalaman pemesanan studio yang menyenangkan dan tanpa keraguan
@@ -913,13 +911,13 @@ export default function Home() {
                 viewport={{ once: true }}
                 className="relative"
               >
-                <div className="relative rounded-3xl overflow-hidden shadow-2xl bg-gradient-to-br from-[#00052e] to-[#b0834d] p-1">
+                <div className="relative rounded-3xl overflow-hidden shadow-2xl bg-gradient-to-br from-[#346754] to-[#b0834d] p-1">
                   <div className="bg-white rounded-3xl p-8">
                     <div className="text-center mb-6">
-                      <div className="w-20 h-20 bg-gradient-to-br from-[#00052e] to-[#b0834d] rounded-full flex items-center justify-center mx-auto mb-4">
+                      <div className="w-20 h-20 bg-gradient-to-br from-[#346754] to-[#b0834d] rounded-full flex items-center justify-center mx-auto mb-4">
                         <FileText className="h-10 w-10 text-white" />
                       </div>
-                      <h3 className="text-xl font-bold text-[#00052e]">Ketentuan Penting</h3>
+                      <h3 className="text-xl font-bold text-[#346754]">Ketentuan Penting</h3>
                     </div>
 
                     <div className="space-y-4">
@@ -953,7 +951,7 @@ export default function Home() {
 
                 {/* Decorative elements */}
                 <div className="absolute -top-6 -left-6 w-24 h-24 border-4 border-[#b0834d] rounded-2xl opacity-30 rotate-12"></div>
-                <div className="absolute -bottom-6 -right-6 w-16 h-16 border-4 border-[#00052e] rounded-2xl opacity-30 -rotate-12"></div>
+                <div className="absolute -bottom-6 -right-6 w-16 h-16 border-4 border-[#346754] rounded-2xl opacity-30 -rotate-12"></div>
               </motion.div>
             </div>
 
@@ -994,7 +992,7 @@ export default function Home() {
                           <div className="flex-grow">
                             <p className="text-slate-700 font-medium">{term}</p>
                           </div>
-                          <div className="w-3 h-3 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 self-center animate-pulse"></div>
+                          <div className="w-3 h-3 rounded-full bg-gradient-to-r from-[#b8860b] to-[#daa520] self-center animate-pulse"></div>
                         </div>
                       </Card>
                     </motion.div>
@@ -1007,9 +1005,9 @@ export default function Home() {
           {/* Elegant Visual separator */}
           <div className="mt-16 flex items-center justify-center">
             <div className="flex items-center space-x-4">
-              <div className="h-px bg-gradient-to-r from-transparent to-[#00052e] w-16"></div>
+              <div className="h-px bg-gradient-to-r from-transparent to-[#346754] w-16"></div>
               <div className="w-3 h-3 bg-[#b0834d] rotate-45 transform"></div>
-              <div className="h-px bg-gradient-to-l from-transparent to-[#00052e] w-16"></div>
+              <div className="h-px bg-gradient-to-l from-transparent to-[#346754] w-16"></div>
             </div>
           </div>
         </div>
@@ -1018,7 +1016,7 @@ export default function Home() {
 
 
       {/* CTA Section */}
-      <section className="py-20 bg-gradient-to-r from-[#00052e] to-[#b0834d]">
+      {/* <section className="py-20 bg-gradient-to-r from-[#346754] to-[#5d9983]">
         <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -1035,7 +1033,7 @@ export default function Home() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="tel:+6281234567890">
-                <Button size="lg" className="bg-white text-[#00052e] hover:bg-white/90 px-8 py-6 text-base rounded-full transition-all duration-300 shadow-lg hover:shadow-xl">
+                <Button size="lg" className="bg-white text-[#346754] hover:bg-white/90 px-8 py-6 text-base rounded-full transition-all duration-300 shadow-lg hover:shadow-xl">
                   <Phone className="h-5 w-5 mr-2" />
                   Hubungi Sekarang
                 </Button>
@@ -1049,7 +1047,7 @@ export default function Home() {
             </div>
           </motion.div>
         </div>
-      </section>
+      </section> */}
 
       {/* WhatsApp Floating Action Button */}
       <WhatsAppFloatButton studioId={studiosData.length > 0 ? studiosData[0].id : undefined} />

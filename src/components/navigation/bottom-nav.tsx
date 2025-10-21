@@ -44,8 +44,8 @@ export function BottomNav() {
                 className={cn(
                   "relative flex flex-col items-center justify-center min-w-0 flex-1 px-1 py-2 text-xs font-medium transition-all duration-200",
                   isActive
-                    ? "text-[#00052e]"
-                    : "text-slate-500 active:text-[#00052e]"
+                    ? "text-[#346754]"
+                    : "text-slate-500 active:text-[#346754]"
                 )}
               >
                 <motion.div
@@ -56,7 +56,7 @@ export function BottomNav() {
                   {isActive && (
                     <motion.div
                       layoutId="activeTab"
-                      className="absolute -inset-2 bg-[#00052e]/10 rounded-2xl"
+                      className="absolute -inset-2 bg-[#346754]/10 rounded-2xl"
                       initial={false}
                       transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
                     />
@@ -66,7 +66,7 @@ export function BottomNav() {
                   <div className="relative mb-1">
                     <Icon className={cn(
                       "h-5 w-5 transition-all duration-200",
-                      isActive ? "text-[#00052e] scale-110" : "text-slate-500"
+                      isActive ? "text-[#346754] scale-110" : "text-slate-500"
                     )} />
 
                     {/* Active dot indicator */}
@@ -83,7 +83,7 @@ export function BottomNav() {
                   {/* Label */}
                   <span className={cn(
                     "text-xs font-medium transition-all duration-200 truncate max-w-full",
-                    isActive ? "text-[#00052e] font-semibold" : "text-slate-500"
+                    isActive ? "text-[#346754] font-semibold" : "text-slate-500"
                   )}>
                     {item.label}
                   </span>

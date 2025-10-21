@@ -173,7 +173,7 @@ export default function BookingSummaryPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00052e] mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#346754] mx-auto mb-4"></div>
           <p className="text-slate-600">Memuat ringkasan booking...</p>
         </div>
       </div>
@@ -385,7 +385,7 @@ export default function BookingSummaryPage() {
   const selectedAddons = getSelectedAddons()
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50/30 to-slate-100">
       {/* Header */}
       <div className="bg-white/80 backdrop-blur-sm border-b border-slate-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -401,9 +401,9 @@ export default function BookingSummaryPage() {
                 Kembali
               </Button>
               <div className="text-sm text-slate-600">
-                <Link href="/packages" className="hover:text-[#00052e]">Paket</Link> /
-                <Link href={`/packages/${packageData.id}`} className="hover:text-[#00052e] mx-1">{packageData.name}</Link> /
-                <Link href="/booking/addons" className="hover:text-[#00052e] mx-1">Add-ons</Link> /
+                <Link href="/packages" className="hover:text-[#346754]">Paket</Link> /
+                <Link href={`/packages/${packageData.id}`} className="hover:text-[#346754] mx-1">{packageData.name}</Link> /
+                <Link href="/booking/addons" className="hover:text-[#346754] mx-1">Add-ons</Link> /
                 Ringkasan
               </div>
             </div>
@@ -421,7 +421,7 @@ export default function BookingSummaryPage() {
               </div>
               <div className="w-8 h-px bg-slate-300"></div>
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-[#00052e] rounded-full flex items-center justify-center">
+                <div className="w-4 h-4 bg-[#346754] rounded-full flex items-center justify-center">
                   <div className="w-2 h-2 bg-white rounded-full"></div>
                 </div>
                 <span className="font-medium">Pembayaran</span>
@@ -441,7 +441,7 @@ export default function BookingSummaryPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
             >
-              <h1 className="text-xl sm:text-3xl font-bold text-[#00052e] mb-1 sm:mb-2">Konfirmasi Booking</h1>
+              <h1 className="text-xl sm:text-3xl font-bold text-[#346754] mb-1 sm:mb-2">Konfirmasi Booking</h1>
               <p className="text-xs sm:text-base text-slate-600">
                 Lengkapi data diri dan pilih metode pembayaran untuk menyelesaikan booking
               </p>
@@ -456,8 +456,8 @@ export default function BookingSummaryPage() {
               >
                 <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-lg sm:text-xl text-[#00052e]">
-                      <User className="h-4 w-4 sm:h-5 sm:w-5 text-[#00052e]" />
+                    <CardTitle className="flex items-center gap-2 text-lg sm:text-xl text-[#346754]">
+                      <User className="h-4 w-4 sm:h-5 sm:w-5 text-[#346754]" />
                       Data Pelanggan
                     </CardTitle>
                     <CardDescription className="text-xs sm:text-sm">
@@ -619,8 +619,8 @@ export default function BookingSummaryPage() {
               >
                 <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-lg sm:text-xl text-[#00052e]">
-                      <CreditCard className="h-4 w-4 sm:h-5 sm:w-5 text-[#00052e]" />
+                    <CardTitle className="flex items-center gap-2 text-lg sm:text-xl text-[#346754]">
+                      <CreditCard className="h-4 w-4 sm:h-5 sm:w-5 text-[#346754]" />
                       Metode Pembayaran
                     </CardTitle>
                     <CardDescription className="text-xs sm:text-sm">
@@ -696,7 +696,7 @@ export default function BookingSummaryPage() {
                 <Button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full bg-gradient-to-r from-[#00052e] to-[#b0834d] hover:from-[#00052e]/90 hover:to-[#b0834d]/90 text-xs sm:text-base py-2 sm:py-3"
+                  className="w-full bg-gradient-to-r from-[#346754] to-[#b0834d] hover:from-[#346754]/90 hover:to-[#b0834d]/90 text-xs sm:text-base py-2 sm:py-3"
                   size="lg"
                 >
                   {isSubmitting ? (
@@ -726,18 +726,18 @@ export default function BookingSummaryPage() {
               {/* Booking Details */}
               <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-xl">
                 <CardHeader>
-                  <CardTitle className="text-lg sm:text-xl text-[#00052e]">Detail Booking</CardTitle>
+                  <CardTitle className="text-lg sm:text-xl text-[#346754]">Detail Booking</CardTitle>
                 </CardHeader>
 
                 <CardContent className="space-y-3 sm:space-y-4">
                   {/* Package Info */}
                   <div className="space-y-2 sm:space-y-3">
                     <div className="flex items-start gap-2 sm:gap-3">
-                      <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-[#00052e] to-[#b0834d] rounded-lg flex items-center justify-center flex-shrink-0">
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-[#346754] to-[#b0834d] rounded-lg flex items-center justify-center flex-shrink-0">
                         <Camera className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                       </div>
                       <div className="flex-1">
-                        <h4 className="font-medium text-[#00052e] text-sm sm:text-base">{packageData.name}</h4>
+                        <h4 className="font-medium text-[#346754] text-sm sm:text-base">{packageData.name}</h4>
                         {packageData.category && (
                           <p className="text-xs sm:text-sm text-slate-600">{packageData.category.name}</p>
                         )}
@@ -776,7 +776,7 @@ export default function BookingSummaryPage() {
                   {/* Applied Discount */}
                   {appliedDiscountCode && (
                     <div className="border-t pt-3 sm:pt-4">
-                      <h4 className="font-semibold text-[#00052e] mb-2 sm:mb-3 flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base">
+                      <h4 className="font-semibold text-[#346754] mb-2 sm:mb-3 flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base">
                         <Tag className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" />
                         Diskon Diterapkan
                       </h4>
@@ -802,7 +802,7 @@ export default function BookingSummaryPage() {
                   {/* Selected Add-ons */}
                   {selectedAddons.length > 0 && (
                     <div className="border-t pt-3 sm:pt-4">
-                      <h4 className="font-semibold text-[#00052e] mb-2 sm:mb-3 flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base">
+                      <h4 className="font-semibold text-[#346754] mb-2 sm:mb-3 flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base">
                         <Gift className="h-3 w-3 sm:h-4 sm:w-4" />
                         Add-ons
                       </h4>
@@ -841,7 +841,7 @@ export default function BookingSummaryPage() {
                     {discountAmount > 0 && (
                       <div className="flex justify-between text-sm sm:text-base font-semibold border-t pt-2">
                         <span className="text-slate-800">Total Setelah Diskon</span>
-                        <span className="text-[#00052e]">{formatPrice(getTotalPrice())}</span>
+                        <span className="text-[#346754]">{formatPrice(getTotalPrice())}</span>
                       </div>
                     )}
 
@@ -879,7 +879,7 @@ export default function BookingSummaryPage() {
                   form="booking-form"
                   onClick={handleSubmit(onSubmit)}
                   disabled={isSubmitting}
-                  className="w-full bg-gradient-to-r from-[#00052e] to-[#b0834d] hover:from-[#00052e]/90 hover:to-[#b0834d]/90 text-xs sm:text-base py-2 sm:py-3"
+                  className="w-full bg-gradient-to-r from-[#346754] to-[#b0834d] hover:from-[#346754]/90 hover:to-[#b0834d]/90 text-xs sm:text-base py-2 sm:py-3"
                   size="lg"
                 >
                   {isSubmitting ? (

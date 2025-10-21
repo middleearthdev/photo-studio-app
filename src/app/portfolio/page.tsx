@@ -118,7 +118,7 @@ function PortfolioPageContent() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00052e] mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#346754] mx-auto mb-4"></div>
           <p className="text-slate-600">Memuat portfolio...</p>
         </div>
       </div>
@@ -126,13 +126,13 @@ function PortfolioPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50/30 to-slate-100">
       {/* Navigation */}
       <Navbar currentPath="/portfolio" />
 
       {/* Hero Section */}
       <section className="relative pt-20 pb-16 md:pb-24 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-[#00052e]/5 to-[#b0834d]/5"></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-[#346754]/5 to-[#b0834d]/5"></div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <motion.div
@@ -145,7 +145,7 @@ function PortfolioPageContent() {
               Portfolio Kami
             </Badge>
 
-            <h1 className="text-xl sm:text-3xl md:text-5xl lg:text-6xl font-bold text-[#00052e] mb-4 sm:mb-6 leading-tight">
+            <h1 className="text-xl sm:text-3xl md:text-5xl lg:text-6xl font-bold text-[#346754] mb-4 sm:mb-6 leading-tight">
               Galeri Karya
               <span className="text-[#b0834d] block">Terbaik</span>
             </h1>
@@ -169,11 +169,11 @@ function PortfolioPageContent() {
                   placeholder="Cari portfolio..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 w-full sm:w-64 border-[#00052e]/30 focus:ring-[#00052e] text-sm"
+                  className="pl-10 w-full sm:w-64 border-[#346754]/30 focus:ring-[#346754] text-sm"
                 />
               </div>
               <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="w-full sm:w-48 border-[#00052e]/30 text-sm">
+                <SelectTrigger className="w-full sm:w-48 border-[#346754]/30 text-sm">
                   <SelectValue placeholder="Urutkan berdasarkan" />
                 </SelectTrigger>
                 <SelectContent>
@@ -189,7 +189,7 @@ function PortfolioPageContent() {
                 variant={viewMode === 'grid' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setViewMode('grid')}
-                className={viewMode === 'grid' ? 'bg-[#00052e] hover:bg-[#00052e]/90' : 'border-[#00052e]/30 text-[#00052e] hover:bg-[#00052e]/10'}
+                className={viewMode === 'grid' ? 'bg-[#346754] hover:bg-[#346754]/90' : 'border-[#346754]/30 text-[#346754] hover:bg-[#346754]/10'}
               >
                 <Grid3X3 className="h-4 w-4" />
               </Button>
@@ -197,7 +197,7 @@ function PortfolioPageContent() {
                 variant={viewMode === 'list' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setViewMode('list')}
-                className={viewMode === 'list' ? 'bg-[#00052e] hover:bg-[#00052e]/90' : 'border-[#00052e]/30 text-[#00052e] hover:bg-[#00052e]/10'}
+                className={viewMode === 'list' ? 'bg-[#346754] hover:bg-[#346754]/90' : 'border-[#346754]/30 text-[#346754] hover:bg-[#346754]/10'}
               >
                 <List className="h-4 w-4" />
               </Button>
@@ -210,8 +210,8 @@ function PortfolioPageContent() {
               variant={selectedCategory === null ? 'default' : 'outline'}
               onClick={() => router.push('/portfolio')}
               className={`rounded-full ${selectedCategory === null
-                ? 'bg-[#00052e] hover:bg-[#00052e]/90 text-white'
-                : 'border-[#00052e]/30 text-[#00052e] hover:bg-[#00052e]/10'
+                ? 'bg-[#346754] hover:bg-[#346754]/90 text-white'
+                : 'border-[#346754]/30 text-[#346754] hover:bg-[#346754]/10'
                 }`}
             >
               Semua
@@ -222,8 +222,8 @@ function PortfolioPageContent() {
                 variant={selectedCategory === category.id ? 'default' : 'outline'}
                 onClick={() => router.push(`/portfolio?category=${encodeURIComponent(category.name.toLowerCase())}`)}
                 className={`rounded-full ${selectedCategory === category.id
-                  ? 'bg-[#00052e] hover:bg-[#00052e]/90 text-white'
-                  : 'border-[#00052e]/30 text-[#00052e] hover:bg-[#00052e]/10'
+                  ? 'bg-[#346754] hover:bg-[#346754]/90 text-white'
+                  : 'border-[#346754]/30 text-[#346754] hover:bg-[#346754]/10'
                   }`}
               >
                 {category.name}
@@ -321,7 +321,7 @@ function PortfolioPageContent() {
                           <div className="md:col-span-2 flex flex-col justify-between">
                             <div>
                               <div className="flex items-center justify-between mb-3">
-                                <Badge className="bg-[#00052e]/10 text-[#00052e]">
+                                <Badge className="bg-[#346754]/10 text-[#346754]">
                                   {portfolio.category?.name || 'Uncategorized'}
                                 </Badge>
                                 {portfolio.is_featured && (
@@ -331,7 +331,7 @@ function PortfolioPageContent() {
                                 )}
                               </div>
 
-                              <h3 className="text-2xl font-bold text-[#00052e] mb-3">
+                              <h3 className="text-2xl font-bold text-[#346754] mb-3">
                                 {portfolio.title}
                               </h3>
 
@@ -355,7 +355,7 @@ function PortfolioPageContent() {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                className="border-[#00052e] text-[#00052e] hover:bg-[#00052e] hover:text-white rounded-full"
+                                className="border-[#346754] text-[#346754] hover:bg-[#346754] hover:text-white rounded-full"
                                 onClick={() => openLightbox(portfolio, 0)}
                               >
                                 <Eye className="h-4 w-4 mr-2" />
@@ -457,7 +457,7 @@ function PortfolioPageContent() {
       </AnimatePresence>
 
       {/* Features Section */}
-      <section className="py-20 bg-gradient-to-br from-[#00052e] to-[#b0834d]">
+      <section className="py-20 bg-gradient-to-br from-[#346754] to-[#b0834d]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -525,7 +525,7 @@ function PortfolioPageContent() {
             viewport={{ once: true }}
           >
             <Sparkles className="h-12 w-12 sm:h-16 sm:w-16 text-[#b0834d] mx-auto mb-4 sm:mb-6" />
-            <h2 className="text-xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-[#00052e] mb-4 sm:mb-6">
+            <h2 className="text-xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-[#346754] mb-4 sm:mb-6">
               Tertarik Dengan Karya Kami?
             </h2>
             <p className="text-sm sm:text-lg md:text-xl text-slate-600 mb-6 sm:mb-8 max-w-2xl mx-auto">
@@ -533,7 +533,7 @@ function PortfolioPageContent() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="/packages">
-                <Button size="lg" variant="outline" className="border-[#00052e] text-[#00052e] hover:bg-[#00052e] hover:text-white px-6 sm:px-8 py-4 sm:py-6 rounded-full transition-all duration-300 text-sm sm:text-base">
+                <Button size="lg" variant="outline" className="border-[#346754] text-[#346754] hover:bg-[#346754] hover:text-white px-6 sm:px-8 py-4 sm:py-6 rounded-full transition-all duration-300 text-sm sm:text-base">
                   <Calendar className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
                   Lihat Paket Harga
                 </Button>
@@ -557,7 +557,7 @@ export default function PortfolioPage() {
     <Suspense fallback={
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00052e] mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#346754] mx-auto mb-4"></div>
           <p className="text-slate-600">Memuat portfolio...</p>
         </div>
       </div>

@@ -203,7 +203,7 @@ Terima kasih! 🙏`
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00052e] mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#346754] mx-auto mb-4"></div>
           <p className="text-slate-600">Memuat informasi pembayaran...</p>
         </div>
       </div>
@@ -220,7 +220,7 @@ Terima kasih! 🙏`
   const Icon = methodInfo.icon
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50/30 to-slate-100">
       <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -230,10 +230,10 @@ Terima kasih! 🙏`
         >
           {/* Header */}
           <div className="text-center">
-            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-[#00052e] to-[#b0834d] rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
+            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-[#346754] to-[#b0834d] rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
               <Check className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-[#00052e] mb-1 sm:mb-2">Booking Berhasil Dibuat!</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-[#346754] mb-1 sm:mb-2">Booking Berhasil Dibuat!</h1>
             <p className="text-sm sm:text-base text-slate-600">
               Booking ID: <span className="font-mono font-medium">{bookingCode}</span>
             </p>
@@ -242,7 +242,7 @@ Terima kasih! 🙏`
           {/* Booking Summary */}
           <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-xl">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg sm:text-xl text-[#00052e]">
+              <CardTitle className="flex items-center gap-2 text-lg sm:text-xl text-[#346754]">
                 <Camera className="h-5 w-5" />
                 Ringkasan Booking
               </CardTitle>
@@ -278,7 +278,7 @@ Terima kasih! 🙏`
               </div>
 
               {/* Payment Amount */}
-              <div className="border border-[#b0834d] bg-gradient-to-r from-[#b0834d]/5 to-[#00052e]/5 rounded-lg p-4">
+              <div className="border border-[#b0834d] bg-gradient-to-r from-[#b0834d]/5 to-[#346754]/5 rounded-lg p-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-slate-600">Total DP</p>
@@ -320,7 +320,7 @@ Terima kasih! 🙏`
           {/* Bank Account Details */}
           <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-xl">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg sm:text-xl text-[#00052e]">
+              <CardTitle className="flex items-center gap-2 text-lg sm:text-xl text-[#346754]">
                 <Icon className="h-5 w-5" />
                 Detail Rekening Transfer
               </CardTitle>
@@ -335,7 +335,7 @@ Terima kasih! 🙏`
                 <div className="flex items-center justify-between p-3 sm:p-4 bg-slate-50 rounded-lg">
                   <div className="flex-1">
                     <p className="text-xs sm:text-sm text-slate-600 mb-1">Bank</p>
-                    <p className="font-semibold text-sm sm:text-base text-[#00052e]">
+                    <p className="font-semibold text-sm sm:text-base text-[#346754]">
                       {bookingData.paymentMethodDetails?.account_details?.bank_code || 'BCA'}
                     </p>
                   </div>
@@ -345,7 +345,7 @@ Terima kasih! 🙏`
                 <div className="flex items-center justify-between p-3 sm:p-4 bg-slate-50 rounded-lg">
                   <div className="flex-1">
                     <p className="text-xs sm:text-sm text-slate-600 mb-1">Nomor Rekening</p>
-                    <p className="font-mono font-semibold text-sm sm:text-base text-[#00052e]">
+                    <p className="font-mono font-semibold text-sm sm:text-base text-[#346754]">
                       {bookingData.paymentMethodDetails?.account_details?.account_number || '1234567890'}
                     </p>
                   </div>
@@ -357,7 +357,7 @@ Terima kasih! 🙏`
                       navigator.clipboard.writeText(accountNumber)
                       toast.success('Nomor rekening disalin')
                     }}
-                    className="text-[#00052e] hover:text-[#00052e]/80"
+                    className="text-[#346754] hover:text-[#346754]/80"
                   >
                     <Copy className="h-4 w-4" />
                   </Button>
@@ -367,7 +367,7 @@ Terima kasih! 🙏`
                 <div className="flex items-center justify-between p-3 sm:p-4 bg-slate-50 rounded-lg">
                   <div className="flex-1">
                     <p className="text-xs sm:text-sm text-slate-600 mb-1">Nama Penerima</p>
-                    <p className="font-semibold text-sm sm:text-base text-[#00052e]">
+                    <p className="font-semibold text-sm sm:text-base text-[#346754]">
                       {bookingData.paymentMethodDetails?.account_details?.account_name || 'Lumina Photography Studio'}
                     </p>
                   </div>
@@ -379,7 +379,7 @@ Terima kasih! 🙏`
                       navigator.clipboard.writeText(accountName)
                       toast.success('Nama penerima disalin')
                     }}
-                    className="text-[#00052e] hover:text-[#00052e]/80"
+                    className="text-[#346754] hover:text-[#346754]/80"
                   >
                     <Copy className="h-4 w-4" />
                   </Button>
@@ -523,7 +523,7 @@ Terima kasih! 🙏`
             <Button
               variant="ghost"
               onClick={() => router.push('/packages')}
-              className="text-slate-600 hover:text-[#00052e] text-sm py-2"
+              className="text-slate-600 hover:text-[#346754] text-sm py-2"
             >
               Kembali ke Halaman Utama
             </Button>
@@ -539,7 +539,7 @@ export default function PaymentInfoPage() {
     <Suspense fallback={
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00052e] mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#346754] mx-auto mb-4"></div>
           <p className="text-slate-600">Memuat informasi pembayaran...</p>
         </div>
       </div>

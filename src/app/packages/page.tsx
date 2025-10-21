@@ -81,7 +81,7 @@ export default function PackagesPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00052e] mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#346754] mx-auto mb-4"></div>
           <p className="text-slate-600">Memuat paket...</p>
         </div>
       </div>
@@ -89,14 +89,14 @@ export default function PackagesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50/30 to-slate-100">
       <Navbar currentPath="/packages" />
 
       {/* Hero Section */}
       <section className="relative pt-24 pb-16 px-4 sm:px-6 lg:px-8 overflow-hidden mb-10">
-        <div className="absolute inset-0 bg-gradient-to-r from-[#00052e]/5 to-[#b0834d]/5 backdrop-blur-sm"></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-[#346754]/5 to-[#b0834d]/5 backdrop-blur-sm"></div>
         <div className="absolute top-20 left-10 w-64 h-64 bg-[#b0834d]/10 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-10 right-10 w-96 h-96 bg-[#00052e]/10 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-10 right-10 w-96 h-96 bg-[#346754]/10 rounded-full blur-3xl"></div>
         <div className="relative max-w-7xl mx-auto text-center">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -104,11 +104,11 @@ export default function PackagesPage() {
             transition={{ duration: 0.6 }}
           >
             <div className="flex justify-center mb-4 sm:mb-6">
-              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-r from-[#00052e] to-[#b0834d] rounded-full flex items-center justify-center shadow-xl">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-r from-[#346754] to-[#b0834d] rounded-full flex items-center justify-center shadow-xl">
                 <Camera className="h-8 w-8 sm:h-10 sm:w-10 text-white" />
               </div>
             </div>
-            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-[#00052e] mb-4 sm:mb-6">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-[#346754] mb-4 sm:mb-6">
               Pilih Paket <span className="text-[#b0834d]">Foto Terbaik</span>
             </h1>
             <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-slate-600 max-w-3xl mx-auto mb-6 sm:mb-8 lg:mb-10 leading-relaxed">
@@ -118,11 +118,11 @@ export default function PackagesPage() {
             {/* Statistics */}
             <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 lg:gap-6 mt-8 sm:mt-12">
               <div className="flex items-center gap-2 sm:gap-3 bg-white/50 backdrop-blur-sm rounded-full px-3 sm:px-4 lg:px-6 py-2 sm:py-3 shadow-sm">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-[#00052e] rounded-full flex items-center justify-center">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-[#346754] rounded-full flex items-center justify-center">
                   <ImageIcon className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
                 </div>
                 <div className="text-left">
-                  <div className="font-bold text-[#00052e] text-sm sm:text-base lg:text-lg">{totalPackages}</div>
+                  <div className="font-bold text-[#346754] text-sm sm:text-base lg:text-lg">{totalPackages}</div>
                   <div className="text-xs text-slate-600">Paket Tersedia</div>
                 </div>
               </div>
@@ -133,7 +133,7 @@ export default function PackagesPage() {
                     <Star className="h-4 w-4 sm:h-5 sm:w-5 text-white fill-current" />
                   </div>
                   <div className="text-left">
-                    <div className="font-bold text-[#00052e] text-sm sm:text-base lg:text-lg">{popularPackages}</div>
+                    <div className="font-bold text-[#346754] text-sm sm:text-base lg:text-lg">{popularPackages}</div>
                     <div className="text-xs text-slate-600">Terpopuler</div>
                   </div>
                 </div>
@@ -141,11 +141,11 @@ export default function PackagesPage() {
 
               {priceRange.min > 0 && (
                 <div className="flex items-center gap-2 sm:gap-3 bg-white/50 backdrop-blur-sm rounded-full px-3 sm:px-4 lg:px-6 py-2 sm:py-3 shadow-sm">
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-[#00052e] rounded-full flex items-center justify-center">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-[#346754] rounded-full flex items-center justify-center">
                     <Award className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
                   </div>
                   <div className="text-left">
-                    <div className="font-bold text-[#00052e] text-xs sm:text-sm lg:text-base leading-tight">
+                    <div className="font-bold text-[#346754] text-xs sm:text-sm lg:text-base leading-tight">
                       {formatPrice(priceRange.min).replace('Rp', '')} - {formatPrice(priceRange.max).replace('Rp', '')}
                     </div>
                     <div className="text-xs text-slate-600">Range Harga</div>
@@ -172,7 +172,7 @@ export default function PackagesPage() {
                   placeholder="Cari paket, fasilitas, atau kategori..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-4 sm:pl-12 pr-4 sm:pr-6 py-3 sm:py-4 lg:py-5 rounded-xl sm:rounded-2xl border-slate-300 focus:border-[#00052e] focus:ring-[#00052e] text-sm sm:text-base shadow-sm"
+                  className="pl-4 sm:pl-12 pr-4 sm:pr-6 py-3 sm:py-4 lg:py-5 rounded-xl sm:rounded-2xl border-slate-300 focus:border-[#346754] focus:ring-[#346754] text-sm sm:text-base shadow-sm"
                 />
               </div>
 
@@ -181,7 +181,7 @@ export default function PackagesPage() {
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as any)}
-                  className="px-3 sm:px-4 lg:px-6 py-3 border rounded-xl sm:rounded-2xl border-slate-300 focus:border-[#00052e] focus:ring-[#00052e] bg-white text-sm sm:text-base shadow-sm min-w-[140px] sm:min-w-[160px] lg:min-w-[180px]"
+                  className="px-3 sm:px-4 lg:px-6 py-3 border rounded-xl sm:rounded-2xl border-slate-300 focus:border-[#346754] focus:ring-[#346754] bg-white text-sm sm:text-base shadow-sm min-w-[140px] sm:min-w-[160px] lg:min-w-[180px]"
                 >
                   <option value="popular">Terpopuler</option>
                   <option value="price-asc">Harga Terendah</option>
@@ -198,8 +198,8 @@ export default function PackagesPage() {
                   variant={selectedCategory === null ? "default" : "outline"}
                   onClick={() => setSelectedCategory(null)}
                   className={`rounded-full px-3 sm:px-4 lg:px-6 py-2 sm:py-3 text-xs sm:text-sm lg:text-base font-medium min-h-[36px] sm:min-h-[40px] lg:min-h-[48px] shadow-sm transition-all duration-300 ${selectedCategory === null
-                    ? 'bg-[#00052e] hover:bg-[#00052e]/90 text-white border-[#00052e] shadow-md hover:shadow-lg'
-                    : 'border-[#00052e]/30 text-[#00052e] hover:bg-[#00052e]/10 hover:shadow-md'
+                    ? 'bg-[#346754] hover:bg-[#346754]/90 text-white border-[#346754] shadow-md hover:shadow-lg'
+                    : 'border-[#346754]/30 text-[#346754] hover:bg-[#346754]/10 hover:shadow-md'
                     }`}
                 >
                   <Filter className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
@@ -212,8 +212,8 @@ export default function PackagesPage() {
                     variant={selectedCategory === category.id ? "default" : "outline"}
                     onClick={() => setSelectedCategory(category.id)}
                     className={`rounded-full px-3 sm:px-4 lg:px-6 py-2 sm:py-3 text-xs sm:text-sm lg:text-base font-medium min-h-[36px] sm:min-h-[40px] lg:min-h-[48px] shadow-sm transition-all duration-300 ${selectedCategory === category.id
-                      ? 'bg-[#00052e] hover:bg-[#00052e]/90 text-white border-[#00052e] shadow-md hover:shadow-lg'
-                      : 'border-[#00052e]/30 text-[#00052e] hover:bg-[#00052e]/10 hover:shadow-md'
+                      ? 'bg-[#346754] hover:bg-[#346754]/90 text-white border-[#346754] shadow-md hover:shadow-lg'
+                      : 'border-[#346754]/30 text-[#346754] hover:bg-[#346754]/10 hover:shadow-md'
                       }`}
                   >
                     {category.name}
@@ -226,7 +226,7 @@ export default function PackagesPage() {
             <div className="flex flex-wrap items-center justify-between py-4 sm:py-6 border-t border-slate-200 gap-2 sm:gap-4">
               <div className="flex flex-wrap items-center gap-2 sm:gap-4">
                 <p className="text-slate-600 text-sm sm:text-base lg:text-lg">
-                  Menampilkan <span className="font-bold text-[#00052e]">{filteredPackages.length}</span> dari {totalPackages} paket
+                  Menampilkan <span className="font-bold text-[#346754]">{filteredPackages.length}</span> dari {totalPackages} paket
                 </p>
                 {searchQuery && (
                   <Badge variant="outline" className="border-[#b0834d] text-[#b0834d] text-xs sm:text-sm py-1">
@@ -234,7 +234,7 @@ export default function PackagesPage() {
                   </Badge>
                 )}
                 {selectedCategory && (
-                  <Badge variant="outline" className="border-[#00052e] text-[#00052e] text-xs sm:text-sm py-1">
+                  <Badge variant="outline" className="border-[#346754] text-[#346754] text-xs sm:text-sm py-1">
                     {categories.find(cat => cat.id === selectedCategory)?.name}
                   </Badge>
                 )}
@@ -247,7 +247,7 @@ export default function PackagesPage() {
                     setSearchQuery('')
                     setSelectedCategory(null)
                   }}
-                  className="text-slate-500 hover:text-[#00052e] text-xs sm:text-sm lg:text-base py-1 sm:py-2 px-2 sm:px-4 rounded-full"
+                  className="text-slate-500 hover:text-[#346754] text-xs sm:text-sm lg:text-base py-1 sm:py-2 px-2 sm:px-4 rounded-full"
                 >
                   <span className="hidden sm:inline">Reset Filter</span>
                   <span className="sm:hidden">Reset</span>
@@ -288,7 +288,7 @@ export default function PackagesPage() {
                       setSearchQuery('')
                       setSelectedCategory(null)
                     }}
-                    className="bg-[#00052e] hover:bg-[#00052e]/90 text-white text-sm sm:text-base lg:text-lg px-6 sm:px-8 py-3 sm:py-4 rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
+                    className="bg-[#346754] hover:bg-[#346754]/90 text-white text-sm sm:text-base lg:text-lg px-6 sm:px-8 py-3 sm:py-4 rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
                   >
                     Lihat Semua Paket
                   </Button>

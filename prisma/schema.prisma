@@ -161,7 +161,7 @@ model Verification {
 // Customer Model
 model Customer {
   id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id      String?   @db.Uuid
+  user_id      String?
   full_name    String    @db.VarChar(255)
   email        String    @db.VarChar(255)
   phone        String    @db.VarChar(20)
@@ -423,7 +423,7 @@ model Discount {
   usage_limit     Int?
   used_count      Int?      @default(0)
   applies_to      String?   @default("all") @db.VarChar(20)
-  created_by      String?   @db.Uuid
+  created_by      String?
   created_at      DateTime? @default(now())
   updated_at      DateTime? @default(now())
 
@@ -446,7 +446,7 @@ model Reservation {
   invoice_number        String?           @unique @db.VarChar(50)
   studio_id             String?           @db.Uuid
   customer_id           String?           @db.Uuid
-  user_id               String?           @db.Uuid
+  user_id               String?
   package_id            String?           @db.Uuid
   is_guest_booking      Boolean?          @default(false)
   guest_email           String?           @db.VarChar(255)
@@ -553,7 +553,7 @@ model ReservationDiscount {
   discount_type   String?   @db.VarChar(20)
   discount_value  Decimal?  @db.Decimal(10, 2)
   discount_amount Decimal   @db.Decimal(15, 2)
-  applied_by      String?   @db.Uuid
+  applied_by      String?
   applied_at      DateTime? @default(now())
 
   // Relations

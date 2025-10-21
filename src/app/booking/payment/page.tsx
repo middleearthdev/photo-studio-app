@@ -145,7 +145,7 @@ function PaymentPageContent() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00052e] mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#346754] mx-auto mb-4"></div>
           <p className="text-slate-600">Memuat halaman pembayaran...</p>
         </div>
       </div>
@@ -235,7 +235,7 @@ function PaymentPageContent() {
   const Icon = methodInfo.icon
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50/30 to-slate-100">
       <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -245,10 +245,10 @@ function PaymentPageContent() {
         >
           {/* Header */}
           <div className="text-center">
-            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-[#00052e] to-[#b0834d] rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
+            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-[#346754] to-[#b0834d] rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
               <CreditCard className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-[#00052e] mb-1 sm:mb-2">Pembayaran</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-[#346754] mb-1 sm:mb-2">Pembayaran</h1>
             <p className="text-xs sm:text-base text-slate-600">
               Booking ID: <span className="font-mono font-medium">{bookingData.reservation?.booking_code || bookingCode}</span>
             </p>
@@ -258,9 +258,9 @@ function PaymentPageContent() {
           <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-xl">
             <CardHeader className="text-center pb-3 sm:pb-4">
               <div className="flex items-center justify-center gap-2 sm:gap-3 mb-3 sm:mb-4">
-                <Icon className="h-6 w-6 sm:h-8 sm:w-8 text-[#00052e]" />
+                <Icon className="h-6 w-6 sm:h-8 sm:w-8 text-[#346754]" />
                 <div>
-                  <CardTitle className="text-lg sm:text-xl text-[#00052e]">{methodInfo.name}</CardTitle>
+                  <CardTitle className="text-lg sm:text-xl text-[#346754]">{methodInfo.name}</CardTitle>
                   <CardDescription className="text-xs sm:text-sm">{methodInfo.description}</CardDescription>
                 </div>
               </div>
@@ -354,7 +354,7 @@ function PaymentPageContent() {
                   <div className="space-y-2 sm:space-y-3">
                     <Button
                       onClick={handleRetry}
-                      className="w-full bg-gradient-to-r from-[#00052e] to-[#b0834d] hover:from-[#00052e]/90 hover:to-[#b0834d]/90 text-xs sm:text-sm py-2 sm:py-3"
+                      className="w-full bg-gradient-to-r from-[#346754] to-[#b0834d] hover:from-[#346754]/90 hover:to-[#b0834d]/90 text-xs sm:text-sm py-2 sm:py-3"
                       size="lg"
                     >
                       Coba Lagi ({3 - retryCount} percobaan tersisa)
@@ -384,7 +384,7 @@ function PaymentPageContent() {
                   <div className="space-y-2 sm:space-y-3">
                     <Button
                       onClick={handlePayment}
-                      className="w-full bg-gradient-to-r from-[#00052e] to-[#b0834d] hover:from-[#00052e]/90 hover:to-[#b0834d]/90 text-xs sm:text-base py-2.5 sm:py-6"
+                      className="w-full bg-gradient-to-r from-[#346754] to-[#b0834d] hover:from-[#346754]/90 hover:to-[#b0834d]/90 text-xs sm:text-base py-2.5 sm:py-6"
                       size="lg"
                     >
                       {shouldDisplayFeesToCustomers() && calculatePaymentFee() > 0
@@ -412,11 +412,11 @@ function PaymentPageContent() {
               <CardContent className="pt-4 sm:pt-6 text-center">
                 <div className="space-y-3 sm:space-y-4">
                   <div className="flex items-center justify-center">
-                    <Loader2 className="h-8 w-8 sm:h-12 sm:w-12 text-[#00052e] animate-spin" />
+                    <Loader2 className="h-8 w-8 sm:h-12 sm:w-12 text-[#346754] animate-spin" />
                   </div>
 
                   <div>
-                    <h3 className="text-base sm:text-lg font-semibold text-[#00052e] mb-1 sm:mb-2">
+                    <h3 className="text-base sm:text-lg font-semibold text-[#346754] mb-1 sm:mb-2">
                       Memproses Pembayaran...
                     </h3>
                     <p className="text-xs sm:text-sm text-slate-600">
@@ -424,8 +424,8 @@ function PaymentPageContent() {
                     </p>
                   </div>
 
-                  <div className="bg-[#00052e]/5 p-3 sm:p-4 rounded-lg">
-                    <p className="text-xs sm:text-sm text-[#00052e]">
+                  <div className="bg-[#346754]/5 p-3 sm:p-4 rounded-lg">
+                    <p className="text-xs sm:text-sm text-[#346754]">
                       <strong>Jangan tutup atau refresh halaman ini</strong> selama proses berlangsung
                     </p>
                   </div>
@@ -457,7 +457,7 @@ function PaymentPageContent() {
             <Button
               variant="ghost"
               onClick={() => router.push('/packages')}
-              className="text-slate-600 hover:text-[#00052e] text-xs sm:text-sm py-1.5 sm:py-2"
+              className="text-slate-600 hover:text-[#346754] text-xs sm:text-sm py-1.5 sm:py-2"
             >
               Batalkan Booking
             </Button>
@@ -473,7 +473,7 @@ export default function PaymentPage() {
     <Suspense fallback={
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00052e] mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#346754] mx-auto mb-4"></div>
           <p className="text-slate-600">Memuat halaman pembayaran...</p>
         </div>
       </div>

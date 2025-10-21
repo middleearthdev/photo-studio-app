@@ -47,7 +47,7 @@ export default function PackageDetailPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00052e] mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#346754] mx-auto mb-4"></div>
           <p className="text-slate-600">Memuat detail paket...</p>
         </div>
       </div>
@@ -131,7 +131,7 @@ export default function PackageDetailPage() {
   const selectedTimeSlotData = availableTimeSlots.find(slot => slot.id === selectedTimeSlot)
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50/30 to-slate-100">
       {/* Header */}
       <div className="bg-white/80 backdrop-blur-sm border-b border-slate-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -146,7 +146,7 @@ export default function PackageDetailPage() {
               Kembali
             </Button>
             <div className="text-sm text-slate-600">
-              <Link href="/packages" className="hover:text-[#00052e]">Paket</Link> / {packageData.name}
+              <Link href="/packages" className="hover:text-[#346754]">Paket</Link> / {packageData.name}
             </div>
           </div>
         </div>
@@ -171,17 +171,17 @@ export default function PackageDetailPage() {
                           {packageData.category.name}
                         </Badge>
                       )}
-                      <CardTitle className="text-xl sm:text-3xl font-bold text-[#00052e] mb-2">
+                      <CardTitle className="text-xl sm:text-3xl font-bold text-[#346754] mb-2">
                         {packageData.name}
                       </CardTitle>
                       {packageData.is_popular && (
-                        <Badge className="bg-gradient-to-r from-[#b0834d] to-[#00052e] text-white">
+                        <Badge className="bg-gradient-to-r from-[#b0834d] to-[#346754] text-white">
                           <CheckCircle className="h-4 w-4 mr-1" />
                           TERPOPULER
                         </Badge>
                       )}
                     </div>
-                    <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-[#00052e] to-[#b0834d] rounded-full flex items-center justify-center">
+                    <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-[#346754] to-[#b0834d] rounded-full flex items-center justify-center">
                       <Camera className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
                     </div>
                   </div>
@@ -196,9 +196,9 @@ export default function PackageDetailPage() {
 
                   {/* Package Details */}
                   <div className="grid grid-cols-3 gap-2 sm:gap-4">
-                    <div className="bg-[#00052e]/5 rounded-lg p-2 sm:p-4 text-center">
-                      <Clock className="h-4 w-4 sm:h-6 sm:w-6 text-[#00052e] mx-auto mb-1 sm:mb-2" />
-                      <p className="font-semibold text-[#00052e] text-xs sm:text-base">{formatDuration(packageData.duration_minutes)}</p>
+                    <div className="bg-[#346754]/5 rounded-lg p-2 sm:p-4 text-center">
+                      <Clock className="h-4 w-4 sm:h-6 sm:w-6 text-[#346754] mx-auto mb-1 sm:mb-2" />
+                      <p className="font-semibold text-[#346754] text-xs sm:text-base">{formatDuration(packageData.duration_minutes)}</p>
                       <p className="text-xs text-slate-600">Durasi</p>
                     </div>
 
@@ -218,7 +218,7 @@ export default function PackageDetailPage() {
                   {/* Includes */}
                   {packageData.includes && packageData.includes.length > 0 && (
                     <div>
-                      <h3 className="font-semibold text-[#00052e] text-lg sm:text-xl mb-3 sm:mb-4 flex items-center gap-2">
+                      <h3 className="font-semibold text-[#346754] text-lg sm:text-xl mb-3 sm:mb-4 flex items-center gap-2">
                         <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 text-[#b0834d]" />
                         Yang Anda Dapatkan
                       </h3>
@@ -244,8 +244,8 @@ export default function PackageDetailPage() {
             >
               <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-lg sm:text-xl text-[#00052e]">
-                    <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-[#00052e]" />
+                  <CardTitle className="flex items-center gap-2 text-lg sm:text-xl text-[#346754]">
+                    <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-[#346754]" />
                     Pilih Tanggal
                   </CardTitle>
                   <CardDescription className="text-sm">
@@ -265,7 +265,7 @@ export default function PackageDetailPage() {
                       <ChevronLeft className="h-4 w-4" />
                     </Button>
 
-                    <h3 className="font-semibold text-[#00052e] text-sm sm:text-base">
+                    <h3 className="font-semibold text-[#346754] text-sm sm:text-base">
                       {format(currentWeekStart, 'MMMM yyyy', { locale: idLocale })}
                     </h3>
 
@@ -289,7 +289,7 @@ export default function PackageDetailPage() {
                           className={`p-2 sm:p-3 rounded-lg text-center transition-all duration-200 ${isPast
                               ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
                               : isSelected
-                                ? 'bg-[#00052e] text-white shadow-lg'
+                                ? 'bg-[#346754] text-white shadow-lg'
                                 : isToday
                                   ? 'bg-[#b0834d]/10 text-[#b0834d] hover:bg-[#b0834d]/20'
                                   : 'bg-slate-50 text-slate-700 hover:bg-slate-100'
@@ -318,8 +318,8 @@ export default function PackageDetailPage() {
               >
                 <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-lg sm:text-xl text-[#00052e]">
-                      <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-[#00052e]" />
+                    <CardTitle className="flex items-center gap-2 text-lg sm:text-xl text-[#346754]">
+                      <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-[#346754]" />
                       Pilih Jam
                     </CardTitle>
                     <CardDescription className="text-sm">
@@ -330,7 +330,7 @@ export default function PackageDetailPage() {
                   <CardContent>
                     {timeSlotsLoading ? (
                       <div className="flex justify-center py-8">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00052e]"></div>
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#346754]"></div>
                       </div>
                     ) : availableTimeSlots.length === 0 ? (
                       <div className="text-center py-8">
@@ -347,7 +347,7 @@ export default function PackageDetailPage() {
                             className={`p-3 sm:p-4 rounded-lg font-medium transition-all duration-200 ${!slot.available
                                 ? 'bg-red-50 text-red-400 cursor-not-allowed border border-red-200'
                                 : selectedTimeSlot === slot.id
-                                  ? 'bg-[#00052e] text-white shadow-lg'
+                                  ? 'bg-[#346754] text-white shadow-lg'
                                   : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200'
                               }`}
                           >
@@ -375,7 +375,7 @@ export default function PackageDetailPage() {
             >
               <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-xl">
                 <CardHeader>
-                  <CardTitle className="text-lg sm:text-xl text-[#00052e]">Ringkasan Booking</CardTitle>
+                  <CardTitle className="text-lg sm:text-xl text-[#346754]">Ringkasan Booking</CardTitle>
                 </CardHeader>
 
                 <CardContent className="space-y-4">
@@ -422,7 +422,7 @@ export default function PackageDetailPage() {
                   <Button
                     onClick={handleContinueBooking}
                     disabled={!selectedDate || !selectedTimeSlot}
-                    className="w-full bg-gradient-to-r from-[#00052e] to-[#b0834d] hover:from-[#00052e]/90 hover:to-[#b0834d]/90 text-sm sm:text-base"
+                    className="w-full bg-gradient-to-r from-[#346754] to-[#b0834d] hover:from-[#346754]/90 hover:to-[#b0834d]/90 text-sm sm:text-base"
                     size="lg"
                   >
                     Lanjut ke Add-ons
