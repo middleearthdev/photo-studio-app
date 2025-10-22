@@ -1,18 +1,18 @@
 import { IUploadProvider, UploadOptions, UploadResult, validateFile, generateFileName } from '../types'
 
-export class ServerUploadProvider implements IUploadProvider {
-  name = 'server' as const
+export class VercelBlobProvider implements IUploadProvider {
+  name = 'vercel' as const
   private endpoint: string
   private apiKey?: string
 
   constructor() {
-    this.endpoint = process.env.NEXT_PUBLIC_UPLOAD_ENDPOINT || '/api/upload'
+    this.endpoint = '/api/upload/vercel'
     this.apiKey = process.env.UPLOAD_API_KEY
   }
 
   isConfigured(): boolean {
-    // Server upload always available (using current project)
-    return true
+    // Vercel provider is available if we have a blob token
+    return !!process.env.BLOB_READ_WRITE_TOKEN
   }
 
   async upload(options: UploadOptions): Promise<UploadResult> {
@@ -20,7 +20,15 @@ export class ServerUploadProvider implements IUploadProvider {
     const uploadId = Math.random().toString(36).substring(2, 8)
 
     try {
-      console.log(`[SERVER-${uploadId}] Starting server upload...`)
+      console.log(`[VERCEL-${uploadId}] Starting Vercel Blob upload...`)
+
+      if (!this.isConfigured()) {
+        return {
+          success: false,
+          error: 'Vercel Blob not configured. Check BLOB_READ_WRITE_TOKEN',
+          provider: 'vercel'
+        }
+      }
 
       // Validate file
       const validation = validateFile(options.file)
@@ -28,13 +36,13 @@ export class ServerUploadProvider implements IUploadProvider {
         return {
           success: false,
           error: validation.error,
-          provider: 'server'
+          provider: 'vercel'
         }
       }
 
       const fileName = options.path || generateFileName(options.studioId, options.file.name)
       
-      console.log(`[SERVER-${uploadId}] Upload details:`, {
+      console.log(`[VERCEL-${uploadId}] Upload details:`, {
         endpoint: this.endpoint,
         fileName,
         fileSize: options.file.size,
@@ -44,8 +52,7 @@ export class ServerUploadProvider implements IUploadProvider {
       // Create form data
       const formData = new FormData()
       formData.append('file', options.file)
-      formData.append('studioId', options.studioId)
-      formData.append('fileName', fileName)
+      formData.append('filename', fileName)
 
       // Progress simulation
       if (options.onProgress) {
@@ -63,15 +70,15 @@ export class ServerUploadProvider implements IUploadProvider {
       if (!result.success) {
         return {
           success: false,
-          error: result.error || 'Server upload failed',
-          provider: 'server'
+          error: result.error || 'Vercel Blob upload failed',
+          provider: 'vercel'
         }
       }
 
       return {
         success: true,
         url: result.url,
-        provider: 'server',
+        provider: 'vercel',
         metadata: {
           path: fileName,
           size: options.file.size,
@@ -82,12 +89,12 @@ export class ServerUploadProvider implements IUploadProvider {
 
     } catch (error) {
       const duration = Date.now() - startTime
-      console.error(`[SERVER-${uploadId}] Exception after ${duration}ms:`, error)
+      console.error(`[VERCEL-${uploadId}] Exception after ${duration}ms:`, error)
 
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Server upload failed',
-        provider: 'server'
+        error: error instanceof Error ? error.message : 'Vercel Blob upload failed',
+        provider: 'vercel'
       }
     }
   }
@@ -124,7 +131,7 @@ export class ServerUploadProvider implements IUploadProvider {
             })
           }
         } else {
-          let errorMessage = `Server error: ${xhr.status}`
+          let errorMessage = `Vercel error: ${xhr.status}`
           try {
             const errorResponse = JSON.parse(xhr.responseText)
             errorMessage = errorResponse.error || errorMessage
@@ -141,14 +148,14 @@ export class ServerUploadProvider implements IUploadProvider {
       xhr.addEventListener('error', () => {
         resolve({
           success: false,
-          error: 'Network error during upload'
+          error: 'Network error during Vercel upload'
         })
       })
 
       xhr.addEventListener('timeout', () => {
         resolve({
           success: false,
-          error: 'Upload timeout'
+          error: 'Vercel upload timeout'
         })
       })
 
@@ -167,8 +174,16 @@ export class ServerUploadProvider implements IUploadProvider {
 
   async delete(url: string): Promise<{ success: boolean; error?: string }> {
     try {
+      console.log(`[VERCEL] Deleting file:`, url)
 
-      const response = await fetch('/api/upload', {
+      if (!url.includes('blob.vercel-storage.com')) {
+        return {
+          success: false,
+          error: 'Invalid Vercel Blob URL format'
+        }
+      }
+
+      const response = await fetch('/api/upload/vercel', {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -190,7 +205,7 @@ export class ServerUploadProvider implements IUploadProvider {
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Delete failed'
+        error: error instanceof Error ? error.message : 'Vercel delete failed'
       }
     }
   }

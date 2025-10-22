@@ -1,17 +1,18 @@
 import { IUploadProvider, UploadOptions, UploadResult, validateFile, generateFileName } from '../types'
 
-export class ServerUploadProvider implements IUploadProvider {
-  name = 'server' as const
+export class DigitalOceanClientProvider implements IUploadProvider {
+  name = 'digitalocean' as const
   private endpoint: string
   private apiKey?: string
 
   constructor() {
-    this.endpoint = process.env.NEXT_PUBLIC_UPLOAD_ENDPOINT || '/api/upload'
+    this.endpoint = '/api/upload/digitalocean'
     this.apiKey = process.env.UPLOAD_API_KEY
   }
 
   isConfigured(): boolean {
-    // Server upload always available (using current project)
+    // For client-side, we assume it's configured if the NEXT_PUBLIC_UPLOAD_DESTINATION is set to digitalocean
+    // The actual validation happens on the server side
     return true
   }
 
@@ -20,7 +21,7 @@ export class ServerUploadProvider implements IUploadProvider {
     const uploadId = Math.random().toString(36).substring(2, 8)
 
     try {
-      console.log(`[SERVER-${uploadId}] Starting server upload...`)
+      console.log(`[DO-SPACES-CLIENT-${uploadId}] Starting Digital Ocean Spaces upload via API...`)
 
       // Validate file
       const validation = validateFile(options.file)
@@ -28,13 +29,13 @@ export class ServerUploadProvider implements IUploadProvider {
         return {
           success: false,
           error: validation.error,
-          provider: 'server'
+          provider: 'digitalocean'
         }
       }
 
       const fileName = options.path || generateFileName(options.studioId, options.file.name)
       
-      console.log(`[SERVER-${uploadId}] Upload details:`, {
+      console.log(`[DO-SPACES-CLIENT-${uploadId}] Upload details:`, {
         endpoint: this.endpoint,
         fileName,
         fileSize: options.file.size,
@@ -45,15 +46,7 @@ export class ServerUploadProvider implements IUploadProvider {
       const formData = new FormData()
       formData.append('file', options.file)
       formData.append('studioId', options.studioId)
-      formData.append('fileName', fileName)
-
-      // Progress simulation
-      if (options.onProgress) {
-        options.onProgress(10)
-        setTimeout(() => options.onProgress?.(30), 100)
-        setTimeout(() => options.onProgress?.(50), 200)
-        setTimeout(() => options.onProgress?.(80), 500)
-      }
+      formData.append('path', fileName)
 
       // Upload with XMLHttpRequest for progress tracking
       const result = await this.uploadWithProgress(formData, options.onProgress)
@@ -63,31 +56,34 @@ export class ServerUploadProvider implements IUploadProvider {
       if (!result.success) {
         return {
           success: false,
-          error: result.error || 'Server upload failed',
-          provider: 'server'
+          error: result.error || 'Digital Ocean Spaces upload failed',
+          provider: 'digitalocean'
         }
       }
 
+      console.log(`[DO-SPACES-CLIENT-${uploadId}] Upload successful in ${duration}ms:`, result.url)
+
       return {
         success: true,
-        url: result.url,
-        provider: 'server',
+        url: result.url!,
+        provider: 'digitalocean',
         metadata: {
           path: fileName,
           size: options.file.size,
           type: options.file.type,
-          duration
+          duration,
+          ...(result.metadata && result.metadata)
         }
       }
 
     } catch (error) {
       const duration = Date.now() - startTime
-      console.error(`[SERVER-${uploadId}] Exception after ${duration}ms:`, error)
+      console.error(`[DO-SPACES-CLIENT-${uploadId}] Exception after ${duration}ms:`, error)
 
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Server upload failed',
-        provider: 'server'
+        error: error instanceof Error ? error.message : 'Digital Ocean Spaces upload failed',
+        provider: 'digitalocean'
       }
     }
   }
@@ -95,14 +91,14 @@ export class ServerUploadProvider implements IUploadProvider {
   private uploadWithProgress(
     formData: FormData, 
     onProgress?: (progress: number) => void
-  ): Promise<{ success: boolean; url?: string; error?: string }> {
+  ): Promise<{ success: boolean; url?: string; error?: string; metadata?: any }> {
     return new Promise((resolve) => {
       const xhr = new XMLHttpRequest()
 
       // Progress tracking
       xhr.upload.addEventListener('progress', (event) => {
         if (event.lengthComputable && onProgress) {
-          const progress = Math.round((event.loaded / event.total) * 90) + 10 // 10-100%
+          const progress = Math.round((event.loaded / event.total) * 100)
           onProgress(progress)
         }
       })
@@ -115,7 +111,8 @@ export class ServerUploadProvider implements IUploadProvider {
             const response = JSON.parse(xhr.responseText)
             resolve({
               success: true,
-              url: response.url
+              url: response.url,
+              metadata: response.metadata
             })
           } catch {
             resolve({
@@ -124,7 +121,7 @@ export class ServerUploadProvider implements IUploadProvider {
             })
           }
         } else {
-          let errorMessage = `Server error: ${xhr.status}`
+          let errorMessage = `Digital Ocean Spaces error: ${xhr.status}`
           try {
             const errorResponse = JSON.parse(xhr.responseText)
             errorMessage = errorResponse.error || errorMessage
@@ -141,19 +138,19 @@ export class ServerUploadProvider implements IUploadProvider {
       xhr.addEventListener('error', () => {
         resolve({
           success: false,
-          error: 'Network error during upload'
+          error: 'Network error during Digital Ocean Spaces upload'
         })
       })
 
       xhr.addEventListener('timeout', () => {
         resolve({
           success: false,
-          error: 'Upload timeout'
+          error: 'Digital Ocean Spaces upload timeout'
         })
       })
 
       // Set timeout
-      xhr.timeout = 30000 // 30 seconds
+      xhr.timeout = 60000 // 60 seconds for large files
 
       // Add API key if available
       if (this.apiKey) {
@@ -167,8 +164,9 @@ export class ServerUploadProvider implements IUploadProvider {
 
   async delete(url: string): Promise<{ success: boolean; error?: string }> {
     try {
+      console.log(`[DO-SPACES-CLIENT] Deleting file:`, url)
 
-      const response = await fetch('/api/upload', {
+      const response = await fetch('/api/upload/digitalocean', {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -185,12 +183,14 @@ export class ServerUploadProvider implements IUploadProvider {
         }
       }
 
+      console.log(`[DO-SPACES-CLIENT] Successfully deleted file: ${url}`)
       return { success: true }
 
     } catch (error) {
+      console.error('[DO-SPACES-CLIENT] Delete error:', error)
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Delete failed'
+        error: error instanceof Error ? error.message : 'Digital Ocean Spaces delete failed'
       }
     }
   }

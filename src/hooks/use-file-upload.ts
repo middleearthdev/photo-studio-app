@@ -58,8 +58,8 @@ export const useFileUpload = ({
       const path = generateFileName(studioId, file.name)
       console.log(`[HOOK-${uploadId}] Generated path:`, path)
       
-      console.log(`[HOOK-${uploadId}] Using upload factory with fallbacks...`)
-      const result = await UploadProviderFactory.uploadWithFallback({
+      console.log(`[HOOK-${uploadId}] Using upload factory...`)
+      const result = await UploadProviderFactory.upload({
         file,
         studioId,
         path,
@@ -117,12 +117,17 @@ export const useFileUpload = ({
       // Try to determine provider from URL and delete accordingly
       let deleteResult: { success: boolean; error?: string } = { success: false, error: 'Unknown provider' }
       
-      if (targetUrl.includes('uploadcare')) {
-        const provider = UploadProviderFactory.getProvider('uploadcare')
+      if (targetUrl.includes('digitaloceanspaces.com') || targetUrl.includes(process.env.DO_SPACES_CDN_ENDPOINT || '')) {
+        const provider = UploadProviderFactory.getProvider('digitalocean')
         if (provider?.delete) {
           deleteResult = await provider.delete(targetUrl)
         }
-      } else if (targetUrl.includes('ucarecdn.com')) {
+      } else if (targetUrl.includes('blob.vercel-storage.com')) {
+        const provider = UploadProviderFactory.getProvider('vercel')
+        if (provider?.delete) {
+          deleteResult = await provider.delete(targetUrl)
+        }
+      } else if (targetUrl.includes('uploadcare') || targetUrl.includes('ucarecdn.com')) {
         const provider = UploadProviderFactory.getProvider('uploadcare')
         if (provider?.delete) {
           deleteResult = await provider.delete(targetUrl)

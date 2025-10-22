@@ -36,17 +36,17 @@ import { useCreateHeroImage, useUpdateHeroImage } from "@/hooks/use-hero-images"
 import { type HeroImage } from "@/actions/hero-images"
 import { Loader2, Image as ImageIcon, Upload, X } from "lucide-react"
 
-// Image Upload Component (reusing from portfolio dialog)
+// Enhanced Image Upload Component with Digital Ocean Spaces support
 function ImageUploadComponent({ value, onChange }: {
   value: string
   onChange: (url: string) => void
 }) {
   const [isUploading, setIsUploading] = useState(false)
   const [progress, setProgress] = useState(0)
+  const destination = (process.env.NEXT_PUBLIC_UPLOAD_DESTINATION as 'server' | 'vercel' | 'digitalocean' | 'uploadcare') || 'server'
   const fileInputRef = React.useRef<HTMLInputElement>(null)
 
   const uploadToDestination = async (file: File): Promise<string> => {
-    const destination = process.env.NEXT_PUBLIC_UPLOAD_DESTINATION || 'server'
     
     if (destination === 'vercel') {
       // Upload to Vercel Blob Store
@@ -67,6 +67,24 @@ function ImageUploadComponent({ value, onChange }: {
       }
       
       const result = await response.json()
+      return result.url
+    } else if (destination === 'digitalocean' || destination === 'uploadcare') {
+      // Use the new upload factory for Digital Ocean Spaces and UploadCare
+      const { UploadProviderFactory } = await import('@/lib/upload/factory')
+      
+      const result = await UploadProviderFactory.upload({
+        file,
+        studioId: 'general',
+        path: `hero-images/${Date.now()}-${file.name}`,
+        onProgress: (progress) => {
+          setProgress(progress)
+        }
+      })
+      
+      if (!result.success || !result.url) {
+        throw new Error(result.error || 'Upload failed')
+      }
+      
       return result.url
     } else {
       // Upload to server
@@ -105,32 +123,46 @@ function ImageUploadComponent({ value, onChange }: {
     let progressInterval: NodeJS.Timeout | null = null
 
     try {
-      progressInterval = setInterval(() => {
-        setProgress(prev => {
-          if (prev >= 85) return prev
-          if (prev < 30) return Math.min(prev + 12, 85)
-          else if (prev < 60) return Math.min(prev + 8, 85)
-          else return Math.min(prev + 3, 85)
-        })
-      }, 350)
-
-      const url = await uploadToDestination(file)
-      
-      if (progressInterval) {
-        clearInterval(progressInterval)
-        progressInterval = null
-      }
-      
-      onChange(url)
-      
-      setProgress(95)
-      setTimeout(() => {
+      // For Digital Ocean and UploadCare, progress is handled by the factory
+      if (destination === 'digitalocean' || destination === 'uploadcare') {
+        const url = await uploadToDestination(file)
+        
+        onChange(url)
+        
         setProgress(100)
         setTimeout(() => {
           setIsUploading(false)
           setProgress(0)
         }, 400)
-      }, 300)
+      } else {
+        // For other destinations, use progress simulation
+        progressInterval = setInterval(() => {
+          setProgress(prev => {
+            if (prev >= 85) return prev
+            if (prev < 30) return Math.min(prev + 12, 85)
+            else if (prev < 60) return Math.min(prev + 8, 85)
+            else return Math.min(prev + 3, 85)
+          })
+        }, 350)
+
+        const url = await uploadToDestination(file)
+        
+        if (progressInterval) {
+          clearInterval(progressInterval)
+          progressInterval = null
+        }
+        
+        onChange(url)
+        
+        setProgress(95)
+        setTimeout(() => {
+          setProgress(100)
+          setTimeout(() => {
+            setIsUploading(false)
+            setProgress(0)
+          }, 400)
+        }, 300)
+      }
     } catch (error) {
       if (progressInterval) clearInterval(progressInterval)
       setIsUploading(false)
@@ -151,10 +183,11 @@ function ImageUploadComponent({ value, onChange }: {
     if (file) handleFileSelect(file)
   }
 
-  const destination = process.env.NEXT_PUBLIC_UPLOAD_DESTINATION || 'server'
   const destinationDisplay = {
     server: 'Local Server',
-    vercel: 'Vercel Blob Store'
+    vercel: 'Vercel Blob',
+    digitalocean: 'Digital Ocean Spaces',
+    uploadcare: 'UploadCare CDN'
   }[destination] || destination
 
   return (

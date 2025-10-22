@@ -141,7 +141,7 @@ export class UploadCareProvider implements IUploadProvider {
                 error: 'No file ID returned from UploadCare'
               })
             }
-          } catch (parseError) {
+          } catch {
             resolve({
               success: false,
               error: 'Invalid UploadCare response'

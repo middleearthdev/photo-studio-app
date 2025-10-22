@@ -50,12 +50,6 @@ function StaffLoginContent() {
                 Kembali ke Beranda
               </Button>
             </Link>
-
-            <Link href="/forgot-password">
-              <Button variant="link" className="p-0 h-auto font-normal text-sm text-gray-500">
-                Lupa password?
-              </Button>
-            </Link>
           </div>
         </CardContent>
       </Card>

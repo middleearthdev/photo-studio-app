@@ -14,7 +14,9 @@ const auth = betterAuth({
     requireEmailVerification: false,
   },
   advanced: {
-    generateId: false,
+    database: {
+      generateId: () => crypto.randomUUID(),
+    },
   },
   user: {
     additionalFields: {

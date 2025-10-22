@@ -1,6 +1,6 @@
 // Upload Provider Types & Interfaces
 
-export type UploadProvider = 'server' | 'uploadcare'
+export type UploadProvider = 'server' | 'uploadcare' | 'digitalocean' | 'vercel'
 
 export interface UploadOptions {
   file: File
@@ -21,14 +21,11 @@ export interface UploadResult {
     type?: string
     duration?: number
     id?: string
+    location?: string
+    etag?: string
   }
 }
 
-export interface UploadProviderConfig {
-  provider: UploadProvider
-  fallbacks?: UploadProvider[]
-  options?: Record<string, any>
-}
 
 export interface IUploadProvider {
   name: UploadProvider
@@ -37,18 +34,6 @@ export interface IUploadProvider {
   isConfigured(): boolean
 }
 
-// Provider-specific configurations
-export interface ServerConfig {
-  endpoint: string
-  apiKey?: string
-  maxSize?: number
-}
-
-export interface UploadCareConfig {
-  publicKey: string
-  secretKey?: string
-  cdn?: string
-}
 
 // Validation
 export const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'] as const
@@ -64,7 +49,7 @@ export const validateFile = (file: File): { valid: boolean; error?: string } => 
     return { valid: false, error: `File too large (maximum ${MAX_FILE_SIZE / 1024 / 1024}MB)` }
   }
   
-  if (!ALLOWED_TYPES.includes(file.type as any)) {
+  if (!ALLOWED_TYPES.includes(file.type as typeof ALLOWED_TYPES[number])) {
     return { valid: false, error: 'Invalid file type. Only JPEG, PNG, WebP, and GIF allowed' }
   }
   
