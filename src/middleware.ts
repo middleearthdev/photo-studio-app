@@ -43,7 +43,7 @@ export async function middleware(req: NextRequest) {
 
   if (isStaffRoute) {
     // Check for session cookie to determine if user is authenticated
-    const sessionCookie = req.cookies.get('studio.session_token')
+    const sessionCookie = req.cookies.get('__Secure-studio.session_token')
 
     if (!sessionCookie) {
       // Redirect to staff login if no session

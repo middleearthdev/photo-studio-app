@@ -35,7 +35,8 @@ export const auth = betterAuth({
     },
   },
   advanced: {
-    cookiePrefix: "studio"
+    cookiePrefix: "studio",
+    useSecureCookies: true
   },
   user: {
     additionalFields: {
