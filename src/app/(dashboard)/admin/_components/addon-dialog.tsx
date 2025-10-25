@@ -49,6 +49,8 @@ const formSchema = z.object({
   name: z.string().min(1, "Nama add-on wajib diisi"),
   description: z.string().optional(),
   price: z.number().min(0, "Harga tidak boleh negatif"),
+  pricing_type: z.enum(['per_item', 'per_hour']),
+  hourly_rate: z.number().min(0, "Tarif per jam tidak boleh negatif").optional(),
   type: z.enum([
     'photography', 'service', 'printing', 'storage', 'makeup',
     'styling', 'wardrobe', 'time', 'equipment', 'decoration', 'video'
@@ -88,6 +90,8 @@ export function AddonDialog({
       name: "",
       description: "",
       price: 0,
+      pricing_type: "per_item",
+      hourly_rate: 0,
       type: "photography",
       max_quantity: 1,
       facility_id: "general",
@@ -106,6 +110,8 @@ export function AddonDialog({
           name: addonData.name,
           description: addonData.description || "",
           price: addonData.price,
+          pricing_type: (addonData.pricing_type as 'per_item' | 'per_hour') || "per_item",
+          hourly_rate: addonData.hourly_rate || 0,
           type: (addonData.type as FormData['type']) || "photography",
           max_quantity: addonData.max_quantity || 1,
           facility_id: addonData.facility_id || "general",
@@ -119,6 +125,8 @@ export function AddonDialog({
           name: "",
           description: "",
           price: 0,
+          pricing_type: "per_item",
+          hourly_rate: 0,
           type: "photography",
           max_quantity: 1,
           facility_id: "general",
@@ -151,6 +159,8 @@ export function AddonDialog({
             name: values.name,
             description: values.description || undefined,
             price: values.price,
+            pricing_type: values.pricing_type,
+            hourly_rate: values.pricing_type === 'per_hour' ? values.hourly_rate : undefined,
             type: values.type,
             max_quantity: values.max_quantity,
             facility_id: values.facility_id === "general" ? undefined : values.facility_id,
@@ -166,6 +176,8 @@ export function AddonDialog({
           name: values.name,
           description: values.description || undefined,
           price: values.price,
+          pricing_type: values.pricing_type,
+          hourly_rate: values.pricing_type === 'per_hour' ? values.hourly_rate : undefined,
           type: values.type,
           max_quantity: values.max_quantity,
           facility_id: values.facility_id === "general" ? undefined : values.facility_id,
@@ -186,6 +198,7 @@ export function AddonDialog({
 
   const selectedType = form.watch("type")
   const isConditional = form.watch("is_conditional")
+  const pricingType = form.watch("pricing_type")
   const selectedTypeInfo = ADDON_TYPES.find(t => t.value === selectedType) || ADDON_TYPES[0]
 
   return (
@@ -250,13 +263,38 @@ export function AddonDialog({
                   )}
                 />
 
+                <FormField
+                  control={form.control}
+                  name="pricing_type"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tipe Harga *</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Pilih tipe harga" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="per_item">Per Item</SelectItem>
+                          <SelectItem value="per_hour">Per Jam</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        Pilih "Per Jam" untuk add-on yang disewa per jam (seperti Make Up)
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
                     name="price"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Harga (IDR) *</FormLabel>
+                        <FormLabel>{pricingType === 'per_hour' ? 'Harga Default (IDR)' : 'Harga (IDR) *'}</FormLabel>
                         <FormControl>
                           <Input
                             type="number"
@@ -266,30 +304,58 @@ export function AddonDialog({
                             onChange={(e) => field.onChange(Number(e.target.value))}
                           />
                         </FormControl>
+                        <FormDescription className="text-xs">
+                          {pricingType === 'per_hour' ? 'Harga default untuk tampilan katalog' : ''}
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
 
-                  <FormField
-                    control={form.control}
-                    name="max_quantity"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Maksimal Quantity *</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            min="1"
-                            placeholder="10"
-                            {...field}
-                            onChange={(e) => field.onChange(Number(e.target.value))}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  {pricingType === 'per_hour' ? (
+                    <FormField
+                      control={form.control}
+                      name="hourly_rate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Tarif Per Jam (IDR) *</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              min="0"
+                              placeholder="100000"
+                              {...field}
+                              onChange={(e) => field.onChange(Number(e.target.value))}
+                            />
+                          </FormControl>
+                          <FormDescription className="text-xs">
+                            Tarif yang dikenakan per jam
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  ) : (
+                    <FormField
+                      control={form.control}
+                      name="max_quantity"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Maksimal Quantity *</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              min="1"
+                              placeholder="10"
+                              {...field}
+                              onChange={(e) => field.onChange(Number(e.target.value))}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -343,7 +409,7 @@ export function AddonDialog({
                   name="facility_id"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Fasilitas Terkait</FormLabel>
+                      <FormLabel>Fasilitas Terkait {pricingType === 'per_hour' && '*'}</FormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
                           <SelectTrigger>
@@ -362,7 +428,14 @@ export function AddonDialog({
                         </SelectContent>
                       </Select>
                       <FormDescription>
-                        Pilih fasilitas jika add-on ini hanya tersedia untuk fasilitas tertentu
+                        {pricingType === 'per_hour' ? (
+                          <span className="text-orange-600 font-medium">
+                            <AlertCircle className="h-3 w-3 inline mr-1" />
+                            Wajib pilih fasilitas untuk add-on per jam agar bisa dicek ketersediaannya
+                          </span>
+                        ) : (
+                          'Pilih fasilitas jika add-on ini hanya tersedia untuk fasilitas tertentu'
+                        )}
                       </FormDescription>
                       <FormMessage />
                     </FormItem>

@@ -18,6 +18,8 @@ export interface Addon {
   is_conditional: boolean | null
   conditional_logic: any
   is_active: boolean | null
+  pricing_type: string | null
+  hourly_rate: number | null
   created_at: string
   updated_at: string
   // Relations
@@ -145,6 +147,8 @@ export async function getPublicAddonsAction(studioId?: string): Promise<ActionRe
       ...addon,
       studio_id: addon.studio_id || '',
       price: Number(addon.price),
+      pricing_type: addon.pricing_type || 'per_item',
+      hourly_rate: addon.hourly_rate ? Number(addon.hourly_rate) : null,
       max_quantity: addon.max_quantity || 1,
       is_conditional: addon.is_conditional || false,
       is_active: addon.is_active || false,
@@ -207,6 +211,8 @@ export async function getPackageAddonsAction(packageId: string): Promise<ActionR
           name: addon.name,
           description: addon.description,
           price: Number(addon.price),
+          pricing_type: addon.pricing_type || 'per_item',
+          hourly_rate: addon.hourly_rate ? Number(addon.hourly_rate) : null,
           type: addon.type,
           max_quantity: addon.max_quantity || 1,
           is_conditional: addon.is_conditional || false,
@@ -677,6 +683,8 @@ export async function getAddonsAction(studioId?: string): Promise<ActionResult<A
       is_active: addon.is_active || false,
       created_at: addon.created_at?.toISOString() || '',
       updated_at: addon.updated_at?.toISOString() || '',
+      pricing_type: addon.pricing_type || 'per_item',
+      hourly_rate: addon.hourly_rate ? Number(addon.hourly_rate) : null,
       facility: addon.facility ? {
         id: addon.facility.id,
         name: addon.facility.name,
@@ -801,6 +809,8 @@ export async function getPaginatedAddonsAction(
       ...addon,
       studio_id: addon.studio_id || '',
       price: Number(addon.price),
+      pricing_type: addon.pricing_type || 'per_item',
+      hourly_rate: addon.hourly_rate ? Number(addon.hourly_rate) : null,
       max_quantity: addon.max_quantity || 1,
       is_conditional: addon.is_conditional || false,
       is_active: addon.is_active || false,
@@ -839,6 +849,8 @@ export async function createAddonAction(
     is_conditional: boolean
     conditional_logic?: any
     is_active: boolean
+    pricing_type?: string
+    hourly_rate?: number
   }
 ): Promise<ActionResult<Addon>> {
   try {
@@ -882,6 +894,8 @@ export async function createAddonAction(
       ...newAddon,
       studio_id: newAddon.studio_id || '',
       price: Number(newAddon.price),
+      pricing_type: newAddon.pricing_type || 'per_item',
+      hourly_rate: newAddon.hourly_rate ? Number(newAddon.hourly_rate) : null,
       max_quantity: newAddon.max_quantity || 1,
       is_conditional: newAddon.is_conditional || false,
       is_active: newAddon.is_active || false,
@@ -915,6 +929,8 @@ export async function updateAddonAction(
     is_conditional?: boolean
     conditional_logic?: any
     is_active?: boolean
+    pricing_type?: string | null
+    hourly_rate?: number | null
   }>
 ): Promise<ActionResult<Addon>> {
   try {
@@ -969,6 +985,8 @@ export async function updateAddonAction(
       ...updatedAddon,
       studio_id: updatedAddon.studio_id || '',
       price: Number(updatedAddon.price),
+      pricing_type: updatedAddon.pricing_type || 'per_item',
+      hourly_rate: updatedAddon.hourly_rate ? Number(updatedAddon.hourly_rate) : null,
       max_quantity: updatedAddon.max_quantity || 1,
       is_conditional: updatedAddon.is_conditional || false,
       is_active: updatedAddon.is_active || false,
@@ -1109,6 +1127,8 @@ export async function toggleAddonStatusAction(addonId: string): Promise<ActionRe
       ...updatedAddon,
       studio_id: updatedAddon.studio_id || '',
       price: Number(updatedAddon.price),
+      pricing_type: updatedAddon.pricing_type || 'per_item',
+      hourly_rate: updatedAddon.hourly_rate ? Number(updatedAddon.hourly_rate) : null,
       max_quantity: updatedAddon.max_quantity || 1,
       is_conditional: updatedAddon.is_conditional || false,
       is_active: updatedAddon.is_active || false,

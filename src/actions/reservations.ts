@@ -67,11 +67,17 @@ export interface ReservationAddon {
   quantity: number
   unit_price: number
   total_price: number
+  start_time?: string | null
+  end_time?: string | null
+  duration_hours?: number | null
   created_at: string
   addon?: {
     id: string
     name: string
     description: string
+    pricing_type?: string
+    facility_id?: string | null
+    hourly_rate?: number | null
   }
 }
 
@@ -112,6 +118,9 @@ export interface CreateReservationData {
     addon_id: string
     quantity: number
     unit_price: number
+    start_time?: string
+    end_time?: string
+    duration_hours?: number
   }[]
 
   // Facilities
@@ -181,9 +190,16 @@ function calculateEndTime(startTime: string, durationMinutes: number): string {
   return format(endDate, 'HH:mm')
 }
 
+/**
+ * Convert time string (HH:mm) to DateTime object
+ * Uses a fixed base date (1970-01-01) to avoid timezone issues
+ * The database TIME field only stores the time portion anyway
+ */
 function convertTimeToDateTime(timeString: string, baseDate?: Date): Date {
   const [hours, minutes] = timeString.split(':').map(Number)
-  const date = baseDate || new Date()
+  // Use fixed date (1970-01-01) to avoid timezone conversion issues
+  // Prisma TIME fields don't care about the date portion
+  const date = baseDate || new Date(1970, 0, 1)
   date.setHours(hours, minutes, 0, 0)
   return date
 }
@@ -236,9 +252,21 @@ function transformReservationForClient(reservation: any) {
       ...addon,
       unit_price: Number(addon.unit_price),
       total_price: Number(addon.total_price),
+      // Convert DateTime fields to strings (HH:mm format for time fields)
+      start_time: addon.start_time instanceof Date
+        ? format(addon.start_time, 'HH:mm')
+        : addon.start_time,
+      end_time: addon.end_time instanceof Date
+        ? format(addon.end_time, 'HH:mm')
+        : addon.end_time,
       created_at: addon.created_at instanceof Date
         ? addon.created_at.toISOString()
-        : addon.created_at
+        : addon.created_at,
+      // Transform addon nested object to convert Decimal fields
+      addon: addon.addon ? {
+        ...addon.addon,
+        hourly_rate: addon.addon.hourly_rate ? Number(addon.addon.hourly_rate) : null
+      } : addon.addon
     })) || []
   }
 }
@@ -329,7 +357,16 @@ export async function getPaginatedReservationsAction(
           package: { select: { id: true, name: true, duration_minutes: true } },
           reservation_addons: {
             include: {
-              addon: { select: { id: true, name: true, description: true } }
+              addon: {
+                select: {
+                  id: true,
+                  name: true,
+                  description: true,
+                  pricing_type: true,
+                  facility_id: true,
+                  hourly_rate: true
+                }
+              }
             }
           }
         },
@@ -459,18 +496,34 @@ export async function createManualReservationAction(data: CreateReservationData)
 
     // Add reservation add-ons if any
     if (data.selected_addons && data.selected_addons.length > 0) {
-      const addonInserts = data.selected_addons.map(addon => ({
-        reservation_id: reservationData.id,
-        addon_id: addon.addon_id,
-        quantity: addon.quantity,
-        unit_price: addon.unit_price,
-        total_price: addon.unit_price * addon.quantity
-      }))
+      console.log('📦 Selected addons to insert:', JSON.stringify(data.selected_addons, null, 2))
+
+      const addonInserts = data.selected_addons.map(addon => {
+        const insertData = {
+          reservation_id: reservationData.id,
+          addon_id: addon.addon_id,
+          quantity: addon.quantity,
+          unit_price: addon.unit_price,
+          total_price: addon.unit_price * addon.quantity,
+          ...(addon.start_time && {
+            start_time: convertTimeToDateTime(addon.start_time),
+            end_time: convertTimeToDateTime(addon.end_time!),
+            duration_hours: addon.duration_hours
+          })
+        }
+
+        console.log('🔧 Addon insert data:', JSON.stringify(insertData, null, 2))
+        return insertData
+      })
+
+      console.log('💾 Inserting addons:', JSON.stringify(addonInserts, null, 2))
 
       await prisma.reservationAddon.createMany({
         data: addonInserts,
         skipDuplicates: true
       })
+
+      console.log('✅ Addons inserted successfully')
     }
 
     console.log(data)
@@ -521,7 +574,16 @@ export async function createManualReservationAction(data: CreateReservationData)
         package: { select: { id: true, name: true, duration_minutes: true } },
         reservation_addons: {
           include: {
-            addon: { select: { id: true, name: true, description: true } }
+            addon: {
+              select: {
+                id: true,
+                name: true,
+                description: true,
+                pricing_type: true,
+                facility_id: true,
+                hourly_rate: true
+              }
+            }
           }
         }
       }
@@ -618,18 +680,34 @@ export async function createReservationAction(data: CreateReservationData): Prom
 
     // Add reservation add-ons if any
     if (data.selected_addons && data.selected_addons.length > 0) {
-      const addonInserts = data.selected_addons.map(addon => ({
-        reservation_id: reservationData.id,
-        addon_id: addon.addon_id,
-        quantity: addon.quantity,
-        unit_price: addon.unit_price,
-        total_price: addon.unit_price * addon.quantity
-      }))
+      console.log('📦 Selected addons to insert:', JSON.stringify(data.selected_addons, null, 2))
+
+      const addonInserts = data.selected_addons.map(addon => {
+        const insertData = {
+          reservation_id: reservationData.id,
+          addon_id: addon.addon_id,
+          quantity: addon.quantity,
+          unit_price: addon.unit_price,
+          total_price: addon.unit_price * addon.quantity,
+          ...(addon.start_time && {
+            start_time: convertTimeToDateTime(addon.start_time),
+            end_time: convertTimeToDateTime(addon.end_time!),
+            duration_hours: addon.duration_hours
+          })
+        }
+
+        console.log('🔧 Addon insert data:', JSON.stringify(insertData, null, 2))
+        return insertData
+      })
+
+      console.log('💾 Inserting addons:', JSON.stringify(addonInserts, null, 2))
 
       await prisma.reservationAddon.createMany({
         data: addonInserts,
         skipDuplicates: true
       })
+
+      console.log('✅ Addons inserted successfully')
     }
 
     // Update discount usage if discount was applied
@@ -659,7 +737,16 @@ export async function createReservationAction(data: CreateReservationData): Prom
         package: { select: { id: true, name: true, duration_minutes: true } },
         reservation_addons: {
           include: {
-            addon: { select: { id: true, name: true, description: true } }
+            addon: {
+              select: {
+                id: true,
+                name: true,
+                description: true,
+                pricing_type: true,
+                facility_id: true,
+                hourly_rate: true
+              }
+            }
           }
         }
       }
@@ -767,7 +854,16 @@ export async function getReservationsAction(
         package: { select: { id: true, name: true, duration_minutes: true } },
         reservation_addons: {
           include: {
-            addon: { select: { id: true, name: true, description: true } }
+            addon: {
+              select: {
+                id: true,
+                name: true,
+                description: true,
+                pricing_type: true,
+                facility_id: true,
+                hourly_rate: true
+              }
+            }
           }
         }
       },
@@ -876,7 +972,19 @@ export async function updateReservationStatusAction(
             quantity: true,
             unit_price: true,
             total_price: true,
-            addon: { select: { id: true, name: true, description: true } }
+            start_time: true,
+            end_time: true,
+            duration_hours: true,
+            addon: {
+              select: {
+                id: true,
+                name: true,
+                description: true,
+                pricing_type: true,
+                facility_id: true,
+                hourly_rate: true
+              }
+            }
           }
         }
       }
@@ -1130,7 +1238,19 @@ export async function updateReservationAction(
             quantity: true,
             unit_price: true,
             total_price: true,
-            addon: { select: { id: true, name: true, description: true } }
+            start_time: true,
+            end_time: true,
+            duration_hours: true,
+            addon: {
+              select: {
+                id: true,
+                name: true,
+                description: true,
+                pricing_type: true,
+                facility_id: true,
+                hourly_rate: true
+              }
+            }
           }
         }
       }
@@ -1301,6 +1421,12 @@ export async function rescheduleBookingAction(
     new_end_time: string
     reschedule_reason: string
     internal_notes?: string
+    updated_addons?: Array<{
+      addon_id: string
+      start_time?: string | null
+      end_time?: string | null
+      duration_hours?: number | null
+    }>
   }
 ): Promise<ActionResult<Reservation>> {
   try {
@@ -1403,9 +1529,57 @@ export async function rescheduleBookingAction(
       include: {
         studio: { select: { id: true, name: true } },
         customer: { select: { id: true, full_name: true, email: true, phone: true } },
-        package: { select: { id: true, name: true, duration_minutes: true } }
+        package: { select: { id: true, name: true, duration_minutes: true } },
+        reservation_addons: {
+          include: {
+            addon: {
+              select: {
+                id: true,
+                name: true,
+                description: true,
+                pricing_type: true,
+                facility_id: true,
+                hourly_rate: true
+              }
+            }
+          }
+        }
       }
     })
+
+    // Update addon times if provided (for facility-based addons after reschedule)
+    if (rescheduleData.updated_addons && rescheduleData.updated_addons.length > 0) {
+      console.log('📝 Updating addon times after reschedule:', rescheduleData.updated_addons)
+
+      for (const addonUpdate of rescheduleData.updated_addons) {
+        const updateAddonData: any = {}
+
+        if (addonUpdate.start_time !== undefined) {
+          updateAddonData.start_time = addonUpdate.start_time
+            ? convertTimeToDateTime(addonUpdate.start_time)
+            : null
+        }
+        if (addonUpdate.end_time !== undefined) {
+          updateAddonData.end_time = addonUpdate.end_time
+            ? convertTimeToDateTime(addonUpdate.end_time)
+            : null
+        }
+        if (addonUpdate.duration_hours !== undefined) {
+          updateAddonData.duration_hours = addonUpdate.duration_hours
+        }
+
+        // Update the reservation addon
+        await prisma.reservationAddon.updateMany({
+          where: {
+            reservation_id: reservationId,
+            addon_id: addonUpdate.addon_id
+          },
+          data: updateAddonData
+        })
+      }
+
+      console.log('✅ Addon times updated successfully')
+    }
 
     // TODO: Send notification to customer about reschedule
     // This could be an email or WhatsApp notification

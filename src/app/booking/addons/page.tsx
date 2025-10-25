@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { format } from 'date-fns'
@@ -26,11 +26,21 @@ import { usePublicPackage } from '@/hooks/use-customer-packages'
 import { usePackageAddonsGrouped } from '@/hooks/use-addons'
 import Link from 'next/link'
 import { BottomNav } from '@/components/navigation/bottom-nav'
+import { AddonTimeSelectorDialog } from '@/components/booking/addon-time-selector-dialog'
+import { Clock } from 'lucide-react'
 
 interface BookingData {
   packageId: string
   date: string
   timeSlot: string
+}
+
+interface AddonWithTime {
+  quantity: number
+  startTime?: string
+  endTime?: string
+  durationHours?: number
+  totalPrice?: number
 }
 
 function AddonsPageContent() {
@@ -39,8 +49,13 @@ function AddonsPageContent() {
   const packageId = searchParams.get('package')
 
   const [bookingData, setBookingData] = useState<BookingData | null>(null)
-  const [selectedAddons, setSelectedAddons] = useState<{ [key: string]: number }>({})
+  const [selectedAddons, setSelectedAddons] = useState<{ [key: string]: AddonWithTime }>({})
   const [activeCategory, setActiveCategory] = useState<string>('photo')
+  const [timeDialog, setTimeDialog] = useState<{
+    open: boolean
+    addon: any
+    mode: 'add' | 'edit'
+  }>({ open: false, addon: null, mode: 'add' })
 
   const { data: packageData } = usePublicPackage(packageId || '')
   const { data: addonsGrouped = {}, isLoading: addonsLoading } = usePackageAddonsGrouped(packageId || '')
@@ -53,10 +68,53 @@ function AddonsPageContent() {
     { id: 'other', name: 'Lainnya', icon: Plus, color: 'gray' }
   ]
 
+  // Track previous booking data to detect changes (using ref to avoid dependency issues)
+  const previousBookingKeyRef = useRef<string>('')
+  const isInitialMount = useRef(true)
+
   useEffect(() => {
     const storedData = localStorage.getItem('bookingData')
     if (storedData) {
-      setBookingData(JSON.parse(storedData))
+      const parsedData = JSON.parse(storedData)
+
+      // FIX: Convert ISO date format to YYYY-MM-DD to avoid timezone issues
+      // Old format: "2025-11-01T17:00:00.000Z" (from toISOString - UTC time)
+      // New format: "2025-11-02" (from format function - local date only)
+      if (parsedData.date && parsedData.date.includes('T')) {
+        console.log('🔧 Migrating old ISO date format to YYYY-MM-DD')
+        console.log('Old ISO date:', parsedData.date)
+        // Parse ISO string - automatically converts to local timezone
+        const isoDate = new Date(parsedData.date)
+        console.log('Parsed to local:', isoDate.toString())
+        // Format to YYYY-MM-DD using local date
+        parsedData.date = format(isoDate, 'yyyy-MM-dd')
+        console.log('New YYYY-MM-DD:', parsedData.date)
+        // Update localStorage with fixed format
+        localStorage.setItem('bookingData', JSON.stringify(parsedData))
+      }
+
+      // Create a key from date and timeSlot to detect changes
+      const currentKey = `${parsedData.date}-${parsedData.timeSlot}`
+      const previousKey = previousBookingKeyRef.current
+
+      if (isInitialMount.current) {
+        // On first mount: restore addons from bookingData if available
+        if (parsedData.addons && Object.keys(parsedData.addons).length > 0) {
+          console.log('✅ Restoring addon selections from bookingData:', parsedData.addons)
+          setSelectedAddons(parsedData.addons)
+        }
+        isInitialMount.current = false
+      } else if (previousKey && previousKey !== currentKey) {
+        // If date or time changed: clear addon selections
+        console.log('🔄 Booking date/time changed! Clearing addon selections...')
+        console.log('Previous:', previousKey)
+        console.log('Current:', currentKey)
+        setSelectedAddons({})
+      }
+
+      // Update refs and state
+      previousBookingKeyRef.current = currentKey
+      setBookingData(parsedData)
     } else {
       router.push('/packages')
     }
@@ -132,17 +190,45 @@ function AddonsPageContent() {
     const addon = addonsInCategory.find(a => a.id === addonId)
     if (!addon) return
 
-    const currentQuantity = selectedAddons[addonId] || 0
+    const currentAddon = selectedAddons[addonId]
+    const currentQuantity = currentAddon?.quantity || 0
     const newQuantity = Math.max(0, Math.min(addon.max_quantity || 99, currentQuantity + change))
 
-    setSelectedAddons(prev => ({
-      ...prev,
-      [addonId]: newQuantity
-    }))
+    // Check if this is a facility-based hourly addon
+    const isFacilityHourlyAddon = addon.pricing_type === 'per_hour' && addon.facility_id
+
+    if (isFacilityHourlyAddon && change > 0) {
+      // Open time selector dialog
+      setTimeDialog({
+        open: true,
+        addon: addon,
+        mode: 'add'
+      })
+      return
+    }
+
+    // For regular addons or decreasing quantity
+    if (newQuantity === 0) {
+      const { [addonId]: _, ...rest } = selectedAddons
+      setSelectedAddons(rest)
+    } else {
+      setSelectedAddons(prev => ({
+        ...prev,
+        [addonId]: {
+          quantity: newQuantity,
+          ...(currentAddon?.startTime && {
+            startTime: currentAddon.startTime,
+            endTime: currentAddon.endTime,
+            durationHours: currentAddon.durationHours,
+            totalPrice: currentAddon.totalPrice
+          })
+        }
+      }))
+    }
   }
 
   const getTotalAddonsPrice = () => {
-    return Object.entries(selectedAddons).reduce((total, [addonId, quantity]) => {
+    return Object.entries(selectedAddons).reduce((total, [addonId, addonData]) => {
       // Find addon across all categories
       const addon = Object.values(addonsGrouped).flat().find(a => a.id === addonId)
       if (!addon) return total
@@ -150,14 +236,41 @@ function AddonsPageContent() {
       // If addon is included in package, it's free
       if (addon.package_addon?.is_included) return total
 
-      // Use final price (with discount applied) or fallback to regular price
+      // For facility-based hourly addons, use the calculated totalPrice
+      if (addon.pricing_type === 'per_hour' && addonData.totalPrice) {
+        return total + addonData.totalPrice
+      }
+
+      // For regular addons, use final price (with discount applied) or fallback to regular price
       const price = addon.package_addon?.final_price || addon.price
-      return total + (price * quantity)
+      return total + (price * addonData.quantity)
     }, 0)
   }
 
   const getSelectedAddonsCount = () => {
-    return Object.values(selectedAddons).reduce((sum, quantity) => sum + quantity, 0)
+    return Object.values(selectedAddons).reduce((sum, addonData) => sum + addonData.quantity, 0)
+  }
+
+  const handleTimeSelection = (timeSelection: {
+    startTime: string
+    endTime: string
+    durationHours: number
+    totalPrice: number
+  }) => {
+    if (!timeDialog.addon) return
+
+    setSelectedAddons(prev => ({
+      ...prev,
+      [timeDialog.addon.id]: {
+        quantity: 1,
+        startTime: timeSelection.startTime,
+        endTime: timeSelection.endTime,
+        durationHours: timeSelection.durationHours,
+        totalPrice: timeSelection.totalPrice
+      }
+    }))
+
+    setTimeDialog({ open: false, addon: null, mode: 'add' })
   }
 
   const handleContinueBooking = () => {
@@ -173,6 +286,24 @@ function AddonsPageContent() {
 
   const selectedDate = bookingData.date ? new Date(bookingData.date) : null
   const selectedTimeSlotData = bookingData.timeSlot
+
+  // Calculate package start and end time
+  const calculatePackageTimes = () => {
+    if (!selectedTimeSlotData || !packageData?.duration_minutes) {
+      return { startTime: undefined, endTime: undefined }
+    }
+
+    const startTime = selectedTimeSlotData
+    const [hours, minutes] = startTime.split(':').map(Number)
+    const totalMinutes = hours * 60 + minutes + packageData.duration_minutes
+    const endHours = Math.floor(totalMinutes / 60)
+    const endMinutes = totalMinutes % 60
+    const endTime = `${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}`
+
+    return { startTime, endTime }
+  }
+
+  const { startTime: packageStartTime, endTime: packageEndTime } = calculatePackageTimes()
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50/30 to-slate-100">
@@ -259,14 +390,14 @@ function AddonsPageContent() {
                     >
                       <Icon className="h-3 w-3 sm:h-4 sm:w-4" />
                       {category.name} ({addonsInCat.length})
-                      {addonsInCat.length > 0 && Object.entries(selectedAddons).some(([id, qty]) => {
+                      {addonsInCat.length > 0 && Object.entries(selectedAddons).some(([id, addonData]) => {
                         const addon = addonsInCat.find(a => a.id === id)
-                        return addon && qty > 0
+                        return addon && addonData.quantity > 0
                       }) && (
                           <Badge className="bg-red-500 text-white text-xs h-5 w-5 rounded-full p-0 flex items-center justify-center">
-                            {Object.entries(selectedAddons).reduce((count, [id, qty]) => {
+                            {Object.entries(selectedAddons).reduce((count, [id, addonData]) => {
                               const addon = addonsInCat.find(a => a.id === id)
-                              return addon ? count + qty : count
+                              return addon ? count + addonData.quantity : count
                             }, 0)}
                           </Badge>
                         )}
@@ -294,7 +425,8 @@ function AddonsPageContent() {
                   return Camera
                 }
                 const Icon = getAddonIcon(addon.name)
-                const quantity = selectedAddons[addon.id] || 0
+                const addonData = selectedAddons[addon.id]
+                const quantity = addonData?.quantity || 0
                 const isSelected = quantity > 0
 
                 return (
@@ -319,6 +451,12 @@ function AddonsPageContent() {
                             {addon.name}
                           </CardTitle>
                           <div className="flex flex-wrap gap-1">
+                            {addon.pricing_type === 'per_hour' && addon.facility_id && (
+                              <Badge className="bg-blue-100 text-blue-800 text-xs px-1 py-0.5 flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                Per Jam
+                              </Badge>
+                            )}
                             {addon.package_addon?.is_recommended && (
                               <Badge className="bg-[#b0834d]/10 text-[#b0834d] text-xs px-1 py-0.5">
                                 Top
@@ -339,7 +477,11 @@ function AddonsPageContent() {
                         
                         {/* Price */}
                         <div className="flex flex-col space-y-1">
-                          {addon.package_addon?.discount_percentage && addon.package_addon.discount_percentage > 0 ? (
+                          {addon.pricing_type === 'per_hour' && addon.hourly_rate ? (
+                            <p className="text-[#b0834d] font-bold text-xs sm:text-sm">
+                              {formatPrice(addon.hourly_rate)}/jam
+                            </p>
+                          ) : addon.package_addon?.discount_percentage && addon.package_addon.discount_percentage > 0 ? (
                             <div className="flex items-center gap-1 flex-wrap">
                               <p className="text-slate-400 line-through text-xs">{formatPrice(addon.price)}</p>
                               <p className="text-[#b0834d] font-bold text-xs sm:text-sm">{formatPrice(addon.package_addon.final_price || addon.price)}</p>
@@ -455,26 +597,39 @@ function AddonsPageContent() {
                   {getSelectedAddonsCount() > 0 && (
                     <div className="border-t pt-4 space-y-2">
                       <h4 className="font-semibold text-[#346754] mb-2 sm:mb-3 text-xs sm:text-base">Add-ons Terpilih</h4>
-                      {Object.entries(selectedAddons).map(([addonId, quantity]) => {
+                      {Object.entries(selectedAddons).map(([addonId, addonData]) => {
                         const addon = Object.values(addonsGrouped).flat().find(a => a.id === addonId)
-                        if (!addon || quantity === 0) return null
+                        if (!addon || addonData.quantity === 0) return null
 
                         const price = addon.package_addon?.final_price || addon.price
                         const isIncluded = addon.package_addon?.is_included
+                        const isFacilityHourlyAddon = addon.pricing_type === 'per_hour' && addon.facility_id
 
                         return (
-                          <div key={addonId} className="flex justify-between text-xs sm:text-sm">
-                            <span className="text-slate-600 flex items-center gap-1 sm:gap-2">
-                              <span className="line-clamp-1">{addon.name} {quantity > 1 && `(${quantity}x)`}</span>
-                              {isIncluded && (
-                                <Badge className="bg-green-100 text-green-800 text-xs">
-                                  Gratis
-                                </Badge>
-                              )}
-                            </span>
-                            <span className="font-medium text-xs sm:text-sm">
-                              {isIncluded ? 'Rp 0' : formatPrice(price * quantity)}
-                            </span>
+                          <div key={addonId} className="space-y-1">
+                            <div className="flex justify-between text-xs sm:text-sm">
+                              <span className="text-slate-600 flex items-center gap-1 sm:gap-2">
+                                <span className="line-clamp-1">
+                                  {addon.name} {addonData.quantity > 1 && `(${addonData.quantity}x)`}
+                                </span>
+                                {isIncluded && (
+                                  <Badge className="bg-green-100 text-green-800 text-xs">
+                                    Gratis
+                                  </Badge>
+                                )}
+                              </span>
+                              <span className="font-medium text-xs sm:text-sm">
+                                {isIncluded ? 'Rp 0' : isFacilityHourlyAddon && addonData.totalPrice
+                                  ? formatPrice(addonData.totalPrice)
+                                  : formatPrice(price * addonData.quantity)}
+                              </span>
+                            </div>
+                            {isFacilityHourlyAddon && addonData.startTime && addonData.endTime && (
+                              <div className="flex items-center gap-1 text-xs text-slate-500 ml-2">
+                                <Clock className="h-3 w-3" />
+                                {addonData.startTime} - {addonData.endTime} ({addonData.durationHours} jam)
+                              </div>
+                            )}
                           </div>
                         )
                       })}
@@ -516,7 +671,26 @@ function AddonsPageContent() {
           </div>
         </div>
       </div>
-      
+
+      {/* Time Selector Dialog for Facility-based Hourly Addons */}
+      {timeDialog.open && timeDialog.addon && bookingData?.date && packageData && (
+        <AddonTimeSelectorDialog
+          isOpen={timeDialog.open}
+          onClose={() => setTimeDialog({ open: false, addon: null, mode: 'add' })}
+          addon={{
+            id: timeDialog.addon.id,
+            name: timeDialog.addon.name,
+            facility_id: timeDialog.addon.facility_id,
+            hourly_rate: timeDialog.addon.hourly_rate || 0
+          }}
+          studioId={packageData.studio_id}
+          bookingDate={bookingData.date}
+          packageStartTime={packageStartTime}
+          packageEndTime={packageEndTime}
+          onConfirm={handleTimeSelection}
+        />
+      )}
+
       {/* Bottom Navigation */}
       <BottomNav />
     </div>

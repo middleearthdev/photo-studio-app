@@ -59,7 +59,13 @@ interface BookingData {
   packageId: string
   date: string
   timeSlot: string
-  addons?: { [key: string]: number }
+  addons?: { [key: string]: number | {
+    quantity: number
+    startTime?: string
+    endTime?: string
+    durationHours?: number
+    totalPrice?: number
+  } }
   addonsTotal?: number
 }
 
@@ -203,14 +209,30 @@ export default function BookingSummaryPage() {
     const allAddons = Object.values(addonsGrouped).flat()
 
     return Object.entries(bookingData.addons)
-      .filter(([_, quantity]) => quantity > 0)
-      .map(([addonId, quantity]) => {
+      .filter(([_, addonData]) => {
+        // Handle both old number format and new AddonWithTime format
+        const quantity = typeof addonData === 'number' ? addonData : addonData.quantity
+        return quantity > 0
+      })
+      .map(([addonId, addonData]) => {
         const addon = allAddons.find(a => a.id === addonId)
+        // Handle both old and new format
+        const isOldFormat = typeof addonData === 'number'
+        const quantity = isOldFormat ? addonData : addonData.quantity
+        const startTime = !isOldFormat ? addonData.startTime : undefined
+        const endTime = !isOldFormat ? addonData.endTime : undefined
+        const durationHours = !isOldFormat ? addonData.durationHours : undefined
+        const totalPrice = !isOldFormat ? addonData.totalPrice : undefined
+
         return {
           id: addonId,
           name: addon?.name || 'Unknown',
           price: addon?.price || 0,
-          quantity
+          quantity,
+          startTime,
+          endTime,
+          durationHours,
+          totalPrice
         }
       })
   }
@@ -267,19 +289,35 @@ export default function BookingSummaryPage() {
       // Get all addons for price calculation
       const allAddons = Object.values(addonsGrouped).flat()
       const selectedAddons = bookingData.addons ? Object.entries(bookingData.addons)
-        .filter(([_, quantity]) => quantity > 0)
-        .map(([addonId, quantity]) => {
+        .filter(([_, addonData]) => {
+          const quantity = typeof addonData === 'number' ? addonData : addonData.quantity
+          return quantity > 0
+        })
+        .map(([addonId, addonData]) => {
           const addon = allAddons.find(a => a.id === addonId)
+          const isOldFormat = typeof addonData === 'number'
+          const quantity = isOldFormat ? addonData : addonData.quantity
+          const unitPrice = isOldFormat
+            ? (addon?.price || 0)
+            : (addonData.totalPrice || addon?.price || 0)
+
           return {
             addon_id: addonId,
             quantity,
-            unit_price: addon?.price || 0
+            unit_price: unitPrice,
+            ...(!isOldFormat && addonData.startTime && {
+              start_time: addonData.startTime,
+              end_time: addonData.endTime,
+              duration_hours: addonData.durationHours
+            })
           }
         }) : []
 
       const totalAddonsPrice = selectedAddons.reduce((total, addon) =>
         total + (addon.unit_price * addon.quantity), 0
       )
+
+      console.log('🎯 Selected addons for reservation:', JSON.stringify(selectedAddons, null, 2))
 
       const reservationData: CreateReservationData = {
         studio_id: packageData.studio_id,
@@ -808,13 +846,21 @@ export default function BookingSummaryPage() {
                       </h4>
                       <div className="space-y-1.5 sm:space-y-2">
                         {selectedAddons.map((addon) => (
-                          <div key={addon.id} className="flex justify-between text-xs sm:text-sm">
-                            <span className="text-slate-600">
-                              {addon.name} {addon.quantity > 1 && `(${addon.quantity}x)`}
-                            </span>
-                            <span className="font-medium">
-                              {formatPrice(addon.price * addon.quantity)}
-                            </span>
+                          <div key={addon.id} className="space-y-1">
+                            <div className="flex justify-between text-xs sm:text-sm">
+                              <span className="text-slate-600">
+                                {addon.name} {addon.quantity > 1 && `(${addon.quantity}x)`}
+                              </span>
+                              <span className="font-medium">
+                                {addon.totalPrice ? formatPrice(addon.totalPrice) : formatPrice(addon.price * addon.quantity)}
+                              </span>
+                            </div>
+                            {addon.startTime && addon.endTime && (
+                              <div className="flex items-center gap-1 text-xs text-slate-500 ml-2">
+                                <Clock className="h-3 w-3" />
+                                {addon.startTime} - {addon.endTime} ({addon.durationHours} jam)
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>

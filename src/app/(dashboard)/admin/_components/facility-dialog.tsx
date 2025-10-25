@@ -108,20 +108,6 @@ const availableIcons = [
   // { name: 'diamond', icon: Diamond, label: 'Diamond', category: 'special' },
 ]
 
-const equipmentOptions = [
-  { key: 'professional_camera', label: 'Kamera Profesional' },
-  { key: 'lighting_kit', label: 'Lighting Kit' },
-  { key: 'tripod', label: 'Tripod' },
-  { key: 'backdrop_stand', label: 'Backdrop Stand' },
-  { key: 'reflector', label: 'Reflector' },
-  { key: 'softbox', label: 'Softbox' },
-  { key: 'ring_light', label: 'Ring Light' },
-  { key: 'wireless_mic', label: 'Wireless Microphone' },
-  { key: 'speaker_system', label: 'Speaker System' },
-  { key: 'makeup_station', label: 'Makeup Station' },
-  { key: 'wardrobe_rack', label: 'Wardrobe Rack' },
-  { key: 'props_collection', label: 'Props Collection' },
-]
 
 const iconCategories = [
   // { key: 'photography', label: 'Photography', color: 'bg-blue-500' },
@@ -404,53 +390,6 @@ export function FacilityDialog({ open, onOpenChange, facility, onFacilitySaved, 
                       </div>
                     </FormControl>
                     <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            {/* Equipment Selection */}
-            <div className="space-y-4">
-              <FormLabel className="text-base font-medium">Peralatan Tersedia</FormLabel>
-              <FormField
-                control={form.control}
-                name="equipment"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {equipmentOptions.map((equipment) => {
-                          const isChecked = field.value?.[equipment.key] || false
-
-                          const handleToggle = () => {
-                            const newEquipment = { ...field.value }
-                            newEquipment[equipment.key] = !isChecked
-                            field.onChange(newEquipment)
-                          }
-
-                          return (
-                            <Card
-                              key={equipment.key}
-                              className={`p-3 transition-all hover:shadow-sm ${isChecked
-                                ? 'ring-1 ring-primary border-primary bg-primary/5'
-                                : 'hover:border-primary/30'
-                                }`}
-                            >
-                              <div className="flex items-center space-x-2">
-                                <Switch
-                                  checked={isChecked}
-                                  onCheckedChange={handleToggle}
-                                  onClick={(e) => e.stopPropagation()}
-                                />
-                                <span className={`text-sm ${isChecked ? 'text-primary font-medium' : ''}`}>
-                                  {equipment.label}
-                                </span>
-                              </div>
-                            </Card>
-                          )
-                        })}
-                      </div>
-                    </FormControl>
                   </FormItem>
                 )}
               />

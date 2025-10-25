@@ -134,131 +134,134 @@ export default function RemindersPage() {
   })
 
   const reservations = reservationsData?.data || []
+  console.log(reservations)
 
   // Generate reminder tasks from reservations
   useEffect(() => {
-    if (!reservationsLoading && reservations.length > 0) {
+    if (!reservationsLoading) {
       const tasks: ReminderTask[] = []
 
-      reservations.forEach(reservation => {
-        const daysUntil = getDaysUntilReservation(reservation.reservation_date)
-        const customerName = reservation.customer?.full_name || reservation.guest_email || 'Guest Customer'
-        const customerPhone = reservation.customer?.phone || reservation.guest_phone || ''
-        const reservationDate = parseISO(reservation.reservation_date)
+      if (reservations.length > 0) {
+        reservations.forEach(reservation => {
+          const daysUntil = getDaysUntilReservation(reservation.reservation_date)
+          const customerName = reservation.customer?.full_name || reservation.guest_email || 'Guest Customer'
+          const customerPhone = reservation.customer?.phone || reservation.guest_phone || ''
+          const reservationDate = parseISO(reservation.reservation_date)
 
-        // 1. Payment Follow-up Tasks (only for pending reservations with pending payment)
-        if (reservation.status === 'pending' && reservation.payment_status === 'pending') {
-          // Calculate minutes since reservation created
-          const createdAt = new Date(reservation.created_at)
-          const now = new Date()
-          const minutesSinceCreated = Math.floor((now.getTime() - createdAt.getTime()) / (1000 * 60))
+          // 1. Payment Follow-up Tasks (only for pending reservations with pending payment)
+          if (reservation.status === 'pending' && reservation.payment_status === 'pending') {
+            // Calculate minutes since reservation created
+            const createdAt = new Date(reservation.created_at)
+            const now = new Date()
+            const minutesSinceCreated = Math.floor((now.getTime() - createdAt.getTime()) / (1000 * 60))
 
-          let taskPriority: 'urgent' | 'high' | 'medium' | 'low' = 'medium'
-          let title = 'Follow Up Pembayaran'
-          let canCancel = false
+            let taskPriority: 'urgent' | 'high' | 'medium' | 'low' = 'medium'
+            let title = 'Follow Up Pembayaran'
+            let canCancel = false
 
-          // 15-minute rule: High priority first 15 minutes, then urgent with cancel option
-          if (minutesSinceCreated <= 15) {
-            taskPriority = 'high'
-            title = 'Menunggu Pembayaran DP'
-            canCancel = false
-          } else {
-            taskPriority = 'urgent'
-            title = 'URGENT: Batas Waktu Pembayaran Terlewat'
-            canCancel = true
-          }
-
-          // Additional urgency based on event date
-          if (daysUntil <= 1) {
-            taskPriority = 'urgent'
-            title = 'URGENT: Event besok - segera bayar DP'
-            canCancel = true
-          } else if (daysUntil <= 3) {
-            if (minutesSinceCreated > 15) {
+            // 15-minute rule: High priority first 15 minutes, then urgent with cancel option
+            if (minutesSinceCreated <= 15) {
+              taskPriority = 'high'
+              title = 'Menunggu Pembayaran DP'
+              canCancel = false
+            } else {
               taskPriority = 'urgent'
-              title = 'URGENT: Event H-3 - batas pembayaran terlewat'
+              title = 'URGENT: Batas Waktu Pembayaran Terlewat'
+              canCancel = true
             }
+
+            // Additional urgency based on event date
+            if (daysUntil <= 1) {
+              taskPriority = 'urgent'
+              title = 'URGENT: Event besok - segera bayar DP'
+              canCancel = true
+            } else if (daysUntil <= 3) {
+              if (minutesSinceCreated > 15) {
+                taskPriority = 'urgent'
+                title = 'URGENT: Event H-3 - batas pembayaran terlewat'
+              }
+            }
+
+            tasks.push({
+              id: `payment-${reservation.id}`,
+              type: 'payment_followup',
+              priority: taskPriority,
+              reservation,
+              title,
+              description: `Pembayaran DP ${formatCurrency(reservation.dp_amount)} untuk booking ${reservation.package?.name || 'Custom'} ${minutesSinceCreated <= 15 ? 'menunggu pembayaran' : `terlewat ${minutesSinceCreated} menit`}`,
+              dueDate: reservation.reservation_date,
+              customerName,
+              customerPhone,
+              bookingCode: reservation.booking_code,
+              status: 'pending',
+              amount: reservation.dp_amount,
+              canCancel,
+              minutesSinceCreated
+            })
           }
 
-          tasks.push({
-            id: `payment-${reservation.id}`,
-            type: 'payment_followup',
-            priority: taskPriority,
-            reservation,
-            title,
-            description: `Pembayaran DP ${formatCurrency(reservation.dp_amount)} untuk booking ${reservation.package?.name || 'Custom'} ${minutesSinceCreated <= 15 ? 'menunggu pembayaran' : `terlewat ${minutesSinceCreated} menit`}`,
-            dueDate: reservation.reservation_date,
-            customerName,
-            customerPhone,
-            bookingCode: reservation.booking_code,
-            status: 'pending',
-            amount: reservation.dp_amount,
-            canCancel,
-            minutesSinceCreated
-          })
-        }
+          // 2. Pelunasan Follow-up Tasks (only for confirmed reservations with partial payment, exactly H-3)
+          if (reservation.status === 'confirmed' && reservation.payment_status === 'partial' && daysUntil <= 4) {
 
-        // 2. Pelunasan Follow-up Tasks (only for confirmed reservations with partial payment, exactly H-3)
-        if (reservation.status === 'confirmed' && reservation.payment_status === 'partial' && daysUntil <= 4) {
+            let taskPriority: 'urgent' | 'high' | 'medium' | 'low' = 'medium'
+            let title = 'Follow Up Pembayaran'
+            let canCancel = false
 
-          let taskPriority: 'urgent' | 'high' | 'medium' | 'low' = 'medium'
-          let title = 'Follow Up Pembayaran'
-          let canCancel = false
+            // Additional urgency based on event date
+            if (daysUntil == 3) {
+              taskPriority = 'urgent'
+              title = 'URGENT: Batas Terakhir Pelunasan H-3'
+            } else if (daysUntil < 3) {
+              taskPriority = 'urgent'
+              title = 'URGENT: Batas Terakhir Pelunasan H-3, Sudah terlewat'
+            } else {
+              taskPriority = 'high'
+              title = 'Batas Terakhir Pelunasan Besok'
+            }
 
-          // Additional urgency based on event date
-          if (daysUntil == 3) {
-            taskPriority = 'urgent'
-            title = 'URGENT: Batas Terakhir Pelunasan H-3'
-          } else if (daysUntil < 3) {
-            taskPriority = 'urgent'
-            title = 'URGENT: Batas Terakhir Pelunasan H-3, Sudah terlewat'
-          } else {
-            taskPriority = 'high'
-            title = 'Batas Terakhir Pelunasan Besok'
+            tasks.push({
+              id: `pelunasan-${reservation.id}`,
+              type: 'pelunasan_followup',
+              priority: taskPriority,
+              reservation,
+              title: title,
+              description: `Sisa pembayaran ${formatCurrency(reservation.remaining_amount)} untuk booking ${reservation.package?.name || 'Custom'}. Batas terakhir pelunasan hari ini`,
+              dueDate: reservation.reservation_date,
+              customerName,
+              customerPhone,
+              bookingCode: reservation.booking_code,
+              status: 'pending',
+              amount: reservation.remaining_amount
+            })
           }
 
-          tasks.push({
-            id: `pelunasan-${reservation.id}`,
-            type: 'pelunasan_followup',
-            priority: taskPriority,
-            reservation,
-            title: title,
-            description: `Sisa pembayaran ${formatCurrency(reservation.remaining_amount)} untuk booking ${reservation.package?.name || 'Custom'}. Batas terakhir pelunasan hari ini`,
-            dueDate: reservation.reservation_date,
-            customerName,
-            customerPhone,
-            bookingCode: reservation.booking_code,
-            status: 'pending',
-            amount: reservation.remaining_amount
-          })
-        }
+          // 3. Today's Schedule Tasks
+          if (isToday(reservationDate) && ['confirmed', 'in_progress'].includes(reservation.status)) {
+            tasks.push({
+              id: `today-${reservation.id}`,
+              type: 'schedule_today',
+              priority: 'high',
+              reservation,
+              title: `Sesi Hari Ini - ${reservation.start_time}`,
+              description: `${reservation.package?.name || 'Custom'} dengan ${customerName}`,
+              dueDate: reservation.reservation_date,
+              customerName,
+              customerPhone,
+              bookingCode: reservation.booking_code,
+              status: 'pending'
+            })
+          }
+        })
 
-        // 3. Today's Schedule Tasks
-        if (isToday(reservationDate) && ['confirmed', 'in_progress'].includes(reservation.status)) {
-          tasks.push({
-            id: `today-${reservation.id}`,
-            type: 'schedule_today',
-            priority: 'high',
-            reservation,
-            title: `Sesi Hari Ini - ${reservation.start_time}`,
-            description: `${reservation.package?.name || 'Custom'} dengan ${customerName}`,
-            dueDate: reservation.reservation_date,
-            customerName,
-            customerPhone,
-            bookingCode: reservation.booking_code,
-            status: 'pending'
-          })
-        }
-      })
-
-      // Sort tasks by priority and due date
-      tasks.sort((a, b) => {
-        const priorityOrder = { urgent: 0, high: 1, medium: 2, low: 3 }
-        if (priorityOrder[a.priority] !== priorityOrder[b.priority]) {
-          return priorityOrder[a.priority] - priorityOrder[b.priority]
-        }
-        return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
-      })
+        // Sort tasks by priority and due date
+        tasks.sort((a, b) => {
+          const priorityOrder = { urgent: 0, high: 1, medium: 2, low: 3 }
+          if (priorityOrder[a.priority] !== priorityOrder[b.priority]) {
+            return priorityOrder[a.priority] - priorityOrder[b.priority]
+          }
+          return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
+        })
+      }
 
       setReminders(tasks)
       setIsLoading(false)

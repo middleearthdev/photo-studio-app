@@ -1,7 +1,7 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
-import { Calendar, User, Package as PackageIcon, DollarSign, Save, X, Plus, Minus, Search, Tag } from "lucide-react"
+import React, { useState, useEffect, useRef } from "react"
+import { Calendar, User, Package as PackageIcon, DollarSign, Save, X, Plus, Minus, Search, Tag, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -32,6 +32,7 @@ import { getPackageAddonsAction } from "@/actions/addons"
 import { getActiveDiscountsAction, validateDiscountAction, type Discount } from "@/actions/discounts"
 import type { Package } from "@/actions/customer-packages"
 import type { Addon } from "@/actions/addons"
+import { AddonTimeSelectorDialog } from "@/components/booking/addon-time-selector-dialog"
 
 interface SelectedAddon {
   id: string
@@ -39,6 +40,10 @@ interface SelectedAddon {
   price: number
   quantity: number
   max_quantity: number
+  startTime?: string
+  endTime?: string
+  durationHours?: number
+  totalPrice?: number
 }
 
 interface SelectedDiscount {
@@ -100,6 +105,15 @@ export function ManualBookingForm({ isOpen, onClose, onSuccess, studioId }: Manu
   const [selectedDiscount, setSelectedDiscount] = useState<SelectedDiscount | null>(null)
   const [isLoadingDiscounts, setIsLoadingDiscounts] = useState(false)
 
+  // Time selector dialog state
+  const [timeDialog, setTimeDialog] = useState<{
+    open: boolean
+    addon: Addon | null
+  }>({ open: false, addon: null })
+
+  // Track previous reservation date to detect changes
+  const previousDateRef = useRef<string>('')
+
   // Use real API hooks
   const { data: packages = [], isLoading: packagesLoading } = usePublicPackages(studioId)
   const { data: paymentMethods = [], isLoading: isLoadingPaymentMethods } = useActivePaymentManualMethods(studioId)
@@ -142,6 +156,24 @@ export function ManualBookingForm({ isOpen, onClose, onSuccess, studioId }: Manu
       loadDiscounts()
     }
   }, [studioId])
+
+  // Clear addon selections when reservation date changes
+  useEffect(() => {
+    const currentDate = formData.reservation_date
+    const previousDate = previousDateRef.current
+
+    // If date changed (and it's not the initial empty state)
+    if (previousDate && currentDate && previousDate !== currentDate) {
+      console.log('📅 Reservation date changed! Clearing addon selections...')
+      console.log('Previous date:', previousDate)
+      console.log('Current date:', currentDate)
+      setSelectedAddons([])
+      toast.info('Tanggal berubah - addon selections telah di-reset')
+    }
+
+    // Update the ref
+    previousDateRef.current = currentDate
+  }, [formData.reservation_date])
 
   // Filter packages based on search
   const filteredPackages = packages.filter(pkg =>
@@ -461,6 +493,18 @@ export function ManualBookingForm({ isOpen, onClose, onSuccess, studioId }: Manu
       // Remove addon
       setSelectedAddons(prev => prev.filter(a => a.id !== addon.id))
     } else {
+      // Check if this is a facility-based hourly addon
+      const isFacilityHourlyAddon = addon.pricing_type === 'per_hour' && addon.facility_id
+
+      if (isFacilityHourlyAddon) {
+        // Open time selector dialog
+        setTimeDialog({
+          open: true,
+          addon: addon
+        })
+        return
+      }
+
       // Add addon - if is_included is true, price should be 0 for calculation
       const isIncluded = addon.package_addon?.is_included
       const finalPrice = isIncluded ? 0 : (addon.package_addon?.final_price !== undefined ? addon.package_addon.final_price : addon.price)
@@ -484,6 +528,31 @@ export function ManualBookingForm({ isOpen, onClose, onSuccess, studioId }: Manu
     )
   }
 
+  const handleTimeSelection = (timeSelection: {
+    startTime: string
+    endTime: string
+    durationHours: number
+    totalPrice: number
+  }) => {
+    if (!timeDialog.addon) return
+
+    const addon = timeDialog.addon
+    const isIncluded = addon.package_addon?.is_included
+
+    setSelectedAddons(prev => [...prev, {
+      id: addon.id,
+      name: addon.name,
+      price: isIncluded ? 0 : timeSelection.totalPrice,
+      quantity: 1,
+      max_quantity: addon.max_quantity || 999,
+      startTime: timeSelection.startTime,
+      endTime: timeSelection.endTime,
+      durationHours: timeSelection.durationHours,
+      totalPrice: timeSelection.totalPrice
+    }])
+
+    setTimeDialog({ open: false, addon: null })
+  }
 
   const validateForm = () => {
     const required = [
@@ -548,7 +617,12 @@ export function ManualBookingForm({ isOpen, onClose, onSuccess, studioId }: Manu
       const selectedAddonData = selectedAddons.map(addon => ({
         addon_id: addon.id,
         quantity: addon.quantity,
-        unit_price: addon.price
+        unit_price: addon.price,
+        ...(addon.startTime && {
+          start_time: addon.startTime,
+          end_time: addon.endTime,
+          duration_hours: addon.durationHours
+        })
       }))
 
       // Calculate addon total
@@ -921,6 +995,12 @@ export function ManualBookingForm({ isOpen, onClose, onSuccess, studioId }: Manu
                                         </Badge>
                                       </>
                                     )}
+                                    {addon.pricing_type === 'per_hour' && addon.facility_id && (
+                                      <Badge className="bg-blue-100 text-blue-800 text-xs whitespace-nowrap flex items-center gap-1">
+                                        <Clock className="h-3 w-3" />
+                                        Per Jam
+                                      </Badge>
+                                    )}
                                     {addon.package_addon?.is_recommended && (
                                       <Badge variant="default" className="text-xs whitespace-nowrap">
                                         Rekomendasi
@@ -931,7 +1011,7 @@ export function ManualBookingForm({ isOpen, onClose, onSuccess, studioId }: Manu
                               </div>
                             </div>
 
-                            {isSelected && selectedAddon && (
+                            {isSelected && selectedAddon && !selectedAddon.startTime && (
                               <div className="flex items-center gap-2 lg:flex-shrink-0">
                                 <Button
                                   size="sm"
@@ -954,6 +1034,14 @@ export function ManualBookingForm({ isOpen, onClose, onSuccess, studioId }: Manu
                                 >
                                   <Plus className="h-3 w-3" />
                                 </Button>
+                              </div>
+                            )}
+
+                            {isSelected && selectedAddon && selectedAddon.startTime && selectedAddon.endTime && (
+                              <div className="flex items-center gap-2 text-sm text-gray-600 lg:flex-shrink-0">
+                                <Clock className="h-4 w-4" />
+                                <span>{selectedAddon.startTime} - {selectedAddon.endTime}</span>
+                                <span className="text-gray-400">({selectedAddon.durationHours} jam)</span>
                               </div>
                             )}
                           </div>
@@ -1252,6 +1340,25 @@ export function ManualBookingForm({ isOpen, onClose, onSuccess, studioId }: Manu
           </Button>
         </div>
       </DialogContent>
+
+      {/* Time Selector Dialog for Facility-based Hourly Addons */}
+      {timeDialog.open && timeDialog.addon && formData.reservation_date && (
+        <AddonTimeSelectorDialog
+          isOpen={timeDialog.open}
+          onClose={() => setTimeDialog({ open: false, addon: null })}
+          addon={{
+            id: timeDialog.addon.id,
+            name: timeDialog.addon.name,
+            facility_id: timeDialog.addon.facility_id || '',
+            hourly_rate: timeDialog.addon.hourly_rate || 0
+          }}
+          studioId={studioId}
+          bookingDate={formData.reservation_date}
+          packageStartTime={formData.start_time}
+          packageEndTime={formData.end_time}
+          onConfirm={handleTimeSelection}
+        />
+      )}
     </Dialog>
   )
 }

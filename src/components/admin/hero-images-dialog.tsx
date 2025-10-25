@@ -30,11 +30,10 @@ import {
 } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { useCreateHeroImage, useUpdateHeroImage } from "@/hooks/use-hero-images"
 import { type HeroImage } from "@/actions/hero-images"
-import { Loader2, Image as ImageIcon, Upload, X } from "lucide-react"
+import { Loader2, Image as ImageIcon, Upload } from "lucide-react"
 
 // Enhanced Image Upload Component with Digital Ocean Spaces support
 function ImageUploadComponent({ value, onChange }: {
@@ -299,7 +298,6 @@ function ImagePreview({ src, alt }: { src: string; alt: string }) {
 
 const formSchema = z.object({
   title: z.string().min(1, "Judul hero image wajib diisi"),
-  description: z.string().optional(),
   image_url: z.string().min(1, "URL gambar wajib diisi").refine((val) => {
     try {
       new URL(val)
@@ -338,7 +336,6 @@ export function HeroImagesDialog({
     resolver: zodResolver(formSchema),
     defaultValues: {
       title: "",
-      description: "",
       image_url: "",
       alt_text: "",
       display_order: 1,
@@ -353,7 +350,6 @@ export function HeroImagesDialog({
         // Edit mode
         form.reset({
           title: heroImageData.title,
-          description: heroImageData.description || "",
           image_url: heroImageData.image_url,
           alt_text: heroImageData.alt_text || "",
           display_order: heroImageData.display_order,
@@ -364,7 +360,6 @@ export function HeroImagesDialog({
         const nextOrder = Math.min(...Array.from({length: 5}, (_, i) => i + 1).filter(n => !existingOrders.includes(n)))
         form.reset({
           title: "",
-          description: "",
           image_url: "",
           alt_text: "",
           display_order: nextOrder || 1,
@@ -383,7 +378,6 @@ export function HeroImagesDialog({
           id: heroImageData.id,
           data: {
             title: values.title,
-            description: values.description || undefined,
             image_url: values.image_url,
             alt_text: values.alt_text || undefined,
             display_order: values.display_order,
@@ -394,7 +388,6 @@ export function HeroImagesDialog({
         // Create new hero image
         await createHeroImageMutation.mutateAsync({
           title: values.title,
-          description: values.description || undefined,
           image_url: values.image_url,
           alt_text: values.alt_text || undefined,
           display_order: values.display_order,
@@ -485,39 +478,18 @@ export function HeroImagesDialog({
 
               <FormField
                 control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Deskripsi</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Deskripsi hero image..."
-                        className="min-h-[80px]"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      Deskripsi hero image untuk SEO dan aksesibilitas
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
                 name="alt_text"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Alt Text</FormLabel>
+                    <FormLabel>Alt Text (untuk SEO)</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="Deskripsi gambar untuk aksesibilitas"
+                        placeholder="Contoh: Studio fotografi modern dengan pencahayaan natural"
                         {...field}
                       />
                     </FormControl>
                     <FormDescription>
-                      Text alternatif untuk screen reader dan SEO
+                      Deskripsi gambar untuk SEO dan aksesibilitas (screen reader). Gunakan keyword relevan seperti "studio foto", "photography", dll.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

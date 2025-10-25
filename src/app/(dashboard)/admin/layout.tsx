@@ -168,7 +168,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-semibold">Studio Admin</span>
-                <span className="truncate text-xs text-muted-foreground">
+                <span className="truncate text-xs text-gray-400">
                   Studio Owner/Admin
                 </span>
               </div>

@@ -288,6 +288,8 @@ model Addon {
   is_conditional    Boolean?  @default(false)
   conditional_logic Json?
   is_active         Boolean?  @default(true)
+  pricing_type      String?   @default("per_item") @db.VarChar(20)
+  hourly_rate       Decimal?  @db.Decimal(10, 2)
   created_at        DateTime? @default(now()) @db.Timestamptz
   updated_at        DateTime? @default(now()) @db.Timestamptz
 
@@ -534,13 +536,15 @@ model ReservationAddon {
   quantity       Int?      @default(1)
   unit_price     Decimal   @db.Decimal(10, 2)
   total_price    Decimal   @db.Decimal(10, 2)
+  start_time     DateTime? @db.Time
+  end_time       DateTime? @db.Time
+  duration_hours Int?
   created_at     DateTime? @default(now()) @db.Timestamptz
 
   // Relations
   reservation Reservation? @relation(fields: [reservation_id], references: [id], onDelete: Cascade)
   addon       Addon?       @relation(fields: [addon_id], references: [id], onDelete: Cascade)
 
-  @@unique([reservation_id, addon_id], name: "unique_reservation_addon")
   @@map("reservation_addons")
 }
 

@@ -132,7 +132,7 @@ export default function HeroImagesPage() {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
@@ -146,7 +146,7 @@ export default function HeroImagesPage() {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
@@ -194,7 +194,6 @@ export default function HeroImagesPage() {
                   <TableHead className="w-16">Order</TableHead>
                   <TableHead className="w-24">Preview</TableHead>
                   <TableHead>Title</TableHead>
-                  <TableHead>Description</TableHead>
                   <TableHead className="w-20">Status</TableHead>
                   <TableHead className="w-32">Created</TableHead>
                   <TableHead className="w-20">Actions</TableHead>
@@ -220,17 +219,6 @@ export default function HeroImagesPage() {
                         {heroImage.alt_text && (
                           <div className="text-sm text-gray-500">{heroImage.alt_text}</div>
                         )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          {heroImage.description ? (
-                            heroImage.description.length > 60 
-                              ? `${heroImage.description.substring(0, 60)}...`
-                              : heroImage.description
-                          ) : (
-                            <span className="text-gray-400">No description</span>
-                          )}
-                        </div>
                       </TableCell>
                       <TableCell>
                         <Badge
@@ -282,7 +270,7 @@ export default function HeroImagesPage() {
                               )}
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem 
+                            <DropdownMenuItem
                               onClick={() => handleDelete(heroImage)}
                               className="text-red-600"
                             >

@@ -352,11 +352,11 @@ export default function Home() {
             <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start space-y-4 sm:space-y-0 sm:space-x-8 text-sm text-slate-600">
               <div className="flex items-center">
                 <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
-                <span>1000+ Klien Puas</span>
+                <span>Klien Puas</span>
               </div>
               <div className="flex items-center">
                 <Award className="h-5 w-5 text-[#b0834d] mr-2" />
-                <span>5+ Tahun Pengalaman</span>
+                <span>Berpengalaman</span>
               </div>
             </div>
           </motion.div>

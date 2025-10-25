@@ -116,7 +116,9 @@ export default function PackageDetailPage() {
       const selectedSlot = availableTimeSlots.find(slot => slot.id === selectedTimeSlot)
       const bookingData = {
         packageId,
-        date: selectedDate.toISOString(),
+        // Use YYYY-MM-DD format to avoid timezone issues
+        // toISOString() would convert to UTC causing date shift
+        date: format(selectedDate, 'yyyy-MM-dd'),
         timeSlot: selectedSlot?.time || selectedTimeSlot
       }
 

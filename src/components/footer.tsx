@@ -2,7 +2,8 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { MapPin, Phone, Mail, Instagram, Facebook, Twitter } from 'lucide-react'
+import { MapPin, Phone, Mail } from 'lucide-react'
+import { Instagram, Facebook } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { usePublicStudios } from '@/hooks/use-studios'
 import { usePublicPackageCategories } from '@/hooks/use-customer-packages'
@@ -10,7 +11,7 @@ import { usePublicPackageCategories } from '@/hooks/use-customer-packages'
 export function Footer() {
   const { data: studiosData = [] } = usePublicStudios()
   const { data: packageCategoriesData = [] } = usePublicPackageCategories()
-  
+
   // Get first studio for contact info
   const firstStudio = studiosData.length > 0 ? studiosData[0] : null
 
@@ -32,15 +33,16 @@ export function Footer() {
               {firstStudio?.description || 'Studio foto profesional di Karawang yang mengabadikan setiap momen spesial dengan kualitas terbaik.'}
             </p>
             <div className="flex space-x-4">
-              <Button size="sm" variant="outline" className="border-pink-500 text-pink-500 hover:bg-white/10 hover:border-white/20 hover:text-white rounded-full transition-all duration-300">
-                <Instagram className="h-4 w-4" />
-              </Button>
-              <Button size="sm" variant="outline" className="border-blue-600 text-blue-600 hover:bg-white/10 hover:border-white/20 hover:text-white rounded-full transition-all duration-300">
-                <Facebook className="h-4 w-4" />
-              </Button>
-              <Button size="sm" variant="outline" className="border-sky-500 text-sky-500 hover:bg-white/10 hover:border-white/20 hover:text-white rounded-full transition-all duration-300">
-                <Twitter className="h-4 w-4" />
-              </Button>
+              <Link href="https://www.instagram.com/kalarasastudio/" target="_blank" rel="noopener noreferrer">
+                <Button size="sm" variant="outline" className="border-pink-500 text-pink-500 hover:bg-white/10 hover:border-white/20 hover:text-white rounded-full transition-all duration-300">
+                  <Instagram className="h-4 w-4" />
+                </Button>
+              </Link>
+              <Link href="https://www.facebook.com/854671134387677?ref=pl_edit_xav_ig_profile_page_web" target="_blank" rel="noopener noreferrer">
+                <Button size="sm" variant="outline" className="border-blue-600 text-blue-600 hover:bg-white/10 hover:border-white/20 hover:text-white rounded-full transition-all duration-300">
+                  <Facebook className="h-4 w-4" />
+                </Button>
+              </Link>
             </div>
           </div>
 
@@ -73,7 +75,6 @@ export function Footer() {
             <div className="space-y-3 text-white/80">
               <Link href="/portfolio" className="block hover:text-white transition-colors">Portfolio</Link>
               <Link href="/packages" className="block hover:text-white transition-colors">Paket Harga</Link>
-              <Link href="/faq" className="block hover:text-white transition-colors">FAQ</Link>
               <Link href="/terms" className="block hover:text-white transition-colors">Syarat & Ketentuan</Link>
               <Link href="/privacy" className="block hover:text-white transition-colors">Kebijakan Privasi</Link>
             </div>
@@ -106,7 +107,7 @@ export function Footer() {
               Kunjungi studio kami yang berlokasi strategis di Karawang untuk konsultasi langsung dan melihat fasilitas yang tersedia.
             </p>
           </div>
-          
+
           <div className="rounded-2xl overflow-hidden shadow-2xl bg-white/5 p-2">
             <iframe
               src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3965.234!2d107.3055!3d-6.3235!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2e6977b30b703715%3A0xa6f3d630980eb381!2sKalarasa%20Studio!5e0!3m2!1sen!2sid!4v1699999999999!5m2!1sen!2sid"
@@ -120,9 +121,9 @@ export function Footer() {
               title="Lokasi Kalarasa Studio"
             ></iframe>
           </div>
-          
+
           <div className="text-center mt-6">
-            <Link 
+            <Link
               href="https://www.google.com/maps?q=kalarasastudio,+Pinayungan,+telukjambe,+Karawang,+Jawa+Barat+41361&ftid=0x2e6977b30b703715:0xa6f3d630980eb381&entry=gps"
               target="_blank"
               rel="noopener noreferrer"

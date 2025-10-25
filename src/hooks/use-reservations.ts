@@ -353,6 +353,12 @@ export function useRescheduleReservation() {
         new_end_time: string
         reschedule_reason: string
         internal_notes?: string
+        updated_addons?: Array<{
+          addon_id: string
+          start_time?: string | null
+          end_time?: string | null
+          duration_hours?: number | null
+        }>
       }
     }) => {
       const result = await rescheduleBookingAction(id, rescheduleData)

@@ -456,64 +456,6 @@ function PortfolioPageContent() {
         )}
       </AnimatePresence>
 
-      {/* Features Section */}
-      <section className="py-20 bg-gradient-to-br from-[#346754] to-[#b0834d]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="text-center mb-16"
-            viewport={{ once: true }}
-          >
-            <h2 className="text-xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4 sm:mb-6">
-              Mengapa Memilih Kalarasa Studio?
-            </h2>
-            <p className="text-sm sm:text-xl text-white/90 max-w-2xl mx-auto">
-              Kami berkomitmen memberikan pengalaman fotografi terbaik dengan kualitas premium
-            </p>
-          </motion.div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
-            {[
-              {
-                icon: Award,
-                title: "Kualitas Premium",
-                description: "Setiap foto diedit dengan detail tinggi menggunakan software profesional"
-              },
-              {
-                icon: Camera,
-                title: "Peralatan Terbaik",
-                description: "Menggunakan kamera dan peralatan fotografi terdepan untuk hasil maksimal"
-              },
-              {
-                icon: Users,
-                title: "Tim Berpengalaman",
-                description: "Fotografer profesional dengan pengalaman puluhan tahun di industri"
-              }
-            ].map((feature, index) => {
-              const Icon = feature.icon
-              return (
-                <motion.div
-                  key={feature.title}
-                  initial={{ opacity: 0, y: 30 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: index * 0.1 }}
-                  viewport={{ once: true }}
-                >
-                  <Card className="text-center p-4 sm:p-8 border-0 shadow-lg bg-white/10 backdrop-blur-sm rounded-xl sm:rounded-2xl">
-                    <div className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 sm:mb-6 bg-white/20 rounded-full flex items-center justify-center">
-                      <Icon className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
-                    </div>
-                    <h3 className="text-lg sm:text-xl font-bold text-white mb-2 sm:mb-4">{feature.title}</h3>
-                    <p className="text-sm sm:text-base text-white/80">{feature.description}</p>
-                  </Card>
-                </motion.div>
-              )
-            })}
-          </div>
-        </div>
-      </section>
 
       {/* CTA Section */}
       <section className="py-20 bg-white">
